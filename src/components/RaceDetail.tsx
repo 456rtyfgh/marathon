@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
-import type { Race, Agency, Package, CostBaseline } from '../lib/types';
+import type { Race, Agency, Package, CostBaseline, RaceRating } from '../lib/types';
 import { ENTRY_LABEL, ENTRY_DESC, CONFIDENCE_LABEL } from '../lib/types';
 import { entryStatus, STATUS_META, daysBetween, TODAY, fmtDate, feeLabel, feeToKrw, krwExact } from '../lib/util';
 import CostCalculator from './CostCalculator';
 import PackageTable from './PackageTable';
 import AlertForm from './AlertForm';
+import ReviewsTab from './ReviewsTab';
 
-type Tab = 'overview' | 'packages' | 'cost' | 'alert';
+type Tab = 'overview' | 'reviews' | 'packages' | 'cost' | 'alert';
 const TABS: [Tab, string][] = [
   ['overview', '개요'],
+  ['reviews', '후기'],
   ['packages', '여행사 비교'],
   ['cost', '비용 계산기'],
   ['alert', 'D-day 알림'],
@@ -19,13 +21,17 @@ export default function RaceDetail({
   agencies,
   packages,
   costs,
+  rating,
   onClose,
+  onLogin,
 }: {
   race: Race;
   agencies: Agency[];
   packages: Package[];
   costs: CostBaseline[];
+  rating?: RaceRating;
   onClose: () => void;
+  onLogin: () => void;
 }) {
   const [tab, setTab] = useState<Tab>('overview');
 
@@ -108,6 +114,11 @@ export default function RaceDetail({
               }`}
             >
               {label}
+              {id === 'reviews' && rating && rating.review_count > 0 && (
+                <span className="ml-1.5 rounded-full bg-amber-400/15 px-1.5 text-[10px] text-amber-300">
+                  ★{Number(rating.avg_rating).toFixed(1)}
+                </span>
+              )}
               {id === 'packages' && racePackages.length > 0 && (
                 <span className="ml-1.5 rounded-full bg-zinc-800 px-1.5 text-[10px] text-zinc-400">
                   {racePackages.length}
@@ -194,6 +205,7 @@ export default function RaceDetail({
             </div>
           )}
 
+          {tab === 'reviews' && <ReviewsTab race={race} onLogin={onLogin} />}
           {tab === 'packages' && <PackageTable packages={racePackages} agencies={agencies} />}
           {tab === 'cost' && <CostCalculator race={race} costs={costs} />}
           {tab === 'alert' && <AlertForm race={race} />}

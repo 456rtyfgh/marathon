@@ -7,6 +7,12 @@ export type EntryType =
 
 export type Confidence = 'confirmed' | 'expected' | 'tbc';
 
+export const REGIONS = ['한국', '일본', '아시아', '오세아니아', '유럽', '북미', '기타'] as const;
+export type Region = (typeof REGIONS)[number];
+
+export const COURSES = ['평지', '완만', '언덕'] as const;
+export type Course = (typeof COURSES)[number];
+
 export interface Race {
   id: string;
   name_ko: string;
@@ -14,7 +20,7 @@ export interface Race {
   city_ko: string;
   country_ko: string;
   country_code: string;
-  region: '일본' | '아시아' | '오세아니아' | '유럽' | '북미' | '기타';
+  region: Region;
   race_date: string; // YYYY-MM-DD
   date_confidence: Confidence;
   is_major: boolean;
@@ -26,8 +32,8 @@ export interface Race {
   entry_fee_currency: string;
   distances: string[];
   field_size: number | null;
-  course: '평지' | '완만' | '언덕' | null;
-  flight_hours: number | null; // 인천 기준 직항 소요시간
+  course: Course | null;
+  flight_hours: number | null; // 인천 기준 이동 소요시간
   official_url: string;
   source_url: string | null;
   last_verified: string;
@@ -56,7 +62,7 @@ export interface Package {
 }
 
 export interface CostBaseline {
-  race_id: string;
+  race_id: string; // country_code 를 키로 사용
   flight_low_krw: number;
   flight_mid_krw: number;
   flight_high_krw: number;
@@ -64,10 +70,48 @@ export interface CostBaseline {
   daily_krw: number;
 }
 
-export interface AlertSub {
-  email: string;
+/** 사이트 내 후기 (로그인 사용자만 작성) */
+export interface Review {
+  id: string;
   race_id: string;
-  days_before: number[];
+  user_id: string;
+  nickname: string;
+  rating: number; // 1~5
+  race_year: number | null;
+  finish_time: string | null;
+  body: string;
+  course_rating: number | null;
+  support_rating: number | null;
+  value_rating: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ExternalKind = 'blog' | 'youtube' | 'community' | 'news' | 'etc';
+
+/** 외부 사이트 후기 — 본문은 옮기지 않고 링크만 모은다 */
+export interface ExternalReview {
+  id: string;
+  race_id: string;
+  title: string;
+  source: string;
+  url: string;
+  author: string | null;
+  published_at: string | null;
+  kind: ExternalKind;
+  summary: string | null;
+}
+
+export interface RaceRating {
+  race_id: string;
+  avg_rating: number;
+  review_count: number;
+}
+
+export interface Profile {
+  id: string;
+  nickname: string;
+  is_admin: boolean;
 }
 
 export const ENTRY_LABEL: Record<EntryType, string> = {
@@ -90,4 +134,12 @@ export const CONFIDENCE_LABEL: Record<Confidence, string> = {
   confirmed: '확정',
   expected: '예상',
   tbc: '미정',
+};
+
+export const KIND_LABEL: Record<ExternalKind, string> = {
+  blog: '블로그',
+  youtube: '유튜브',
+  community: '커뮤니티',
+  news: '기사',
+  etc: '기타',
 };

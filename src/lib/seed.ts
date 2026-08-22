@@ -1,4 +1,6 @@
 import type { Race, Agency, Package, CostBaseline } from './types';
+import { RACES_KR } from './races-kr';
+import { RACES_MORE } from './races-more';
 
 /**
  * 초기 시드 데이터.
@@ -9,7 +11,7 @@ import type { Race, Agency, Package, CostBaseline } from './types';
 
 const V = '2026-08-22';
 
-export const RACES: Race[] = [
+const RACES_BASE: Race[] = [
   // ── 일본 ──────────────────────────────────────────────
   {
     id: 'yokohama',
@@ -855,6 +857,8 @@ export const RACES: Race[] = [
   },
 ];
 
+export const RACES: Race[] = [...RACES_BASE, ...RACES_KR, ...RACES_MORE];
+
 export const AGENCIES: Agency[] = [
   { id: 'runningkorea', name: '러닝코리아', url: 'https://www.runningkorea.com/', note: '해외마라톤 전문. 상품 수가 가장 많다.' },
   { id: 'okentry', name: '오케이엔트리', url: 'https://www.okentry.com/', note: '메이저 대회 위주. 엔트리 대행도 취급.' },
@@ -947,8 +951,20 @@ export const PACKAGES: Package[] = [
   { id: 'mt-tokyo', race_id: 'tokyo', agency_id: 'marathontours', title: 'Tokyo Marathon Official Tour (보장 엔트리)', nights: null, price_solo_krw: null, price_group_krw: null, group_min: null, includes: ['Guaranteed entry', 'Hotel'], url: 'https://marathontours.com/', updated_at: V },
 ];
 
-/** 인천 출발 기준 왕복 항공 + 1박 숙박 + 1일 체류비 추정치 (KRW, 2026-08 기준 참고용) */
+/**
+ * 인천 출발 기준 왕복 항공 + 1박 숙박 + 1일 체류비 추정치 (KRW, 2026-08 기준 참고용).
+ * KR 은 항공 대신 서울 기준 왕복 교통비(KTX·버스·자차)로 본다.
+ */
 export const COSTS: CostBaseline[] = [
+  { race_id: 'KR', flight_low_krw: 30000, flight_mid_krw: 75000, flight_high_krw: 140000, hotel_night_krw: 90000, daily_krw: 45000 },
+  { race_id: 'MY', flight_low_krw: 400000, flight_mid_krw: 620000, flight_high_krw: 950000, hotel_night_krw: 110000, daily_krw: 55000 },
+  { race_id: 'ID', flight_low_krw: 450000, flight_mid_krw: 700000, flight_high_krw: 1050000, hotel_night_krw: 110000, daily_krw: 55000 },
+  { race_id: 'VN', flight_low_krw: 350000, flight_mid_krw: 550000, flight_high_krw: 850000, hotel_night_krw: 80000, daily_krw: 45000 },
+  { race_id: 'TH', flight_low_krw: 400000, flight_mid_krw: 600000, flight_high_krw: 900000, hotel_night_krw: 100000, daily_krw: 55000 },
+  { race_id: 'NO', flight_low_krw: 1200000, flight_mid_krw: 1800000, flight_high_krw: 2700000, hotel_night_krw: 260000, daily_krw: 140000 },
+  { race_id: 'PT', flight_low_krw: 1150000, flight_mid_krw: 1700000, flight_high_krw: 2600000, hotel_night_krw: 150000, daily_krw: 80000 },
+  { race_id: 'CZ', flight_low_krw: 1050000, flight_mid_krw: 1600000, flight_high_krw: 2400000, hotel_night_krw: 150000, daily_krw: 80000 },
+  { race_id: 'CA', flight_low_krw: 1200000, flight_mid_krw: 1750000, flight_high_krw: 2700000, hotel_night_krw: 230000, daily_krw: 110000 },
   { race_id: 'JP', flight_low_krw: 250000, flight_mid_krw: 420000, flight_high_krw: 700000, hotel_night_krw: 140000, daily_krw: 80000 },
   { race_id: 'TW', flight_low_krw: 300000, flight_mid_krw: 480000, flight_high_krw: 780000, hotel_night_krw: 120000, daily_krw: 60000 },
   { race_id: 'HK', flight_low_krw: 350000, flight_mid_krw: 550000, flight_high_krw: 900000, hotel_night_krw: 200000, daily_krw: 90000 },
@@ -983,4 +999,11 @@ export const FX: Record<string, number> = {
   CNY: 192,
   ZAR: 76,
   INR: 16,
+  MYR: 310,
+  IDR: 0.085,
+  VND: 0.055,
+  THB: 42,
+  NOK: 130,
+  CZK: 60,
+  CAD: 1000,
 };

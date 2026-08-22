@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "seed:sql": "node scripts/gen-seed-sql.mjs",
     "db:push": "psql \"$SUPABASE_DB_URL\" -f supabase/migrations/0001_init.sql -f supabase/seed.sql",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "data:json": "node scripts/gen-data-json.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

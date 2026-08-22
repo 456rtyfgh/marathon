@@ -12,7 +12,7 @@ await build({
   entryPoints: ['src/lib/seed.ts'],
   outfile: out,
   format: 'esm',
-  bundle: false,
+  bundle: true,
   platform: 'node',
 });
 const { RACES, AGENCIES, PACKAGES, COSTS } = await import('file://' + out);

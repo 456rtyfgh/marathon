@@ -48,9 +48,11 @@ export function feeToKrw(race: Race): number | null {
 
 export function feeLabel(race: Race): string {
   if (race.entry_fee == null) return '미공개';
+  if (race.entry_fee_currency === 'KRW') return krw(race.entry_fee);
   const sym: Record<string, string> = {
-    USD: '$', JPY: '¥', EUR: '€', GBP: '£', AUD: 'A$',
+    USD: '$', JPY: '¥', EUR: '€', GBP: '£', AUD: 'A$', CAD: 'C$',
     SGD: 'S$', HKD: 'HK$', TWD: 'NT$', CNY: '¥', ZAR: 'R',
+    MYR: 'RM', THB: '฿', VND: '₫', IDR: 'Rp', NOK: 'kr', CZK: 'Kč',
   };
   const s = sym[race.entry_fee_currency] ?? '';
   return `${s}${race.entry_fee.toLocaleString()}`;
@@ -59,6 +61,24 @@ export function feeLabel(race: Race): string {
 export function costFor(race: Race, costs: CostBaseline[]): CostBaseline | undefined {
   return costs.find((c) => c.race_id === race.country_code);
 }
+
+/**
+ * "접수 임박순" 정렬 키. 낮을수록 먼저.
+ * 1) 지금 신청 중 → 마감이 가까운 순
+ * 2) 곧 오픈 → 오픈이 가까운 순
+ * 3) 일정 미공개
+ * 4) 이미 마감 → 대회일 가까운 순
+ */
+export function entrySortKey(race: Race, today = TODAY()): number {
+  const st = entryStatus(race, today);
+  const clamp = (n: number) => Math.min(Math.max(n, 0), 3650) / 10000;
+  if (st === 'open') return 0 + clamp(race.entry_closes ? daysBetween(today, race.entry_closes) : 3650);
+  if (st === 'upcoming') return 1 + clamp(race.entry_opens ? daysBetween(today, race.entry_opens) : 3650);
+  if (st === 'unknown') return 2 + clamp(daysBetween(today, race.race_date));
+  return 3 + clamp(daysBetween(today, race.race_date));
+}
+
+export const isDomestic = (race: Race) => race.region === '한국';
 
 export function fmtDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00Z');
