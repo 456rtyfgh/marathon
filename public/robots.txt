@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://marathon.junubenchoi.workers.dev/sitemap.xml
