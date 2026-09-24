@@ -1,4 +1,4 @@
--- 해외마라톤 캘린더 — 초기 스키마
+-- 해외마라톤 캘린더 - 초기 스키마
 -- 적용: psql "$SUPABASE_DB_URL" -f supabase/migrations/0001_init.sql
 
 create extension if not exists pgcrypto;

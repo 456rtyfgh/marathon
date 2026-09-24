@@ -667,7 +667,7 @@ const RACES_BASE: Race[] = [
     official_url: 'https://www.tcslondonmarathon.com/',
     source_url: 'https://runwitholivia.com/resources/world-marathon-majors-2027-ballot-dates',
     last_verified: V,
-    notes_ko: '세계 최대 규모. 2027년 대회 추첨은 2026년 5월에 이미 종료 — 다음 기회는 2028년 대회 응모.',
+    notes_ko: '세계 최대 규모. 2027년 대회 추첨은 2026년 5월에 이미 끝났고, 다음 기회는 2028년 대회 응모.',
   },
   {
     id: 'berlin',

@@ -1,9 +1,17 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "runworld",
+  "name": "marathon",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-08-01",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
+  },
+  // 이틀마다 03:17 UTC 에 Supabase 를 깨워 둔다
+  "triggers": { "crons": ["17 3 */2 * *"] },
+  "vars": {
+    "SUPABASE_URL": "https://zhwmfvkwtmakieatlqtz.supabase.co",
+    "SUPABASE_KEY": "sb_publishable_uOBwP5-BbK7keBuq3gsMAg_Oil1yg6O"
   }
 }

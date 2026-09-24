@@ -1,43 +1,41 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { EnvelopeSimple, SignOut, UserCircle } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
+import { Button, CloseButton, Field, Input, Note } from './ui';
 
 export function AuthBar({ onOpen }: { onOpen: () => void }) {
   const { session, profile, signOut } = useAuth();
 
   if (!session) {
     return (
-      <button
-        onClick={onOpen}
-        className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-zinc-700"
-      >
+      <Button size="sm" onClick={onOpen}>
         로그인
-      </button>
+      </Button>
     );
   }
-
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-zinc-400">
+    <div className="flex items-center gap-1">
+      <span className="hidden items-center gap-1.5 text-[14px] font-semibold text-ink-2 sm:inline-flex">
+        <UserCircle size={18} />
         {profile?.nickname ?? session.user.email}
-        {profile?.is_admin && (
-          <span className="ml-1.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
-            관리자
-          </span>
-        )}
       </span>
       <button
         onClick={() => signOut()}
-        className="rounded-lg px-2 py-1.5 text-xs text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
+        aria-label="로그아웃"
+        title="로그아웃"
+        className="grid size-8 place-items-center rounded-ctl text-ink-3 transition hover:bg-sunken hover:text-ink"
       >
-        로그아웃
+        <SignOut size={17} />
       </button>
     </div>
   );
 }
 
-export function AuthModal({ onClose }: { onClose: () => void }) {
-  const { signIn, signUp } = useAuth();
-  const [mode, setMode] = useState<'in' | 'up'>('in');
+type Mode = 'in' | 'up' | 'sent' | 'forgot' | 'forgot_sent' | 'reset';
+
+export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; initial?: Mode }) {
+  const { signIn, signUp, resendConfirm, sendReset, updatePassword } = useAuth();
+  const [mode, setMode] = useState<Mode>(initial);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
@@ -45,123 +43,182 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
   const [err, setErr] = useState('');
   const [info, setInfo] = useState('');
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [onClose]);
+  const go = (m: Mode) => {
+    setMode(m);
+    setErr('');
+    setInfo('');
+  };
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function run(fn: () => Promise<void>) {
     setBusy(true);
     setErr('');
     setInfo('');
     try {
-      if (mode === 'in') {
-        await signIn(email.trim(), password);
-        onClose();
-      } else {
-        const msg = await signUp(email.trim(), password, nickname);
-        if (msg) setInfo(msg);
-        else onClose();
-      }
-    } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : '문제가 생겼습니다.');
+      await fn();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '처리하지 못했습니다.');
     } finally {
       setBusy(false);
     }
   }
 
+  const titles: Record<Mode, string> = {
+    in: '로그인',
+    up: '회원가입',
+    sent: '메일함을 확인하세요',
+    forgot: '비밀번호 다시 설정',
+    forgot_sent: '메일함을 확인하세요',
+    reset: '새 비밀번호',
+  };
+
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-zinc-50">{mode === 'in' ? '로그인' : '회원가입'}</h2>
-          <button onClick={onClose} className="rounded p-1 text-zinc-500 hover:text-zinc-200" aria-label="닫기">
-            ✕
-          </button>
+    <div className="p-6">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <h2 className="text-[22px] font-extrabold tracking-tight">{titles[mode]}</h2>
+        <CloseButton onClick={onClose} />
+      </div>
+
+      {(mode === 'sent' || mode === 'forgot_sent') && (
+        <div className="space-y-4">
+          <div className="grid size-12 place-items-center rounded-box bg-accent text-on-accent">
+            <EnvelopeSimple size={24} weight="bold" />
+          </div>
+          <p className="text-[15px] leading-relaxed text-ink-2">
+            <strong className="text-ink">{email}</strong> 로{' '}
+            {mode === 'sent' ? '가입 확인 메일을 보냈습니다. 메일의 버튼을 누르면 바로 로그인됩니다.' : '비밀번호를 다시 정하는 링크를 보냈습니다.'}
+          </p>
+          <p className="text-[13px] text-ink-3">몇 분 안에 오지 않으면 스팸함도 확인해 주세요.</p>
+          {info && <Note tone="ok">{info}</Note>}
+          {err && <Note tone="error">{err}</Note>}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              tone="quiet"
+              disabled={busy}
+              onClick={() =>
+                run(async () => {
+                  if (mode === 'sent') await resendConfirm(email);
+                  else await sendReset(email);
+                  setInfo('다시 보냈습니다.');
+                })
+              }
+            >
+              {busy ? '보내는 중' : '메일 다시 보내기'}
+            </Button>
+            <Button tone="quiet" onClick={() => go('in')}>
+              로그인으로
+            </Button>
+          </div>
         </div>
+      )}
 
-        <p className="mb-4 text-xs leading-relaxed text-zinc-500">
-          후기를 남기려면 로그인이 필요합니다. 대회 정보 열람은 로그인 없이도 가능합니다.
-        </p>
+      {mode === 'reset' && (
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(async () => {
+              if (password.length < 8) throw new Error('비밀번호는 8자 이상으로 정해주세요.');
+              await updatePassword(password);
+              onClose();
+            });
+          }}
+        >
+          <Field label="새 비밀번호" hint="8자 이상">
+            <Input type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          </Field>
+          {err && <Note tone="error">{err}</Note>}
+          <Button type="submit" disabled={busy} className="w-full">
+            {busy ? '저장 중' : '비밀번호 저장'}
+          </Button>
+        </form>
+      )}
 
-        <form onSubmit={submit} className="space-y-3">
-          {mode === 'up' && (
-            <Field
-              label="닉네임"
-              value={nickname}
-              onChange={setNickname}
-              placeholder="후기에 표시될 이름 (2~16자)"
-              required
-            />
-          )}
-          <Field label="이메일" type="email" value={email} onChange={setEmail} placeholder="you@example.com" required />
-          <Field
-            label="비밀번호"
-            type="password"
-            value={password}
-            onChange={setPassword}
-            placeholder="6자 이상"
-            required
-          />
-
-          {err && <p className="text-sm text-rose-400">{err}</p>}
-          {info && <p className="text-sm text-emerald-400">{info}</p>}
-
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full rounded-lg bg-emerald-500 py-2.5 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:opacity-40"
-          >
-            {busy ? '처리 중…' : mode === 'in' ? '로그인' : '가입하기'}
+      {mode === 'forgot' && (
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(async () => {
+              await sendReset(email.trim());
+              setMode('forgot_sent');
+            });
+          }}
+        >
+          <p className="text-[15px] leading-relaxed text-ink-2">
+            가입한 이메일을 적으면 비밀번호를 다시 정할 수 있는 링크를 보내드립니다. 가입한 적이 없는 주소라면 메일이
+            가지 않습니다.
+          </p>
+          <Field label="이메일">
+            <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          {err && <Note tone="error">{err}</Note>}
+          <Button type="submit" disabled={busy} className="w-full">
+            {busy ? '보내는 중' : '링크 받기'}
+          </Button>
+          <button type="button" onClick={() => go('in')} className="w-full text-center text-[14px] text-ink-3 hover:text-ink">
+            로그인으로 돌아가기
           </button>
         </form>
+      )}
 
-        <button
-          onClick={() => {
-            setMode(mode === 'in' ? 'up' : 'in');
-            setErr('');
-            setInfo('');
+      {(mode === 'in' || mode === 'up') && (
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(async () => {
+              if (mode === 'in') {
+                await signIn(email.trim(), password);
+                onClose();
+                return;
+              }
+              if (password.length < 8) throw new Error('비밀번호는 8자 이상으로 정해주세요.');
+              const r = await signUp(email.trim(), password, nickname);
+              if (r === 'signed_in') onClose();
+              else if (r === 'check_email') setMode('sent');
+              else {
+                setMode('in');
+                setErr('이미 가입된 이메일입니다. 로그인하거나, 비밀번호가 기억나지 않으면 아래에서 다시 정하세요.');
+              }
+            });
           }}
-          className="mt-4 w-full text-center text-xs text-zinc-500 transition hover:text-zinc-300"
         >
-          {mode === 'in' ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인'}
-        </button>
-      </div>
-    </div>
-  );
-}
+          {mode === 'up' && (
+            <Field label="닉네임" hint="후기에 표시됩니다">
+              <Input required minLength={2} maxLength={16} value={nickname} onChange={(e) => setNickname(e.target.value)} />
+            </Field>
+          )}
+          <Field label="이메일">
+            <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <Field label="비밀번호" hint={mode === 'up' ? '8자 이상' : undefined}>
+            <Input
+              type="password"
+              autoComplete={mode === 'up' ? 'new-password' : 'current-password'}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </Field>
 
-function Field({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  placeholder,
-  required,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  placeholder?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-zinc-400">{label}</span>
-      <input
-        type={type}
-        value={value}
-        required={required}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-500"
-      />
-    </label>
+          {err && <Note tone="error">{err}</Note>}
+
+          <Button type="submit" disabled={busy} className="w-full">
+            {busy ? '처리 중' : mode === 'in' ? '로그인' : '가입하고 인증 메일 받기'}
+          </Button>
+
+          <div className="flex items-center justify-between pt-1 text-[14px]">
+            <button type="button" onClick={() => go(mode === 'in' ? 'up' : 'in')} className="font-semibold text-ink underline underline-offset-4">
+              {mode === 'in' ? '회원가입' : '이미 계정이 있어요'}
+            </button>
+            {mode === 'in' && (
+              <button type="button" onClick={() => go('forgot')} className="text-ink-3 hover:text-ink">
+                비밀번호를 잊었어요
+              </button>
+            )}
+          </div>
+        </form>
+      )}
+    </div>
   );
 }

@@ -19,7 +19,7 @@ export interface Dataset {
   source: 'supabase' | 'seed';
 }
 
-const seedDataset = (): Dataset => ({
+export const seedDataset = (): Dataset => ({
   races: RACES,
   agencies: AGENCIES,
   packages: PACKAGES,
@@ -28,8 +28,17 @@ const seedDataset = (): Dataset => ({
   source: 'seed',
 });
 
+/** 서버가 느리거나 멈춰 있어도 목록은 바로 보이도록 4초 안에 응답이 없으면 내장 데이터로 연다. */
+const withTimeout = <T,>(p: Promise<T>, ms: number) =>
+  Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
 export async function loadDataset(): Promise<Dataset> {
   if (!hasSupabase || !supabase) return seedDataset();
+  return withTimeout(loadRemote(), 4000).catch(() => seedDataset());
+}
+
+async function loadRemote(): Promise<Dataset> {
+  if (!supabase) return seedDataset();
   try {
     const [r, a, p, c, rt] = await Promise.all([
       supabase.from('races').select('*').order('race_date'),

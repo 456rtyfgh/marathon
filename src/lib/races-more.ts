@@ -131,7 +131,7 @@ export const RACES_MORE: Race[] = [
     notes_ko: '참가비가 유럽에서 가장 싼 편. 도우루 강변 코스.',
   },
   {
-    id: 'nice-cannes', name_ko: '니스–칸 마라톤', name_en: 'Marathon des Alpes-Maritimes Nice-Cannes',
+    id: 'nice-cannes', name_ko: '니스-칸 마라톤', name_en: 'Marathon des Alpes-Maritimes Nice-Cannes',
     city_ko: '니스', country_ko: '프랑스', country_code: 'FR', region: '유럽',
     race_date: '2026-11-08', date_confidence: 'confirmed', is_major: false,
     entry_type: 'fcfs', entry_opens: '2026-01-15', entry_closes: '2026-10-25', entry_confidence: 'expected',

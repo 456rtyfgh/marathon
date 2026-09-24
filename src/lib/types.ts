@@ -89,7 +89,7 @@ export interface Review {
 
 export type ExternalKind = 'blog' | 'youtube' | 'community' | 'news' | 'etc';
 
-/** 외부 사이트 후기 — 본문은 옮기지 않고 링크만 모은다 */
+/** 외부 사이트 후기. 본문은 옮기지 않고 링크만 모은다 */
 export interface ExternalReview {
   id: string;
   race_id: string;

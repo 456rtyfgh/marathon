@@ -1,7 +1,8 @@
 import type { Race, CostBaseline } from './types';
 import { FX } from './seed';
 
-export const TODAY = () => new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z');
+/** 한국 시간 기준 오늘 (UTC 자정으로 표현) */
+export const TODAY = () => new Date(new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10) + 'T00:00:00Z');
 
 export function daysBetween(from: Date, isoDate: string): number {
   const to = new Date(isoDate + 'T00:00:00Z');
@@ -20,12 +21,35 @@ export function entryStatus(race: Race, today = TODAY()): EntryStatus {
   return 'open';
 }
 
-export const STATUS_META: Record<EntryStatus, { label: string; cls: string }> = {
-  open: { label: '신청 중', cls: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30' },
-  upcoming: { label: '오픈 예정', cls: 'bg-sky-500/15 text-sky-300 ring-sky-500/30' },
-  closed: { label: '신청 마감', cls: 'bg-zinc-500/15 text-zinc-400 ring-zinc-500/30' },
-  unknown: { label: '일정 미공개', cls: 'bg-amber-500/15 text-amber-300 ring-amber-500/30' },
+export const STATUS_LABEL: Record<EntryStatus, string> = {
+  open: '접수 중',
+  upcoming: '접수 예정',
+  closed: '접수 마감',
+  unknown: '일정 미공개',
 };
+
+/** 목록 오른쪽에 크게 보여줄 상태 한 줄 */
+export function statusLine(race: Race, today = TODAY()): { label: string; days: number | null; hot: boolean } {
+  const st = entryStatus(race, today);
+  if (st === 'open') {
+    if (!race.entry_closes) return { label: '정원 마감 시까지', days: null, hot: false };
+    const d = daysBetween(today, race.entry_closes);
+    return { label: d === 0 ? '오늘 마감' : '마감까지', days: d, hot: d <= 7 };
+  }
+  if (st === 'upcoming') {
+    const d = race.entry_opens ? daysBetween(today, race.entry_opens) : null;
+    return { label: '접수 시작까지', days: d, hot: false };
+  }
+  if (st === 'closed') return { label: '접수 마감', days: null, hot: false };
+  return { label: '일정 미공개', days: null, hot: false };
+}
+
+export const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
+
+export function dateParts(iso: string) {
+  const d = new Date(iso + 'T00:00:00Z');
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), w: WEEKDAY[d.getUTCDay()] };
+}
 
 export function krw(n: number): string {
   if (n >= 10000) {
@@ -82,8 +106,7 @@ export const isDomestic = (race: Race) => race.region === '한국';
 
 export function fmtDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00Z');
-  const w = ['일', '월', '화', '수', '목', '금', '토'][d.getUTCDay()];
-  return `${d.getUTCFullYear()}. ${d.getUTCMonth() + 1}. ${d.getUTCDate()}. (${w})`;
+  return `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 (${WEEKDAY[d.getUTCDay()]})`;
 }
 
 export function fmtDateShort(iso: string): string {

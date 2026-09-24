@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { CloseButton, Tabs, Button, Note, inputCls } from './ui';
 import type { Race, ExternalKind, Region, Course, EntryType, Confidence } from '../lib/types';
 import { REGIONS, COURSES, ENTRY_LABEL, CONFIDENCE_LABEL, KIND_LABEL } from '../lib/types';
 import { adminUpsertRace, adminDeleteRace, adminAddExternalReview } from '../lib/data';
@@ -33,50 +34,27 @@ const EMPTY: Race = {
 export default function AdminPanel({ races, onClose, onSaved }: { races: Race[]; onClose: () => void; onSaved: () => void }) {
   const [tab, setTab] = useState<'race' | 'ext'>('race');
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', h);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', h);
-      document.body.style.overflow = '';
-    };
-  }, [onClose]);
-
   return (
-    <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-6">
-      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-zinc-800 bg-zinc-950 sm:rounded-2xl">
-        <div className="flex items-center justify-between border-b border-zinc-800 p-5">
-          <div>
-            <h2 className="text-xl font-bold text-zinc-50">관리자</h2>
-            <p className="text-xs text-zinc-500">빈칸을 채워 대회와 외부 후기 링크를 등록합니다.</p>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200" aria-label="닫기">
-            ✕
-          </button>
+    <div className="flex h-full flex-col">
+      <header className="flex items-start justify-between gap-4 px-5 pt-4 pb-4 sm:px-7">
+        <div className="pt-1.5">
+          <h2 className="text-[26px] leading-tight font-extrabold tracking-tight">관리</h2>
+          <p className="mt-1 text-[15px] text-ink-2">빈칸을 채우면 바로 사이트에 반영됩니다.</p>
         </div>
+        <CloseButton onClick={onClose} />
+      </header>
 
-        <div className="flex gap-1 border-b border-zinc-800 px-3">
-          {([['race', '대회 등록·수정'], ['ext', '외부 후기 링크']] as [typeof tab, string][]).map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={`border-b-2 px-3 py-3 text-sm font-medium transition ${
-                tab === id ? 'border-emerald-500 text-zinc-50' : 'border-transparent text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      <Tabs<'race' | 'ext'>
+        value={tab}
+        onChange={setTab}
+        items={[
+          ['race', '대회 추가·수정'],
+          ['ext', '다른 곳 후기 링크'],
+        ]}
+      />
 
-        <div className="flex-1 overflow-y-auto p-5">
-          {tab === 'race' ? (
-            <RaceForm races={races} onSaved={onSaved} />
-          ) : (
-            <ExtForm races={races} onSaved={onSaved} />
-          )}
-        </div>
+      <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-7">
+        {tab === 'race' ? <RaceForm races={races} onSaved={onSaved} /> : <ExtForm races={races} onSaved={onSaved} />}
       </div>
     </div>
   );
@@ -150,7 +128,7 @@ function RaceForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
   return (
     <form onSubmit={submit} className="space-y-5">
       <label className="block">
-        <span className="mb-1 block text-xs font-medium text-zinc-400">기존 대회 불러오기</span>
+        <span className="mb-1.5 block text-[13px] font-semibold text-ink-2">고칠 대회 고르기</span>
         <select value={editingId} onChange={(e) => pick(e.target.value)} className={inputCls}>
           <option value="">+ 새 대회 등록</option>
           {races.map((r) => (
@@ -212,26 +190,26 @@ function RaceForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
       </Group>
 
       <label className="block">
-        <span className="mb-1 block text-xs font-medium text-zinc-400">메모 (카드 상세에 표시)</span>
+        <span className="mb-1.5 block text-[13px] font-semibold text-ink-2">메모 <span className="font-normal text-ink-3">상세 정보에 보입니다</span></span>
         <textarea
           value={f.notes_ko ?? ''}
           onChange={(e) => set('notes_ko', e.target.value || null)}
           rows={3}
-          className={inputCls + ' resize-y leading-relaxed'}
+          className={inputCls + ' h-auto resize-y py-2.5 leading-relaxed'}
         />
       </label>
 
-      {err && <p className="text-sm text-rose-400">{err}</p>}
-      {msg && <p className="text-sm text-emerald-400">{msg}</p>}
+      {err && <Note tone="error">{err}</Note>}
+      {msg && <Note tone="ok">{msg}</Note>}
 
       <div className="flex flex-wrap gap-2">
-        <button type="submit" disabled={busy} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:opacity-40">
+        <Button type="submit" disabled={busy}>
           {busy ? '저장 중…' : editingId ? '수정 저장' : '대회 등록'}
-        </button>
+        </Button>
         {editingId && (
-          <button type="button" onClick={remove} disabled={busy} className="rounded-lg bg-zinc-800 px-4 py-2 text-sm text-rose-400 transition hover:bg-zinc-700">
-            삭제
-          </button>
+          <Button type="button" tone="danger" onClick={remove} disabled={busy}>
+            이 대회 지우기
+          </Button>
         )}
       </div>
     </form>
@@ -286,8 +264,8 @@ function ExtForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <p className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 text-xs leading-relaxed text-zinc-500">
-        다른 사이트 후기는 <strong className="text-zinc-300">본문을 옮기지 않고 링크만</strong> 겁니다. 요약란에는
+      <p className="rounded-ctl bg-sunken px-3 py-2.5 text-[14px] leading-relaxed text-ink-2">
+        다른 사이트 후기는 <strong className="text-ink">본문을 옮기지 않고 링크만</strong> 겁니다. 요약란에는
         직접 쓴 한 줄 메모만 넣어주세요 (원문 복사 금지).
       </p>
 
@@ -302,25 +280,23 @@ function ExtForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
         <Text label="한 줄 메모" value={summary} onChange={setSummary} wide placeholder="직접 쓴 짧은 설명" />
       </Group>
 
-      {err && <p className="text-sm text-rose-400">{err}</p>}
-      {msg && <p className="text-sm text-emerald-400">{msg}</p>}
+      {err && <Note tone="error">{err}</Note>}
+      {msg && <Note tone="ok">{msg}</Note>}
 
-      <button type="submit" disabled={busy} className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:opacity-40">
+      <Button type="submit" disabled={busy}>
         {busy ? '저장 중…' : '링크 등록'}
-      </button>
+      </Button>
     </form>
   );
 }
 
 /* ── 폼 유틸 ───────────────────────────────────────────── */
 
-const inputCls =
-  'w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-500 disabled:opacity-50';
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="rounded-xl border border-zinc-800 p-4">
-      <legend className="px-2 text-xs font-semibold text-zinc-400">{title}</legend>
+    <fieldset className="rounded-box bg-surface p-4">
+      <legend className="float-left mb-3 w-full text-[15px] font-bold">{title}</legend>
       <div className="grid gap-3 sm:grid-cols-2">{children}</div>
     </fieldset>
   );
@@ -334,9 +310,9 @@ function Text({
 }) {
   return (
     <label className={`block ${wide ? 'sm:col-span-2' : ''}`}>
-      <span className="mb-1 block text-xs font-medium text-zinc-400">
+      <span className="mb-1.5 block text-[13px] font-semibold text-ink-2">
         {label}
-        {hint && <span className="ml-1.5 font-normal text-zinc-600">{hint}</span>}
+        {hint && <span className="ml-1.5 font-normal text-ink-3">{hint}</span>}
       </span>
       <input type={type} value={value} disabled={disabled} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={inputCls} />
     </label>
@@ -350,7 +326,7 @@ function Select({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-zinc-400">{label}</span>
+      <span className="mb-1.5 block text-[13px] font-semibold text-ink-2">{label}</span>
       <select value={value} onChange={(e) => onChange(e.target.value)} className={inputCls}>
         {options.map(([v, l]) => (
           <option key={v} value={v}>
@@ -364,8 +340,8 @@ function Select({
 
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 self-end pb-2 text-sm text-zinc-300">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="size-4 accent-emerald-400" />
+    <label className="flex cursor-pointer items-center gap-2 self-end pb-2.5 text-[14px] text-ink">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="size-4" />
       {label}
     </label>
   );
