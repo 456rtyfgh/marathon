@@ -221,3 +221,8 @@ dialog.sheet[open]::backdrop {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* 패널이 열려 있는 동안 뒤 페이지 스크롤 잠금 */
+html:has(dialog[open]) {
+  overflow: hidden;
+}

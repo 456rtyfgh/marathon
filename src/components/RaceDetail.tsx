@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ArrowUpRight } from '@phosphor-icons/react';
+import { ArrowUpRight, CalendarPlus, LinkSimple, Check, BookmarkSimple } from '@phosphor-icons/react';
+import { downloadIcs } from '../lib/ics';
 import type { Race, Agency, Package, CostBaseline, RaceRating } from '../lib/types';
 import { ENTRY_LABEL, ENTRY_DESC, CONFIDENCE_LABEL } from '../lib/types';
 import {
@@ -27,6 +28,8 @@ export default function RaceDetail({
   packages,
   costs,
   rating,
+  favorite,
+  onToggleFavorite,
   onClose,
   onLogin,
 }: {
@@ -35,10 +38,33 @@ export default function RaceDetail({
   packages: Package[];
   costs: CostBaseline[];
   rating?: RaceRating;
+  favorite: boolean;
+  onToggleFavorite: () => void;
   onClose: () => void;
   onLogin: () => void;
 }) {
   const [tab, setTab] = useState<Tab>('overview');
+  const [copied, setCopied] = useState(false);
+
+  async function share() {
+    const url = `${location.origin}/?r=${encodeURIComponent(race.id)}`;
+    const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
+    if (nav.share && matchMedia('(pointer: coarse)').matches) {
+      try {
+        await nav.share({ title: race.name_ko, url });
+        return;
+      } catch {
+        /* 사용자가 취소 */
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      prompt('이 주소를 복사하세요', url);
+    }
+  }
   const today = TODAY();
   const st = statusLine(race, today);
   const dRace = daysBetween(today, race.race_date);
@@ -56,7 +82,19 @@ export default function RaceDetail({
           <span className="text-[14px] text-ink-2">
             {domestic ? `국내, ${race.city_ko}` : `${race.country_ko} ${race.city_ko}`}
           </span>
-          <CloseButton onClick={onClose} />
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onToggleFavorite}
+              aria-pressed={favorite}
+              className={`inline-flex h-9 items-center gap-1.5 rounded-ctl px-3 text-[14px] font-semibold transition active:translate-y-px ${
+                favorite ? 'bg-ink text-bg' : 'text-ink-2 hover:bg-sunken hover:text-ink'
+              }`}
+            >
+              <BookmarkSimple size={16} weight={favorite ? 'fill' : 'bold'} />
+              {favorite ? '관심 대회' : '관심 추가'}
+            </button>
+            <CloseButton onClick={onClose} />
+          </div>
         </div>
 
         <h2 className="mt-2 text-[28px] leading-tight font-extrabold tracking-tight sm:text-[32px]">
@@ -137,7 +175,7 @@ export default function RaceDetail({
               </p>
             )}
 
-            <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <div className="flex flex-wrap items-center gap-2">
               <a
                 href={race.official_url}
                 target="_blank"
@@ -146,17 +184,31 @@ export default function RaceDetail({
               >
                 공식 홈페이지 <ArrowUpRight size={15} weight="bold" />
               </a>
+              <button
+                onClick={() => downloadIcs(race)}
+                className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-surface px-3.5 text-sm font-semibold text-ink transition hover:bg-sunken active:translate-y-px"
+              >
+                <CalendarPlus size={16} weight="bold" /> 내 캘린더에 넣기
+              </button>
+              <button
+                onClick={share}
+                className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-surface px-3.5 text-sm font-semibold text-ink transition hover:bg-sunken active:translate-y-px"
+              >
+                {copied ? <Check size={16} weight="bold" /> : <LinkSimple size={16} weight="bold" />}
+                {copied ? '주소 복사됨' : '공유'}
+              </button>
               {race.source_url && (
                 <a
                   href={race.source_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-10 items-center gap-1 text-sm font-semibold text-ink-2 underline decoration-line underline-offset-4 hover:text-ink"
+                  className="ml-1 inline-flex h-10 items-center text-sm font-semibold text-ink-2 underline decoration-line underline-offset-4 hover:text-ink"
                 >
                   정보 출처
                 </a>
               )}
             </div>
+            <p className="-mt-4 text-[13px] text-ink-3">캘린더 파일에는 접수 시작일, 마감일(하루 전 알림), 대회일이 들어갑니다.</p>
 
             <p className="max-w-[60ch] text-[13px] leading-relaxed text-ink-3">
               대회 일정과 접수 기간은 매년 바뀌고 예고 없이 달라지기도 합니다. 신청 전에는 공식 홈페이지에서 한 번 더

@@ -76,7 +76,8 @@ export function feeLabel(race: Race): string {
   const sym: Record<string, string> = {
     USD: '$', JPY: '¥', EUR: '€', GBP: '£', AUD: 'A$', CAD: 'C$',
     SGD: 'S$', HKD: 'HK$', TWD: 'NT$', CNY: '¥', ZAR: 'R',
-    MYR: 'RM', THB: '฿', VND: '₫', IDR: 'Rp', NOK: 'kr', CZK: 'Kč',
+    MYR: 'RM', THB: '฿', VND: '₫', IDR: 'Rp', NOK: 'kr ', CZK: 'Kč', NZD: 'NZ$', MOP: 'MOP ',
+    PHP: '₱', SEK: 'kr ', DKK: 'kr ', TRY: '₺',
   };
   const s = sym[race.entry_fee_currency] ?? '';
   return `${s}${race.entry_fee.toLocaleString()}`;

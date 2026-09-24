@@ -11,7 +11,8 @@
     "seed:sql": "node scripts/gen-seed-sql.mjs",
     "db:push": "psql \"$SUPABASE_DB_URL\" -f supabase/migrations/0001_init.sql -f supabase/seed.sql",
     "deploy": "npm run build && wrangler deploy",
-    "data:json": "node scripts/gen-data-json.mjs"
+    "data:json": "node scripts/gen-data-json.mjs",
+    "snapshot": "node scripts/snapshot.mjs"
   },
   "dependencies": {
     "@fontsource/barlow-condensed": "^5.3.0",

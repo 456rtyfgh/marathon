@@ -1,4 +1,4 @@
-import { CaretRight, Star } from '@phosphor-icons/react';
+import { CaretRight, Star, BookmarkSimple } from '@phosphor-icons/react';
 import type { Race, RaceRating } from '../lib/types';
 import { ENTRY_LABEL } from '../lib/types';
 import { dateParts, feeLabel, isDomestic, statusLine, TODAY, daysBetween } from '../lib/util';
@@ -6,10 +6,12 @@ import { dateParts, feeLabel, isDomestic, statusLine, TODAY, daysBetween } from 
 export default function RaceRow({
   race,
   rating,
+  favorite,
   onOpen,
 }: {
   race: Race;
   rating?: RaceRating;
+  favorite?: boolean;
   onOpen: () => void;
 }) {
   const today = TODAY();
@@ -38,6 +40,7 @@ export default function RaceRow({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="truncate text-[17px] font-bold tracking-tight text-ink">{race.name_ko}</h3>
+            {favorite && <BookmarkSimple size={15} weight="fill" className="shrink-0 text-ink" aria-label="관심 대회" />}
             {race.is_major && (
               <span className="shrink-0 rounded-tag bg-ink px-1.5 py-0.5 text-[10px] font-bold text-bg">
                 메이저

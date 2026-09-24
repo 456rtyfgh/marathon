@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X } from '@phosphor-icons/react';
+import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple } from '@phosphor-icons/react';
 import type { Race, EntryType, Region } from './lib/types';
 import { ENTRY_LABEL, REGIONS } from './lib/types';
 import { loadDataset, seedDataset, type Dataset } from './lib/data';
 import { entryStatus, entrySortKey, daysBetween, TODAY, isDomestic, dateParts, type EntryStatus } from './lib/util';
 import { AuthProvider, useAuth } from './lib/auth';
+import { useFavorites } from './lib/favorites';
 import RaceRow from './components/RaceRow';
 import RaceDetail from './components/RaceDetail';
 import AdminPanel from './components/AdminPanel';
@@ -49,6 +50,8 @@ function Main() {
   const [sort, setSort] = useState<Sort>('entry');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showPast, setShowPast] = useState(false);
+  const fav = useFavorites();
+  const [favOnly, setFavOnly] = useState(false);
 
   const [selected, setSelected] = useState<Race | null>(null);
   const [authMode, setAuthMode] = useState<null | 'in' | 'reset'>(null);
@@ -67,6 +70,28 @@ function Main() {
   useEffect(() => {
     if (auth.recovering) setAuthMode('reset');
   }, [auth.recovering]);
+
+  // ?r=대회id 로 들어오면 그 대회를 바로 연다 (공유 링크)
+  const [deepLinked, setDeepLinked] = useState(false);
+  useEffect(() => {
+    if (deepLinked) return;
+    const id = new URLSearchParams(location.search).get('r');
+    if (!id) return setDeepLinked(true);
+    const r = data.races.find((x) => x.id === id);
+    if (r) {
+      setSelected(r);
+      setDeepLinked(true);
+    } else if (remote !== 'loading') setDeepLinked(true);
+  }, [data, remote, deepLinked]);
+
+  useEffect(() => {
+    if (!deepLinked) return;
+    const u = new URL(location.href);
+    if (selected) u.searchParams.set('r', selected.id);
+    else u.searchParams.delete('r');
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+    document.title = selected ? `${selected.name_ko} | 마라톤 캘린더` : '마라톤 캘린더 | 국내·해외 마라톤 접수 일정';
+  }, [selected, deepLinked]);
 
   const today = TODAY();
   const ratingMap = useMemo(() => new Map((data?.ratings ?? []).map((r) => [r.race_id, r])), [data]);
@@ -97,6 +122,7 @@ function Main() {
   }, [upcomingRaces, today]);
 
   const matches = (r: Race) => {
+    if (favOnly && !fav.has(r.id)) return false;
     if (scope === 'kr' && !isDomestic(r)) return false;
     if (scope === 'abroad' && isDomestic(r)) return false;
     if (majorOnly && !r.is_major) return false;
@@ -146,7 +172,7 @@ function Main() {
     });
     return [{ key: 'all', title: sort === 'flight' ? '가까운 곳부터' : '평점 높은 순', races: sorted }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upcomingRaces, q, scope, regions, types, status, majorOnly, maxFlight, sort, today, ratingMap]);
+  }, [upcomingRaces, q, scope, regions, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids]);
 
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
   const activeFilters = regions.length + types.length + (status ? 1 : 0) + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0);
@@ -159,6 +185,7 @@ function Main() {
     setStatus(null);
     setMajorOnly(false);
     setMaxFlight(24);
+    setFavOnly(false);
   };
 
   const toggle = <T,>(list: T[], set: (v: T[]) => void, v: T) =>
@@ -304,6 +331,19 @@ function Main() {
                 </select>
                 <CaretDown size={14} className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-ink-3" />
               </label>
+              {fav.ids.length > 0 && (
+                <button
+                  onClick={() => setFavOnly((v) => !v)}
+                  aria-pressed={favOnly}
+                  className={`inline-flex h-10 items-center gap-1.5 rounded-ctl border px-3 text-[14px] font-semibold transition ${
+                    favOnly ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
+                  }`}
+                >
+                  <BookmarkSimple size={16} weight={favOnly ? 'fill' : 'bold'} />
+                  <span className="num text-[15px]">{fav.ids.length}</span>
+                  <span className="sr-only">관심 대회만 보기</span>
+                </button>
+              )}
               <button
                 onClick={() => setFiltersOpen((v) => !v)}
                 aria-expanded={filtersOpen}
@@ -395,7 +435,7 @@ function Main() {
                 </h2>
                 <ul className="divide-y divide-line border-y border-line">
                   {g.races.map((r) => (
-                    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} onOpen={() => setSelected(r)} />
+                    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} onOpen={() => setSelected(r)} />
                   ))}
                 </ul>
               </div>
@@ -415,7 +455,7 @@ function Main() {
               {showPast && (
                 <ul className="mt-3 divide-y divide-line border-y border-line opacity-70">
                   {pastRaces.map((r) => (
-                    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} onOpen={() => setSelected(r)} />
+                    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} onOpen={() => setSelected(r)} />
                   ))}
                 </ul>
               )}
@@ -458,6 +498,8 @@ function Main() {
             packages={data.packages}
             costs={data.costs}
             rating={ratingMap.get(selected.id)}
+            favorite={fav.has(selected.id)}
+            onToggleFavorite={() => fav.toggle(selected.id)}
             onClose={() => setSelected(null)}
             onLogin={() => setAuthMode('in')}
           />
