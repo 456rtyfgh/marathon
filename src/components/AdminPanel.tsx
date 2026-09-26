@@ -295,9 +295,9 @@ function ExtForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="rounded-box bg-surface p-4">
+    <fieldset className="min-w-0 rounded-box bg-surface p-4">
       <legend className="float-left mb-3 w-full text-[15px] font-bold">{title}</legend>
-      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+      <div className="clear-both grid gap-3 sm:grid-cols-2">{children}</div>
     </fieldset>
   );
 }
