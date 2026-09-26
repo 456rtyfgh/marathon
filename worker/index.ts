@@ -42,7 +42,8 @@ const fmt = (iso: string) => {
 function describe(r: RaceMeta): string {
   const parts = [`${fmt(r.race_date)} ${r.country_ko === '대한민국' ? r.city_ko : `${r.country_ko} ${r.city_ko}`}`];
   parts.push(`접수 ${ENTRY[r.entry_type] ?? ''}`.trim());
-  if (r.entry_opens && r.entry_closes) parts.push(`${fmt(r.entry_opens)}부터 ${fmt(r.entry_closes)}까지`);
+  if (r.entry_opens && r.entry_closes && r.entry_opens === r.entry_closes) parts.push(`${fmt(r.entry_opens)} 하루`);
+  else if (r.entry_opens && r.entry_closes) parts.push(`${fmt(r.entry_opens)}부터 ${fmt(r.entry_closes)}까지`);
   else if (r.entry_closes) parts.push(`${fmt(r.entry_closes)} 마감`);
   else if (r.entry_opens) parts.push(`${fmt(r.entry_opens)} 시작`);
   return parts.join(', ') + '. 일정, 비용, 후기를 확인하세요.';
