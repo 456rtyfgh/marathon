@@ -42,7 +42,7 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
     setBusy(true);
     try {
       await submitRaceRequest({ race_name: name, country, race_month: month, url, note }, session.user.id, profile?.nickname ?? '러너');
-      setMsg('받았습니다. 매주 월요일 정보를 갱신할 때 확인해서 넣을게요.');
+      setMsg('받았습니다. 매주 월요일 정보를 갱신할 때 확인해서 넣겠습니다.');
       setName('');
       setCountry('');
       setMonth('');

@@ -9,7 +9,7 @@ export default function PackageTable({ packages, agencies }: { packages: Package
     return (
       <div className="space-y-4">
         <p className="text-[15px] text-ink-2">이 대회를 다루는 여행사 상품은 아직 등록되지 않았습니다.</p>
-        <p className="text-[14px] text-ink-3">해외 마라톤 패키지를 주로 다루는 곳들입니다. 직접 문의해 보세요.</p>
+        <p className="text-[14px] text-ink-3">해외 마라톤 패키지를 주로 다루는 곳들입니다. 직접 문의할 수 있습니다.</p>
         <ul className="grid gap-2 sm:grid-cols-2">
           {agencies.map((a) => (
             <li key={a.id}>

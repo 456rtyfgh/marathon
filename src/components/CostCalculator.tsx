@@ -4,7 +4,7 @@ import type { Race, CostBaseline } from '../lib/types';
 import { costFor, feeToKrw, krwExact, isDomestic } from '../lib/util';
 
 type Tier = 'low' | 'mid' | 'high';
-const TIER_LABEL: Record<Tier, string> = { low: '아껴서', mid: '보통', high: '편하게' };
+const TIER_LABEL: Record<Tier, string> = { low: '절약', mid: '보통', high: '여유' };
 
 export default function CostCalculator({ race, costs }: { race: Race; costs: CostBaseline[] }) {
   const base = costFor(race, costs);
@@ -56,8 +56,8 @@ export default function CostCalculator({ race, costs }: { race: Race; costs: Cos
               role="radio"
               aria-checked={tier === t}
               onClick={() => setTier(t)}
-              className={`h-8 rounded-[4px] px-3.5 text-[14px] font-semibold transition ${
-                tier === t ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.08)]' : 'text-ink-3 hover:text-ink'
+              className={`h-9 rounded-[4px] border border-transparent px-3.5 text-[14px] font-semibold transition ${
+                tier === t ? 'bg-surface text-ink border border-line' : 'text-ink-3 hover:text-ink'
               }`}
             >
               {TIER_LABEL[t]}
@@ -89,10 +89,10 @@ export default function CostCalculator({ race, costs }: { race: Race; costs: Cos
             </div>
           ))}
         </dl>
-        <div className="flex items-end justify-between gap-4 rounded-b-box bg-ink px-4 py-4 text-bg">
+        <div className="flex items-end justify-between gap-4 border-t-2 border-ink px-4 py-4">
           <div>
-            <div className="text-[13px] opacity-70">예상 총액</div>
-            {people > 1 && <div className="num text-[15px] opacity-70">1인 {krwExact(r.per)}</div>}
+            <div className="text-[13px] text-ink-3">예상 총액</div>
+            {people > 1 && <div className="num text-[15px] text-ink-2">1인 {krwExact(r.per)}</div>}
           </div>
           <div className="num text-[32px] font-bold leading-none">{krwExact(r.total)}</div>
         </div>
@@ -100,7 +100,7 @@ export default function CostCalculator({ race, costs }: { race: Race; costs: Cos
 
       <p className="max-w-[60ch] text-[13px] leading-relaxed text-ink-3">
         {domestic ? '서울 출발' : '인천 출발 왕복 이코노미'} 기준 추정치입니다. 대회 주간에는 숙박비가 평소보다
-        오르는 경우가 많으니 여행사 패키지 가격과 함께 비교해 보세요.
+        오르는 경우가 많으니 여행사 패키지 가격과 비교해 확인하세요.
       </p>
     </div>
   );
@@ -122,7 +122,7 @@ function Stepper({
   onChange: (v: number) => void;
 }) {
   const btn =
-    'grid size-9 place-items-center rounded-ctl text-ink-2 transition hover:bg-sunken hover:text-ink active:scale-95 disabled:opacity-30';
+    'grid size-11 place-items-center sm:size-9 rounded-ctl text-ink-2 transition hover:bg-sunken hover:text-ink active:scale-95 disabled:opacity-30';
   return (
     <div className="flex items-center justify-between rounded-box bg-surface px-3 py-2.5">
       <span className="text-[14px] text-ink-2">{label}</span>

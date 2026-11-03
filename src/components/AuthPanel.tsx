@@ -73,7 +73,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
 
   return (
     <div className="p-6">
-      <div className="mb-5 flex items-start justify-between gap-3">
+      <div className="mb-5 flex items-center justify-between gap-3">
         <h2 className="text-[22px] font-extrabold tracking-tight">{titles[mode]}</h2>
         <CloseButton onClick={onClose} />
       </div>
@@ -117,7 +117,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
           onSubmit={(e) => {
             e.preventDefault();
             run(async () => {
-              if (password.length < 8) throw new Error('비밀번호는 8자 이상으로 정해주세요.');
+              if (password.length < 8) throw new Error('비밀번호는 8자 이상으로 정해 주세요.');
               await updatePassword(password);
               onClose();
             });
@@ -172,7 +172,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
                 onClose();
                 return;
               }
-              if (password.length < 8) throw new Error('비밀번호는 8자 이상으로 정해주세요.');
+              if (password.length < 8) throw new Error('비밀번호는 8자 이상으로 정해 주세요.');
               const r = await signUp(email.trim(), password, nickname);
               if (r === 'signed_in') onClose();
               else if (r === 'check_email') setMode('sent');
@@ -209,7 +209,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
 
           <div className="flex items-center justify-between pt-1 text-[14px]">
             <button type="button" onClick={() => go(mode === 'in' ? 'up' : 'in')} className="font-semibold text-ink underline underline-offset-4">
-              {mode === 'in' ? '회원가입' : '이미 계정이 있어요'}
+              {mode === 'in' ? '회원가입' : '이미 계정이 있습니다'}
             </button>
             {mode === 'in' && (
               <button type="button" onClick={() => go('forgot')} className="text-ink-3 hover:text-ink">

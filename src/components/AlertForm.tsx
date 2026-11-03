@@ -28,7 +28,7 @@ export default function AlertForm({ race }: { race: Race }) {
     try {
       await subscribeAlert(email.trim(), race.id, days);
       setState('ok');
-      setMsg(`${email.trim()} 로 알려드릴게요.`);
+      setMsg(`${email.trim()} 로 알려 드립니다.`);
     } catch (err) {
       setState('err');
       setMsg(err instanceof Error ? err.message : '저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
@@ -47,13 +47,13 @@ export default function AlertForm({ race }: { race: Race }) {
             {d != null && d >= 0 && <div className="num text-[34px] font-bold leading-none">D-{d}</div>}
           </div>
         ) : (
-          <p className="text-[15px] text-ink-2">접수 일정이 아직 나오지 않았습니다. 공개되면 알려드릴게요.</p>
+          <p className="text-[15px] text-ink-2">접수 일정이 아직 나오지 않았습니다. 공개되면 알려 드립니다.</p>
         )}
       </div>
 
       <form onSubmit={submit} className="space-y-5">
         <fieldset>
-          <legend className="mb-2 text-[13px] font-semibold text-ink-2">며칠 전에 받을까요</legend>
+          <legend className="mb-2 text-[13px] font-semibold text-ink-2">알림 시점</legend>
           <div className="flex flex-wrap gap-2">
             {OPTIONS.map((n) => {
               const on = days.includes(n);
@@ -63,7 +63,7 @@ export default function AlertForm({ race }: { race: Race }) {
                   key={n}
                   aria-pressed={on}
                   onClick={() => toggle(n)}
-                  className={`num h-9 min-w-14 rounded-ctl px-3 text-[17px] font-semibold transition active:translate-y-px ${
+                  className={`num h-11 min-w-14 sm:h-9 rounded-ctl px-3 text-[17px] font-semibold transition active:translate-y-px ${
                     on ? 'bg-ink text-bg' : 'bg-surface text-ink-2 hover:bg-sunken'
                   }`}
                 >

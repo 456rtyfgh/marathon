@@ -21,7 +21,10 @@ export function Panel({
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (open && !d.open) d.showModal();
+    if (open && !d.open) {
+      d.showModal();
+      d.focus({ preventScroll: true }); // 첫 버튼에 포커스 링이 잡히지 않게 패널 자체에 둔다
+    }
     if (!open && d.open) d.close();
   }, [open]);
 
@@ -30,6 +33,7 @@ export function Panel({
       ref={ref}
       className={variant}
       aria-label={label}
+      tabIndex={-1}
       onClose={onClose}
       onCancel={(e) => {
         e.preventDefault();
@@ -51,7 +55,7 @@ export function CloseButton({ onClick, label = '닫기' }: { onClick: () => void
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="grid size-9 shrink-0 place-items-center rounded-ctl text-ink-3 transition hover:bg-sunken hover:text-ink active:scale-95"
+      className="grid size-11 shrink-0 sm:size-9 place-items-center rounded-ctl text-ink-3 transition hover:bg-sunken hover:text-ink active:scale-95"
     >
       <X size={18} weight="bold" />
     </button>
@@ -73,7 +77,7 @@ export function Button({ tone = 'primary', size = 'md', className = '', ...rest 
     danger: 'bg-sunken text-ink hover:bg-line underline decoration-ink-3 underline-offset-4',
   };
   const sizes = {
-    sm: 'h-8 px-3 text-[13px]',
+    sm: 'h-9 px-3 text-[13px]',
     md: 'h-10 px-4 text-sm',
   };
   return (
