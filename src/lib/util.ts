@@ -77,10 +77,10 @@ export function feeLabel(race: Race): string {
     USD: '$', JPY: '¥', EUR: '€', GBP: '£', AUD: 'A$', CAD: 'C$',
     SGD: 'S$', HKD: 'HK$', TWD: 'NT$', CNY: '¥', ZAR: 'R',
     MYR: 'RM', THB: '฿', VND: '₫', IDR: 'Rp', NOK: 'kr ', CZK: 'Kč', NZD: 'NZ$', MOP: 'MOP ',
-    PHP: '₱', SEK: 'kr ', DKK: 'kr ', TRY: '₺',
+    PHP: '₱', SEK: 'kr ', DKK: 'kr ', TRY: '₺', PLN: 'zł ', ILS: '₪', INR: '₹', BRL: 'R$', MXN: 'MX$',
   };
-  const s = sym[race.entry_fee_currency] ?? '';
-  return `${s}${race.entry_fee.toLocaleString()}`;
+  const s = sym[race.entry_fee_currency];
+  return s ? `${s}${race.entry_fee.toLocaleString()}` : `${race.entry_fee.toLocaleString()} ${race.entry_fee_currency}`;
 }
 
 export function costFor(race: Race, costs: CostBaseline[]): CostBaseline | undefined {
@@ -113,4 +113,9 @@ export function fmtDate(iso: string): string {
 export function fmtDateShort(iso: string): string {
   const d = new Date(iso + 'T00:00:00Z');
   return `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}.${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
+/** 공식 홈페이지를 아직 확인하지 못해 검색 링크를 넣어 둔 경우 */
+export function isSearchLink(url: string): boolean {
+  return /^https:\/\/(search\.naver\.com|www\.google\.com\/search)/.test(url);
 }

@@ -13,6 +13,7 @@ import {
   isDomestic,
   statusLine,
   dateParts,
+  isSearchLink,
 } from '../lib/util';
 import CostCalculator from './CostCalculator';
 import PackageTable from './PackageTable';
@@ -182,7 +183,7 @@ export default function RaceDetail({
                 rel="noreferrer"
                 className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-ink px-4 text-sm font-semibold text-bg transition hover:opacity-85"
               >
-                공식 홈페이지 <ArrowUpRight size={15} weight="bold" />
+                {isSearchLink(race.official_url) ? '공식 홈페이지 검색' : '공식 홈페이지'} <ArrowUpRight size={15} weight="bold" />
               </a>
               <button
                 onClick={() => downloadIcs(race)}
