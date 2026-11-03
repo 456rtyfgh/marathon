@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple } from '@phosphor-icons/react';
 import type { Race, EntryType, Region } from './lib/types';
 import { ENTRY_LABEL, REGIONS } from './lib/types';
@@ -12,6 +12,9 @@ import AdminPanel from './components/AdminPanel';
 import RequestPanel from './components/RequestPanel';
 import { AuthBar, AuthForm } from './components/AuthPanel';
 import { Panel, Note } from './components/ui';
+
+// 목록이 길어도 처음엔 이만큼만 그리고, 아래로 내려가면 더 붙인다.
+const PAGE = 80;
 
 const OVERSEAS = REGIONS.filter((r) => r !== '한국') as Region[];
 const ENTRY_TYPES: EntryType[] = ['lottery', 'fcfs', 'qualifying', 'open', 'tour_only'];
@@ -50,6 +53,8 @@ function Main() {
   const [sort, setSort] = useState<Sort>('entry');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showPast, setShowPast] = useState(false);
+  const [limit, setLimit] = useState(PAGE);
+  const [pastLimit, setPastLimit] = useState(PAGE);
   const fav = useFavorites();
   const [favOnly, setFavOnly] = useState(false);
 
@@ -188,6 +193,33 @@ function Main() {
     setFavOnly(false);
   };
 
+  const openRace = useCallback((r: Race) => setSelected(r), []);
+
+  // 필터·정렬이 바뀌면 처음부터 다시 보여준다
+  useEffect(() => setLimit(PAGE), [groups]);
+
+  // 목록 맨 아래가 가까워지면 다음 묶음을 붙인다
+  const sentinel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || limit >= shown) return;
+    const io = new IntersectionObserver((e) => e[0].isIntersecting && setLimit((n) => n + PAGE), { rootMargin: '600px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [limit, shown]);
+
+  // 그룹 순서를 유지한 채 앞에서 limit 개까지만
+  const visible = useMemo(() => {
+    let left = limit;
+    return groups
+      .map((g) => {
+        const races = g.races.slice(0, Math.max(left, 0));
+        left -= races.length;
+        return { ...g, races, total: g.races.length };
+      })
+      .filter((g) => g.races.length);
+  }, [groups, limit]);
+
   const toggle = <T,>(list: T[], set: (v: T[]) => void, v: T) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
@@ -206,7 +238,7 @@ function Main() {
         목록으로 건너뛰기
       </a>
 
-      <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-line bg-bg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <a href="/" className="flex items-center gap-2.5">
             <span className="num grid size-8 place-items-center rounded-tag bg-accent text-[17px] font-bold text-on-accent">42</span>
@@ -236,7 +268,7 @@ function Main() {
         {auth.justConfirmed && (
           <div className="mx-auto max-w-6xl px-4 pt-4 sm:px-6">
             <div className="flex items-center justify-between gap-3 rounded-box bg-accent px-4 py-3 text-on-accent">
-              <span className="text-[15px] font-semibold">메일 인증이 끝났습니다. 이제 후기를 남길 수 있어요.</span>
+              <span className="text-[15px] font-semibold">메일 인증이 끝났습니다. 이제 후기를 남길 수 있습니다.</span>
               <button onClick={auth.clearFlags} aria-label="닫기" className="grid size-8 place-items-center rounded-ctl hover:bg-black/10">
                 <X size={16} weight="bold" />
               </button>
@@ -248,12 +280,10 @@ function Main() {
         <section className="mx-auto grid max-w-6xl gap-8 px-4 pt-10 pb-8 sm:px-6 md:grid-cols-[1fr_auto] md:items-end md:pt-14 md:pb-10">
           <div>
             <h1 className="text-[34px] leading-[1.12] font-extrabold tracking-[-0.03em] sm:text-[46px]">
-              마라톤 접수,
-              <br />
-              이번엔 놓치지 않게
+              마라톤 접수 일정
             </h1>
             <p className="mt-4 max-w-[42ch] text-[16px] leading-relaxed text-balance text-ink-2 sm:text-[17px]">
-              국내 {stats.kr}개, 해외 {stats.abroad}개 대회의 접수 방식과 마감일을 접수 순서대로 정리했습니다.
+              국내 {stats.kr}개, 해외 {stats.abroad}개 대회의 접수 방식과 기간을 접수가 가까운 순서로 모았습니다.
             </p>
           </div>
 
@@ -276,9 +306,9 @@ function Main() {
         </section>
 
         {/* 도구 막대 */}
-        <div className="sticky top-14 z-20 border-y border-line bg-bg/95 backdrop-blur-md">
+        <div className="border-y border-line bg-bg sm:sticky sm:top-14 sm:z-20">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-2.5 sm:px-6">
-            <div role="radiogroup" aria-label="국내 해외" className="inline-flex rounded-ctl bg-sunken p-1">
+            <div role="radiogroup" aria-label="국내 해외" className="grid w-full grid-cols-3 rounded-ctl bg-sunken p-1 sm:inline-flex sm:w-auto">
               {(
                 [
                   ['all', '전체', stats.kr + stats.abroad],
@@ -294,7 +324,7 @@ function Main() {
                     setScope(s);
                     setRegions([]);
                   }}
-                  className={`flex h-8 items-center gap-1.5 rounded-[4px] px-3 text-[14px] font-semibold transition ${
+                  className={`flex h-9 items-center gap-1.5 rounded-[4px] px-3 sm:h-8 text-[14px] font-semibold transition ${
                     scope === s ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.08)]' : 'text-ink-3 hover:text-ink'
                   }`}
                 >
@@ -304,7 +334,7 @@ function Main() {
               ))}
             </div>
 
-            <label className="relative order-last w-full sm:order-none sm:w-auto sm:flex-1">
+            <label className="relative order-first w-full sm:order-none sm:w-auto sm:flex-1">
               <span className="sr-only">대회 검색</span>
               <MagnifyingGlass size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-3" />
               <input
@@ -316,7 +346,7 @@ function Main() {
               />
             </label>
 
-            <div className="ml-auto flex items-center gap-2 sm:ml-0">
+            <div className="flex w-full items-center justify-end gap-2 sm:ml-0 sm:w-auto">
               <label className="relative">
                 <span className="sr-only">정렬</span>
                 <select
@@ -427,20 +457,21 @@ function Main() {
               </div>
             </div>
           ) : (
-            groups.map((g) => (
+            visible.map((g) => (
               <div key={g.key} className="pt-8">
                 <h2 className="flex items-baseline gap-2 px-3 pb-2 sm:px-5">
                   <span className="text-[19px] font-extrabold tracking-tight">{g.title}</span>
-                  <span className="num text-[18px] font-semibold text-ink-3">{g.races.length}</span>
+                  <span className="num text-[18px] font-semibold text-ink-3">{g.total}</span>
                 </h2>
                 <ul className="divide-y divide-line border-y border-line">
                   {g.races.map((r) => (
-                    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} onOpen={() => setSelected(r)} />
+                    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} onOpen={openRace} />
                   ))}
                 </ul>
               </div>
             ))
           )}
+          {limit < shown && <div ref={sentinel} aria-hidden className="h-px" />}
 
           {pastRaces.length > 0 && (
             <div className="px-3 pt-10 sm:px-5">
@@ -454,10 +485,18 @@ function Main() {
               </button>
               {showPast && (
                 <ul className="mt-3 divide-y divide-line border-y border-line opacity-70">
-                  {pastRaces.map((r) => (
-                    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} onOpen={() => setSelected(r)} />
+                  {pastRaces.slice(0, pastLimit).map((r) => (
+                    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} onOpen={openRace} />
                   ))}
                 </ul>
+              )}
+              {showPast && pastLimit < pastRaces.length && (
+                <button
+                  onClick={() => setPastLimit((n) => n + PAGE)}
+                  className="mt-3 h-9 rounded-ctl bg-sunken px-3 text-[14px] font-semibold hover:bg-line"
+                >
+                  더 보기 ({pastRaces.length - pastLimit}개 남음)
+                </button>
               )}
             </div>
           )}
@@ -536,7 +575,7 @@ function Main() {
 
       {remote !== 'fallback' ? null : (
         <div className="fixed right-4 bottom-4 z-40 max-w-xs">
-          <Note tone="info">서버에 연결하지 못해 저장된 기본 목록을 보여주고 있습니다.</Note>
+          <Note tone="info">서버에 연결하지 못해 저장해 둔 목록을 표시합니다. 새로고침하면 다시 시도합니다.</Note>
         </div>
       )}
     </div>
@@ -584,7 +623,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
     <button
       onClick={onClick}
       aria-pressed={on}
-      className={`inline-flex h-8 items-center gap-1 rounded-ctl px-3 text-[14px] font-semibold transition active:translate-y-px ${
+      className={`inline-flex h-10 items-center gap-1 rounded-ctl px-3 text-[14px] sm:h-8 font-semibold transition active:translate-y-px ${
         on ? 'bg-ink text-bg' : 'bg-surface text-ink-2 hover:bg-sunken hover:text-ink'
       }`}
     >

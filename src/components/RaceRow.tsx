@@ -1,9 +1,10 @@
+import { memo } from 'react';
 import { CaretRight, Star, BookmarkSimple } from '@phosphor-icons/react';
 import type { Race, RaceRating } from '../lib/types';
 import { ENTRY_LABEL } from '../lib/types';
 import { dateParts, feeLabel, isDomestic, statusLine, TODAY, daysBetween } from '../lib/util';
 
-export default function RaceRow({
+function RaceRow({
   race,
   rating,
   favorite,
@@ -12,7 +13,7 @@ export default function RaceRow({
   race: Race;
   rating?: RaceRating;
   favorite?: boolean;
-  onOpen: () => void;
+  onOpen: (race: Race) => void;
 }) {
   const today = TODAY();
   const p = dateParts(race.race_date);
@@ -22,9 +23,9 @@ export default function RaceRow({
   const daysToRace = daysBetween(today, race.race_date);
 
   return (
-    <li>
+    <li style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 104px' }}>
       <button
-        onClick={onOpen}
+        onClick={() => onOpen(race)}
         className="group grid w-full grid-cols-[4rem_1fr_auto] items-center gap-x-4 gap-y-2 px-3 py-4 text-left transition hover:bg-surface sm:grid-cols-[5rem_1fr_auto_7.5rem_1.25rem] sm:gap-x-6 sm:px-5"
       >
         {/* 대회 날짜 */}
@@ -109,3 +110,5 @@ export default function RaceRow({
     </li>
   );
 }
+
+export default memo(RaceRow);

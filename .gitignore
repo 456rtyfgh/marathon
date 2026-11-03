@@ -5,3 +5,6 @@ dist
 .wrangler
 *.log
 .DS_Store
+
+.duo-data
+.duo-shots
