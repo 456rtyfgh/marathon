@@ -37,7 +37,7 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
     setErr('');
     setMsg('');
     if (!session) return onLogin();
-    if (name.trim().length < 2) return setErr('대회 이름을 적어주세요.');
+    if (name.trim().length < 2) return setErr('대회 이름을 적어 주세요.');
     if (url && !/^https?:\/\//.test(url.trim())) return setErr('홈페이지 주소는 http 또는 https 로 시작해야 합니다.');
     setBusy(true);
     try {
@@ -62,7 +62,7 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
         <div className="pt-1.5">
           <h2 className="text-[26px] leading-tight font-extrabold tracking-tight">대회 추가 요청</h2>
           <p className="mt-1.5 max-w-[46ch] text-[15px] leading-relaxed text-ink-2">
-            목록에 없는 대회를 알려주세요. 매주 월요일 일정을 확인하면서 함께 넣습니다.
+            목록에 없는 대회를 알려 주세요. 매주 월요일 일정을 확인하면서 함께 넣습니다.
           </p>
         </div>
         <CloseButton onClick={onClose} />
@@ -105,7 +105,7 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
           {list === null ? (
             <div className="mt-3 h-16 animate-pulse rounded-box bg-surface" />
           ) : list.length === 0 ? (
-            <p className="mt-2 text-[14px] text-ink-3">아직 요청이 없습니다. 첫 요청을 남겨주세요.</p>
+            <p className="mt-2 text-[14px] text-ink-3">아직 요청이 없습니다. 첫 요청을 남겨 주세요.</p>
           ) : (
             <ul className="mt-3 divide-y divide-line">
               {list.map((r) => (

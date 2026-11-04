@@ -43,7 +43,7 @@ export default function CostCalculator({ race, costs }: { race: Race; costs: Cos
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Stepper label="숙박" unit="박" value={nights} min={0} max={14} onChange={setNights} />
         <Stepper label="인원" unit="명" value={people} min={1} max={30} onChange={setPeople} />
       </div>
@@ -56,8 +56,8 @@ export default function CostCalculator({ race, costs }: { race: Race; costs: Cos
               role="radio"
               aria-checked={tier === t}
               onClick={() => setTier(t)}
-              className={`h-9 rounded-[4px] border border-transparent px-3.5 text-[14px] font-semibold transition ${
-                tier === t ? 'bg-surface text-ink border border-line' : 'text-ink-3 hover:text-ink'
+              className={`h-9 rounded-[4px] border px-3.5 text-[14px] font-semibold transition ${
+                tier === t ? 'border-line bg-surface text-ink' : 'border-transparent text-ink-3 hover:text-ink'
               }`}
             >
               {TIER_LABEL[t]}
@@ -125,7 +125,7 @@ function Stepper({
     'grid size-11 place-items-center sm:size-9 rounded-ctl text-ink-2 transition hover:bg-sunken hover:text-ink active:scale-95 disabled:opacity-30';
   return (
     <div className="flex items-center justify-between rounded-box bg-surface px-3 py-2.5">
-      <span className="text-[14px] text-ink-2">{label}</span>
+      <span className="shrink-0 whitespace-nowrap text-[14px] text-ink-2">{label}</span>
       <div className="flex items-center gap-1">
         <button className={btn} aria-label={`${label} 줄이기`} disabled={value <= min} onClick={() => onChange(value - 1)}>
           <Minus size={16} weight="bold" />

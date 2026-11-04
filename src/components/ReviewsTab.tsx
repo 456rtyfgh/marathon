@@ -183,8 +183,8 @@ function ReviewForm({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!rating) return setErr('별점을 골라주세요.');
-    if (body.trim().length < 10) return setErr('후기는 10자 이상 써주세요.');
+    if (!rating) return setErr('별점을 골라 주세요.');
+    if (body.trim().length < 10) return setErr('후기는 10자 이상 써 주세요.');
     setBusy(true);
     setErr('');
     try {
@@ -241,7 +241,7 @@ function ReviewForm({
           onChange={(e) => setBody(e.target.value)}
           rows={5}
           maxLength={3000}
-          placeholder="코스, 보급, 분위기, 다시 갈 생각이 있는지처럼 다음 사람에게 도움이 될 이야기를 적어주세요."
+          placeholder="코스, 보급, 분위기, 다시 갈 생각이 있는지처럼 다음 사람에게 도움이 될 이야기를 적어 주세요."
           className={`${inputCls} h-auto resize-y py-2.5 leading-relaxed`}
         />
       </Field>

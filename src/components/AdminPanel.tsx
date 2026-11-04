@@ -266,7 +266,7 @@ function ExtForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
     <form onSubmit={submit} className="space-y-5">
       <p className="rounded-ctl bg-sunken px-3 py-2.5 text-[14px] leading-relaxed text-ink-2">
         다른 사이트 후기는 <strong className="text-ink">본문을 옮기지 않고 링크만</strong> 겁니다. 요약란에는
-        직접 쓴 한 줄 메모만 넣어주세요 (원문 복사 금지).
+        직접 쓴 한 줄 메모만 넣어 주세요 (원문 복사 금지).
       </p>
 
       <Group title="후기 정보">
