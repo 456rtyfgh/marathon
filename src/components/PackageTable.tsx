@@ -1,6 +1,7 @@
 import { ArrowUpRight } from '@phosphor-icons/react';
 import type { Agency, Package } from '../lib/types';
 import { krwExact } from '../lib/util';
+import { track } from '../lib/analytics';
 
 export default function PackageTable({ packages, agencies }: { packages: Package[]; agencies: Agency[] }) {
   const byId = new Map(agencies.map((a) => [a.id, a]));
@@ -15,6 +16,7 @@ export default function PackageTable({ packages, agencies }: { packages: Package
             <li key={a.id}>
               <a
                 href={a.url}
+                onClick={() => track('agency_click', { agency_id: a.id, from: 'list' })}
                 target="_blank"
                 rel="noreferrer"
                 className="group flex items-center justify-between rounded-box bg-surface px-4 py-3 transition hover:bg-sunken"
@@ -46,6 +48,7 @@ export default function PackageTable({ packages, agencies }: { packages: Package
             <li key={p.id}>
               <a
                 href={p.url}
+                onClick={() => track('agency_click', { agency_id: p.agency_id, race_id: p.race_id, package_id: p.id })}
                 target="_blank"
                 rel="noreferrer"
                 className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 rounded-box bg-surface px-4 py-3.5 transition hover:bg-sunken"

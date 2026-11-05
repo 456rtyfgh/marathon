@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowUpRight, CalendarPlus, LinkSimple, Check, BookmarkSimple } from '@phosphor-icons/react';
 import { downloadIcs } from '../lib/ics';
+import { track } from '../lib/analytics';
 import type { Race, Agency, Package, CostBaseline, RaceRating } from '../lib/types';
 import { ENTRY_LABEL, ENTRY_DESC, CONFIDENCE_LABEL } from '../lib/types';
 import {
@@ -48,6 +49,7 @@ export default function RaceDetail({
   const [copied, setCopied] = useState(false);
 
   async function share() {
+    track('share', { race_id: race.id });
     const url = `${location.origin}/?r=${encodeURIComponent(race.id)}`;
     const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
     if (nav.share && matchMedia('(pointer: coarse)').matches) {
@@ -135,7 +137,10 @@ export default function RaceDetail({
 
       <Tabs<Tab>
         value={tab}
-        onChange={setTab}
+        onChange={(t) => {
+          setTab(t);
+          track('race_tab', { race_id: race.id, tab: t });
+        }}
         items={[
           ['overview', '정보'],
           ['reviews', reviewCount ? `후기 ${reviewCount}` : '후기'],
@@ -179,6 +184,7 @@ export default function RaceDetail({
             <div className="flex flex-wrap items-center gap-2">
               <a
                 href={race.official_url}
+                onClick={() => track('official_click', { race_id: race.id, search: isSearchLink(race.official_url) })}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-ink px-4 text-sm font-semibold text-bg transition hover:opacity-85"
@@ -186,7 +192,10 @@ export default function RaceDetail({
                 {isSearchLink(race.official_url) ? '공식 홈페이지 검색' : '공식 홈페이지'} <ArrowUpRight size={15} weight="bold" />
               </a>
               <button
-                onClick={() => downloadIcs(race)}
+                onClick={() => {
+                  downloadIcs(race);
+                  track('calendar_add', { race_id: race.id });
+                }}
                 className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-surface px-3.5 text-sm font-semibold text-ink transition hover:bg-sunken active:translate-y-px"
               >
                 <CalendarPlus size={16} weight="bold" /> 내 캘린더에 넣기

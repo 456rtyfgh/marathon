@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple } from '@phosphor-icons/react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, MapTrifold } from '@phosphor-icons/react';
 import type { Race, EntryType, Region } from './lib/types';
 import { ENTRY_LABEL, REGIONS } from './lib/types';
 import { loadDataset, seedDataset, type Dataset } from './lib/data';
@@ -12,6 +12,10 @@ import AdminPanel from './components/AdminPanel';
 import RequestPanel from './components/RequestPanel';
 import { AuthBar, AuthForm } from './components/AuthPanel';
 import { Panel, Note } from './components/ui';
+import { PROVINCES, placeOf } from './lib/places';
+import { track, pageView } from './lib/analytics';
+
+const MapView = lazy(() => import('./components/MapView'));
 
 // 목록이 길어도 처음엔 이만큼만 그리고, 아래로 내려가면 더 붙인다.
 const PAGE = 80;
@@ -46,6 +50,9 @@ function Main() {
   const [q, setQ] = useState('');
   const [scope, setScope] = useState<Scope>('all');
   const [regions, setRegions] = useState<Region[]>([]);
+  // 지도·칩에서 고른 곳: 국내는 시·도 id, 해외는 나라 코드(소문자), 'kr' 은 국내 전체
+  const [place, setPlace] = useState<string | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
   const [types, setTypes] = useState<EntryType[]>([]);
   const [status, setStatus] = useState<StatusFilter | null>(null);
   const [majorOnly, setMajorOnly] = useState(false);
@@ -96,6 +103,15 @@ function Main() {
     else u.searchParams.delete('r');
     history.replaceState(null, '', u.pathname + u.search + u.hash);
     document.title = selected ? `${selected.name_ko} | 마라톤 캘린더` : '마라톤 캘린더 | 국내·해외 마라톤 접수 일정';
+    if (selected) {
+      pageView(document.title);
+      track('race_view', {
+        race_id: selected.id,
+        race_name: selected.name_ko,
+        region: selected.region,
+        country: selected.country_code,
+      });
+    }
   }, [selected, deepLinked]);
 
   const today = TODAY();
@@ -126,12 +142,49 @@ function Main() {
     };
   }, [upcomingRaces, today]);
 
+  // 지역 막대·지도에 쓰는 숫자 (국내/해외 선택만 반영해서 다른 필터를 바꿔도 지도가 흔들리지 않게)
+  const geo = useMemo(() => {
+    const base = upcomingRaces.filter((r) => (scope === 'kr' ? isDomestic(r) : scope === 'abroad' ? !isDomestic(r) : true));
+    const region: Partial<Record<Region, number>> = {};
+    const province: Record<string, number> = {};
+    const country: Record<string, number> = {};
+    const names: Record<string, string> = { kr: '한국' };
+    const inRegion: Record<string, number> = {};
+    for (const r of base) {
+      region[r.region] = (region[r.region] ?? 0) + 1;
+      if (isDomestic(r)) {
+        const pv = placeOf(r, true);
+        if (pv) province[pv] = (province[pv] ?? 0) + 1;
+        country.kr = (country.kr ?? 0) + 1;
+      } else {
+        const c = r.country_code.toLowerCase();
+        country[c] = (country[c] ?? 0) + 1;
+        names[c] = r.country_ko;
+        if (regions.includes(r.region)) inRegion[c] = (inRegion[c] ?? 0) + 1;
+      }
+    }
+    for (const p of PROVINCES) names[p.id] = p.name;
+    const regionCountries = Object.entries(inRegion).sort((a, b) => b[1] - a[1]);
+    return { region, province, country, names, regionCountries };
+  }, [upcomingRaces, scope, regions]);
+
+  const pickPlace = (id: string | null) => {
+    if (id === 'kr' && scope !== 'kr') {
+      setScope('kr');
+      setRegions([]);
+      setPlace(null);
+    } else setPlace(id);
+    if (id) track('map_select', { place: id });
+    document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
+
   const matches = (r: Race) => {
     if (favOnly && !fav.has(r.id)) return false;
     if (scope === 'kr' && !isDomestic(r)) return false;
     if (scope === 'abroad' && isDomestic(r)) return false;
     if (majorOnly && !r.is_major) return false;
     if (regions.length && !regions.includes(r.region)) return false;
+    if (place && (place === 'kr' ? !isDomestic(r) : placeOf(r, isDomestic(r)) !== place)) return false;
     if (types.length && !types.includes(r.entry_type)) return false;
     if (status) {
       const st = entryStatus(r, today);
@@ -177,15 +230,16 @@ function Main() {
     });
     return [{ key: 'all', title: sort === 'flight' ? '가까운 곳부터' : '평점 높은 순', races: sorted }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upcomingRaces, q, scope, regions, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids]);
+  }, [upcomingRaces, q, scope, regions, place, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids]);
 
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
-  const activeFilters = regions.length + types.length + (status ? 1 : 0) + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0);
+  const activeFilters = types.length + (status ? 1 : 0) + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0);
 
   const reset = () => {
     setQ('');
     setScope('all');
     setRegions([]);
+    setPlace(null);
     setTypes([]);
     setStatus(null);
     setMajorOnly(false);
@@ -323,6 +377,7 @@ function Main() {
                   onClick={() => {
                     setScope(s);
                     setRegions([]);
+                    setPlace(null);
                   }}
                   className={`flex h-9 items-center gap-1.5 rounded-[4px] px-3 sm:h-8 text-[14px] font-semibold transition ${
                     scope === s ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.08)]' : 'text-ink-3 hover:text-ink'
@@ -391,15 +446,6 @@ function Main() {
           {filtersOpen && (
             <div className="border-t border-line">
               <div className="mx-auto grid max-w-6xl gap-4 px-4 py-4 sm:px-6 md:grid-cols-2">
-                {scope !== 'kr' && (
-                  <FilterGroup label="지역">
-                    {(scope === 'abroad' ? OVERSEAS : REGIONS).map((r) => (
-                      <Chip key={r} on={regions.includes(r)} onClick={() => toggle(regions, setRegions, r)}>
-                        {r}
-                      </Chip>
-                    ))}
-                  </FilterGroup>
-                )}
                 <FilterGroup label="접수 방식">
                   {ENTRY_TYPES.map((t) => (
                     <Chip key={t} on={types.includes(t)} onClick={() => toggle(types, setTypes, t)}>
@@ -441,6 +487,94 @@ function Main() {
             </div>
           )}
         </div>
+
+        {/* 지역 막대 + 지도 */}
+        <section className="mx-auto max-w-6xl px-4 pt-4 sm:px-6" aria-label="지역별로 보기">
+          <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
+            <button
+              onClick={() => {
+                setMapOpen((v) => !v);
+                if (!mapOpen) track('map_open', { scope });
+              }}
+              aria-expanded={mapOpen}
+              className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-ctl border px-3 text-[14px] font-semibold transition sm:h-8 ${
+                mapOpen ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
+              }`}
+            >
+              <MapTrifold size={16} weight="bold" />
+              지도
+            </button>
+            {scope === 'kr'
+              ? PROVINCES.filter((p) => geo.province[p.id])
+                  .sort((a, b) => (geo.province[b.id] ?? 0) - (geo.province[a.id] ?? 0))
+                  .map((p) => (
+                    <Chip key={p.id} on={place === p.id} onClick={() => pickPlace(place === p.id ? null : p.id)}>
+                      {p.name}
+                      <span className="num ml-0.5 text-[14px] opacity-60">{geo.province[p.id]}</span>
+                    </Chip>
+                  ))
+              : (scope === 'abroad' ? OVERSEAS : REGIONS)
+                  .filter((r) => geo.region[r])
+                  .map((r) => (
+                    <Chip
+                      key={r}
+                      on={regions.includes(r)}
+                      onClick={() => {
+                        setRegions(regions.includes(r) ? regions.filter((x) => x !== r) : [r]);
+                        setPlace(null);
+                      }}
+                    >
+                      {r}
+                      <span className="num ml-0.5 text-[14px] opacity-60">{geo.region[r]}</span>
+                    </Chip>
+                  ))}
+          </div>
+
+          {scope !== 'kr' && regions.length > 0 && geo.regionCountries.length > 1 && (
+            <div className="-mx-4 mt-2 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
+              <span className="shrink-0 text-[13px] font-semibold text-ink-3">나라</span>
+              {geo.regionCountries.map(([c, n]) => (
+                <Chip key={c} on={place === c} onClick={() => pickPlace(place === c ? null : c)}>
+                  {geo.names[c]}
+                  <span className="num ml-0.5 text-[14px] opacity-60">{n}</span>
+                </Chip>
+              ))}
+            </div>
+          )}
+
+          {place && !(scope === 'kr' || regions.length) && (
+            <div className="mt-2">
+              <Chip on onClick={() => setPlace(null)}>
+                {geo.names[place] ?? place}
+              </Chip>
+            </div>
+          )}
+
+          {mapOpen && (
+            <div className="mt-3 rounded-box border border-line bg-surface p-3 sm:p-4">
+              <Suspense fallback={<div className="aspect-[1010/666] animate-pulse rounded-box bg-sunken" />}>
+                <MapView
+                  kind={scope === 'kr' ? 'kr' : 'world'}
+                  counts={scope === 'kr' ? geo.province : geo.country}
+                  names={geo.names}
+                  selected={place}
+                  focus={scope === 'kr' ? [] : regions.length ? geo.regionCountries.map(([c]) => c) : []}
+                  onSelect={pickPlace}
+                />
+              </Suspense>
+              <p className="mt-2 flex flex-wrap justify-between gap-2 text-[12px] text-ink-3">
+                <span>{scope === 'kr' ? '시·도' : '나라'}를 누르면 그곳 대회만 보입니다. 색이 진할수록 대회가 많습니다.</span>
+                <span>
+                  지도{' '}
+                  <a href="https://github.com/VictorCazanave/svg-maps" target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                    svg-maps
+                  </a>{' '}
+                  (CC BY 4.0)
+                </span>
+              </p>
+            </div>
+          )}
+        </section>
 
         {/* 목록 */}
         <section id="list" className="mx-auto max-w-6xl scroll-mt-32 px-1 pb-16 sm:px-2">
@@ -525,6 +659,7 @@ function Main() {
               것이니 신청 전에 공식 홈페이지를 꼭 확인하세요. 비용은 참고용 추정치이고, 다른 곳 후기는 링크만 모았으며 글의
               저작권은 쓴 분에게 있습니다.
             </p>
+            <p className="mt-2 max-w-[70ch]">방문 통계를 내려고 Google Analytics 를 씁니다. 이름이나 이메일처럼 누구인지 알 수 있는 정보는 보내지 않습니다.</p>
           </div>
         </footer>
       </main>
