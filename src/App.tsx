@@ -52,7 +52,24 @@ function Main() {
   const [regions, setRegions] = useState<Region[]>([]);
   // 지도·칩에서 고른 곳: 국내는 시·도 id, 해외는 나라 코드(소문자), 'kr' 은 국내 전체
   const [place, setPlace] = useState<string | null>(null);
-  const [mapOpen, setMapOpen] = useState(false);
+  // 지도는 기본으로 펼쳐 둔다 (접어 두면 다음 방문에도 접힌 채로)
+  const [mapOpen, setMapOpenState] = useState(() => {
+    try {
+      return localStorage.getItem('marathon-cal:map') !== 'closed';
+    } catch {
+      return true;
+    }
+  });
+  const setMapOpen = (fn: (v: boolean) => boolean) =>
+    setMapOpenState((v) => {
+      const next = fn(v);
+      try {
+        localStorage.setItem('marathon-cal:map', next ? 'open' : 'closed');
+      } catch {
+        /* 저장 못 해도 동작에는 지장 없음 */
+      }
+      return next;
+    });
   const [types, setTypes] = useState<EntryType[]>([]);
   const [status, setStatus] = useState<StatusFilter | null>(null);
   const [majorOnly, setMajorOnly] = useState(false);
@@ -502,7 +519,7 @@ function Main() {
               }`}
             >
               <MapTrifold size={16} weight="bold" />
-              지도
+              {mapOpen ? '지도 접기' : '지도로 보기'}
             </button>
             {scope === 'kr'
               ? PROVINCES.filter((p) => geo.province[p.id])

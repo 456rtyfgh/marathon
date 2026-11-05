@@ -93,7 +93,7 @@ export default function MapView({
     <div className="relative">
       <svg
         viewBox={box ?? map.viewBox}
-        className={`block w-full ${kind === 'kr' ? 'mx-auto max-h-[440px]' : 'max-h-[460px]'}`}
+        className={`block w-full ${kind === 'kr' ? 'mx-auto max-h-[320px] sm:max-h-[440px]' : 'max-h-[460px]'}`}
         role="group"
         aria-label={kind === 'kr' ? '시·도별 대회 지도' : '나라별 대회 지도'}
         onMouseLeave={() => setHover(null)}
