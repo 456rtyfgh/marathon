@@ -54,8 +54,18 @@ export async function loadDataset(opts: { live?: boolean } = {}): Promise<Datase
   return emptyDataset();
 }
 
+/** 별점 + 조회·저장 수. 새 함수가 아직 없으면 별점만 받는다. */
 async function loadRatings(): Promise<RaceRating[]> {
   if (!supabase) return [];
+  const r = await supabase.rpc('race_public_stats');
+  if (!r.error && r.data) {
+    return (r.data as RaceRating[]).map((x) => ({
+      ...x,
+      views: Number(x.views ?? 0),
+      saves: Number(x.saves ?? 0),
+      hot: Number(x.hot ?? 0),
+    }));
+  }
   const { data } = await supabase.from('race_ratings').select('*');
   return (data ?? []) as RaceRating[];
 }
@@ -67,7 +77,7 @@ async function loadRemote(): Promise<Dataset | null> {
     supabase.from('agencies').select('*'),
     supabase.from('packages').select('*'),
     supabase.from('cost_baselines').select('*'),
-    supabase.from('race_ratings').select('*'),
+    loadRatings().catch(() => [] as RaceRating[]),
   ]);
   if (r.error || !r.data?.length) return null;
   return {
@@ -75,7 +85,7 @@ async function loadRemote(): Promise<Dataset | null> {
     agencies: (a.data ?? []) as Agency[],
     packages: (p.data ?? []) as Package[],
     costs: (c.data ?? []) as CostBaseline[],
-    ratings: (rt.data ?? []) as RaceRating[],
+    ratings: rt,
     source: 'supabase',
   };
 }

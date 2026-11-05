@@ -1,8 +1,8 @@
 import { memo } from 'react';
-import { CaretRight, Star, BookmarkSimple } from '@phosphor-icons/react';
+import { CaretRight, Star, BookmarkSimple, Eye, CalendarCheck } from '@phosphor-icons/react';
 import type { Race, RaceRating } from '../lib/types';
 import { ENTRY_LABEL } from '../lib/types';
-import { dateParts, feeLabel, isDomestic, statusLine, TODAY, daysBetween } from '../lib/util';
+import { dateParts, feeLabel, isDomestic, statusLine, TODAY, daysBetween, shortCount } from '../lib/util';
 
 function RaceRow({
   race,
@@ -56,11 +56,27 @@ function RaceRow({
               {race.date_confidence !== 'confirmed' && ', 날짜 예상'}
             </span>
           </p>
-          {rating && rating.review_count > 0 && (
-            <p className="mt-1 flex items-center gap-1 text-[13px] text-ink-2">
-              <Star size={13} weight="fill" />
-              <span className="num text-[15px] font-semibold">{Number(rating.avg_rating).toFixed(1)}</span>
-              <span className="text-ink-3">후기 {rating.review_count}</span>
+          {rating && (rating.review_count > 0 || (rating.views ?? 0) > 0) && (
+            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px] text-ink-2">
+              {rating.review_count > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <Star size={13} weight="fill" />
+                  <span className="num text-[15px] font-semibold">{Number(rating.avg_rating).toFixed(1)}</span>
+                  <span className="text-ink-3">후기 {rating.review_count}</span>
+                </span>
+              )}
+              {(rating.views ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-1 text-ink-3" title="이 대회를 연 횟수">
+                  <Eye size={13} />
+                  조회 <span className="num text-[14px]">{shortCount(rating.views!)}</span>
+                </span>
+              )}
+              {(rating.saves ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-1 text-ink-3" title="캘린더 저장·관심 추가 횟수">
+                  <CalendarCheck size={13} />
+                  저장 <span className="num text-[14px]">{shortCount(rating.saves!)}</span>
+                </span>
+              )}
             </p>
           )}
         </div>

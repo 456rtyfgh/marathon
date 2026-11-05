@@ -4,6 +4,7 @@ import { loadRaceRequests, submitRaceRequest, adminResolveRequest, type RaceRequ
 import { useAuth } from '../lib/auth';
 import { Button, CloseButton, Field, Input, Note } from './ui';
 import { track } from '../lib/analytics';
+import { spamReason, friendlyError } from '../lib/spam';
 
 const STATUS_LABEL: Record<RaceRequest['status'], string> = {
   pending: '확인 전',
@@ -40,6 +41,8 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
     if (!session) return onLogin();
     if (name.trim().length < 2) return setErr('대회 이름을 적어 주세요.');
     if (url && !/^https?:\/\//.test(url.trim())) return setErr('홈페이지 주소는 http 또는 https 로 시작해야 합니다.');
+    const spam = spamReason(name) ?? spamReason(note) ?? spamReason(country);
+    if (spam) return setErr(spam);
     setBusy(true);
     try {
       await submitRaceRequest({ race_name: name, country, race_month: month, url, note }, session.user.id, profile?.nickname ?? '러너');
@@ -51,8 +54,8 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
       setUrl('');
       setNote('');
       reload();
-    } catch {
-      setErr('요청을 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+    } catch (e) {
+      setErr(friendlyError(e, '요청을 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'));
     } finally {
       setBusy(false);
     }

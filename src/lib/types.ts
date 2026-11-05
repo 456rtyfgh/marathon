@@ -102,10 +102,14 @@ export interface ExternalReview {
   summary: string | null;
 }
 
+/** 대회별 공개 숫자: 별점 + 조회·저장 수 + 최근 7일 인기 점수 */
 export interface RaceRating {
   race_id: string;
-  avg_rating: number;
+  avg_rating: number | null;
   review_count: number;
+  views?: number;
+  saves?: number;
+  hot?: number;
 }
 
 export interface Profile {

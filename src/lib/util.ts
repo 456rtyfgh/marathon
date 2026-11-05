@@ -119,3 +119,9 @@ export function fmtDateShort(iso: string): string {
 export function isSearchLink(url: string): boolean {
   return /^https:\/\/(search\.naver\.com|www\.google\.com\/search)/.test(url);
 }
+
+/** 조회·저장 수를 짧게: 980 → 980, 1234 → 1,234, 12345 → 1.2만 */
+export function shortCount(n: number): string {
+  if (n >= 10000) return `${(n / 10000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, '')}만`;
+  return n.toLocaleString();
+}

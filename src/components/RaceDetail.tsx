@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowUpRight, CalendarPlus, LinkSimple, Check, BookmarkSimple } from '@phosphor-icons/react';
-import { downloadIcs } from '../lib/ics';
+import { calDates, CAL_LABEL, googleCalUrl, openIcs, openOutside, type CalKind } from '../lib/ics';
 import { track } from '../lib/analytics';
 import type { Race, Agency, Package, CostBaseline, RaceRating } from '../lib/types';
 import { ENTRY_LABEL, ENTRY_DESC, CONFIDENCE_LABEL } from '../lib/types';
@@ -47,6 +47,7 @@ export default function RaceDetail({
 }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [copied, setCopied] = useState(false);
+  const [calOpen, setCalOpen] = useState(false);
 
   async function share() {
     track('share', { race_id: race.id });
@@ -195,13 +196,13 @@ export default function RaceDetail({
                 {isSearchLink(race.official_url) ? '공식 홈페이지 검색' : '공식 홈페이지'} <ArrowUpRight size={15} weight="bold" />
               </a>
               <button
-                onClick={() => {
-                  downloadIcs(race);
-                  track('calendar_add', { race_id: race.id });
-                }}
-                className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-surface px-3.5 text-sm font-semibold text-ink transition hover:bg-sunken active:translate-y-px"
+                onClick={() => setCalOpen((v) => !v)}
+                aria-expanded={calOpen}
+                className={`inline-flex h-10 items-center gap-1.5 rounded-ctl px-3.5 text-sm font-semibold transition active:translate-y-px ${
+                  calOpen ? 'bg-ink text-bg' : 'bg-surface text-ink hover:bg-sunken'
+                }`}
               >
-                <CalendarPlus size={16} weight="bold" /> 내 캘린더에 넣기
+                <CalendarPlus size={16} weight="bold" /> 캘린더에 저장
               </button>
               <button
                 onClick={share}
@@ -221,7 +222,7 @@ export default function RaceDetail({
                 </a>
               )}
             </div>
-            <p className="-mt-4 text-[13px] text-ink-3">캘린더 파일에는 접수 시작일, 마감일(하루 전 알림), 대회일이 들어갑니다.</p>
+            {calOpen && <CalendarPicker race={race} />}
 
             <p className="max-w-[60ch] text-[13px] leading-relaxed text-ink-3">
               대회 일정과 접수 기간은 매년 바뀌고 예고 없이 달라지기도 합니다. 신청 전에는 공식 홈페이지에서 한 번 더
@@ -245,6 +246,52 @@ function Fact({ label, value, sub, num }: { label: string; value: string; sub?: 
       <dt className="text-[13px] text-ink-3">{label}</dt>
       <dd className={`mt-0.5 font-semibold text-ink ${num ? 'num text-[20px]' : 'text-[15px]'}`}>{value}</dd>
       {sub && <dd className="text-[13px] text-ink-3">{sub}</dd>}
+    </div>
+  );
+}
+
+/** 대회 날·접수 시작·접수 마감을 각각 골라 구글 캘린더 또는 휴대폰 기본 캘린더에 넣는다 */
+function CalendarPicker({ race }: { race: Race }) {
+  const dates = calDates(race);
+  const save = (kind: CalKind | 'all', target: 'google' | 'ics') => {
+    track('calendar_add', { race_id: race.id, kind, target });
+    if (target === 'google') openOutside(googleCalUrl(race, kind as CalKind));
+    else openIcs(race, kind === 'all' ? dates.map((d) => d.kind) : [kind]);
+  };
+  const btn =
+    'inline-flex h-9 items-center rounded-ctl bg-bg px-3 text-[13px] font-semibold text-ink transition hover:bg-sunken active:translate-y-px';
+  return (
+    <div className="-mt-3 rounded-box bg-surface p-4">
+      <ul className="divide-y divide-line">
+        {dates.map((d) => (
+          <li key={d.kind} className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0">
+            <span className="text-[15px]">
+              <strong className="font-semibold">{CAL_LABEL[d.kind]}</strong>
+              <span className="ml-2 text-ink-2">{fmtDate(d.date)}</span>
+            </span>
+            <span className="flex gap-1.5">
+              <button className={btn} onClick={() => save(d.kind, 'google')}>
+                구글 캘린더
+              </button>
+              <button className={btn} onClick={() => save(d.kind, 'ics')}>
+                아이폰·기본 캘린더
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {dates.length > 1 && (
+        <button
+          onClick={() => save('all', 'ics')}
+          className="mt-2 inline-flex h-9 items-center rounded-ctl bg-ink px-3 text-[13px] font-semibold text-bg transition hover:opacity-85"
+        >
+          {dates.map((d) => CAL_LABEL[d.kind]).join('·')} 한 번에 넣기 (아이폰·기본 캘린더)
+        </button>
+      )}
+      <p className="mt-3 text-[12px] leading-relaxed text-ink-3">
+        접수 시작·마감 일정에는 하루 전 알림이 붙습니다. 접수일이 아직 발표되지 않은 대회는 대회 날만 넣을 수 있습니다.
+        카카오톡에서 열었다면 휴대폰 기본 브라우저로 넘어가서 저장됩니다.
+      </p>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple
 import type { Race, EntryType, Region } from './lib/types';
 import { ENTRY_LABEL, REGIONS } from './lib/types';
 import { loadDataset, emptyDataset, type Dataset } from './lib/data';
-import { entryStatus, entrySortKey, daysBetween, TODAY, isDomestic, dateParts, type EntryStatus } from './lib/util';
+import { entryStatus, entrySortKey, daysBetween, TODAY, isDomestic, dateParts, shortCount, type EntryStatus } from './lib/util';
 import { AuthProvider, useAuth } from './lib/auth';
 import { useFavorites } from './lib/favorites';
 import RaceRow from './components/RaceRow';
@@ -23,7 +23,7 @@ const PAGE = 80;
 const OVERSEAS = REGIONS.filter((r) => r !== '한국') as Region[];
 const ENTRY_TYPES: EntryType[] = ['lottery', 'fcfs', 'qualifying', 'open', 'tour_only'];
 type Scope = 'all' | 'kr' | 'abroad';
-type Sort = 'entry' | 'race_date' | 'rating' | 'flight';
+type Sort = 'entry' | 'race_date' | 'popular' | 'rating' | 'flight';
 type StatusFilter = EntryStatus | 'closing7' | 'opening30';
 
 const STATUS_GROUP: Record<EntryStatus, string> = {
@@ -47,7 +47,8 @@ function Main() {
   // 내장 데이터로 즉시 그리고, 서버 응답이 오면 교체한다.
   const [data, setData] = useState<Dataset>(emptyDataset);
   const [remote, setRemote] = useState<'loading' | 'ok' | 'fallback'>('loading');
-  const [q, setQ] = useState('');
+  // ?q=검색어 로 들어오면 (구글 검색창 바로가기 등) 그 검색어로 시작
+  const [q, setQ] = useState(() => new URLSearchParams(location.search).get('q') ?? '');
   const [scope, setScope] = useState<Scope>('all');
   const [regions, setRegions] = useState<Region[]>([]);
   // 지도·칩에서 고른 곳: 국내는 시·도 id, 해외는 나라 코드(소문자), 'kr' 은 국내 전체
@@ -123,7 +124,9 @@ function Main() {
     u.searchParams.delete('r');
     u.pathname = selected ? `/r/${selected.id}` : '/';
     history.replaceState(null, '', u.pathname + u.search + u.hash);
-    document.title = selected ? `${selected.name_ko} | 마라톤 캘린더` : '마라톤 캘린더 | 국내·해외 마라톤 접수 일정';
+    document.title = selected
+      ? `${selected.name_ko} ${selected.race_date.slice(0, 4)} 일정·접수 기간 | 마라톤 캘린더`
+      : '마라톤 캘린더 - 2026·2027 국내·해외 마라톤 대회 일정과 접수 기간';
     if (selected) {
       pageView(document.title);
       track('race_view', {
@@ -199,6 +202,20 @@ function Main() {
     document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
 
+  // 인기 점수: 최근 7일(조회 + 저장·공유·공식 홈페이지 이동 가중) 을 먼저, 같으면 누적 조회
+  const popScore = (r: Race) => {
+    const s = ratingMap.get(r.id);
+    return (s?.hot ?? 0) * 1000 + (s?.views ?? 0) + (s?.saves ?? 0) * 3;
+  };
+  const hotList = useMemo(
+    () =>
+      upcomingRaces
+        .filter((r) => (ratingMap.get(r.id)?.hot ?? 0) > 0)
+        .sort((a, b) => (ratingMap.get(b.id)?.hot ?? 0) - (ratingMap.get(a.id)?.hot ?? 0))
+        .slice(0, 6),
+    [upcomingRaces, ratingMap],
+  );
+
   const matches = (r: Race) => {
     if (favOnly && !fav.has(r.id)) return false;
     if (scope === 'kr' && !isDomestic(r)) return false;
@@ -246,10 +263,11 @@ function Main() {
     }
     const sorted = [...list].sort((a, b) => {
       if (sort === 'flight') return (a.flight_hours ?? 99) - (b.flight_hours ?? 99);
+      if (sort === 'popular') return popScore(b) - popScore(a) || byEntry(a, b);
       const d = Number(ratingMap.get(b.id)?.avg_rating ?? 0) - Number(ratingMap.get(a.id)?.avg_rating ?? 0);
       return d || byEntry(a, b);
     });
-    return [{ key: 'all', title: sort === 'flight' ? '가까운 곳부터' : '평점 높은 순', races: sorted }];
+    return [{ key: 'all', title: sort === 'flight' ? '가까운 곳부터' : sort === 'popular' ? '인기순 (최근 7일 조회·저장 기준)' : '평점 높은 순', races: sorted }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upcomingRaces, q, scope, regions, place, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids]);
 
@@ -396,6 +414,53 @@ function Main() {
           </div>
         </section>
 
+        {/* 요즘 인기: 최근 7일 조회·저장이 많은 대회 */}
+        {hotList.length >= 3 && (
+          <section className="mx-auto max-w-6xl px-4 pb-6 sm:px-6" aria-label="요즘 인기 대회">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="text-[15px] font-bold">요즘 많이 보는 대회</h2>
+              <button
+                onClick={() => {
+                  setSort('popular');
+                  track('filter', { name: 'sort', value: 'popular' });
+                  document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                }}
+                className="text-[13px] font-semibold text-ink-3 underline underline-offset-4 hover:text-ink"
+              >
+                인기순 전체 보기
+              </button>
+            </div>
+            <ol className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
+              {hotList.map((r, i) => {
+                const st = ratingMap.get(r.id);
+                const p = dateParts(r.race_date);
+                return (
+                  <li key={r.id} className="w-[11.5rem] shrink-0 sm:w-auto">
+                    <button
+                      onClick={() => openRace(r)}
+                      className="flex h-full w-full flex-col items-start gap-1 rounded-box bg-surface px-3.5 py-3 text-left transition hover:bg-sunken"
+                    >
+                      <span className="num text-[13px] font-bold text-ink-3">{i + 1}위</span>
+                      <span className="line-clamp-2 text-[15px] leading-snug font-bold">{r.name_ko}</span>
+                      <span className="text-[13px] text-ink-3">
+                        {p.m}월 {p.d}일 · {isDomestic(r) ? r.city_ko.split(' ')[0] : r.country_ko}
+                      </span>
+                      <span className="mt-auto text-[12px] text-ink-3">
+                        조회 <span className="num text-[13px]">{shortCount(st?.views ?? 0)}</span>
+                        {(st?.saves ?? 0) > 0 && (
+                          <>
+                            {' '}· 저장 <span className="num text-[13px]">{shortCount(st!.saves!)}</span>
+                          </>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        )}
+
         {/* 도구 막대 */}
         <div className="border-y border-line bg-bg sm:sticky sm:top-14 sm:z-20">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-2.5 sm:px-6">
@@ -452,6 +517,7 @@ function Main() {
                 >
                   <option value="entry">접수 순서</option>
                   <option value="race_date">대회 날짜</option>
+                  <option value="popular">인기순</option>
                   <option value="rating">평점</option>
                   <option value="flight">가까운 곳</option>
                 </select>

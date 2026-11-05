@@ -8,6 +8,7 @@ import { hasSupabase } from '../lib/supabase';
 import StarRating from './StarRating';
 import { Button, Field, Input, Note, inputCls } from './ui';
 import { track } from '../lib/analytics';
+import { spamReason, friendlyError } from '../lib/spam';
 
 export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () => void }) {
   const { session, profile } = useAuth();
@@ -186,6 +187,8 @@ function ReviewForm({
     e.preventDefault();
     if (!rating) return setErr('별점을 골라 주세요.');
     if (body.trim().length < 10) return setErr('후기는 10자 이상 써 주세요.');
+    const spam = spamReason(body) ?? spamReason(time);
+    if (spam) return setErr(spam);
     setBusy(true);
     setErr('');
     try {
@@ -205,8 +208,8 @@ function ReviewForm({
       );
       track('review_submit', { race_id: race.id });
       onDone();
-    } catch {
-      setErr('저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+    } catch (e) {
+      setErr(friendlyError(e, '저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'));
     } finally {
       setBusy(false);
     }
