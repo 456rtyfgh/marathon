@@ -38,7 +38,14 @@ jobs:
           VITE_GA_ID: ${{ vars.VITE_GA_ID }}
         run: npm run build
 
-      - name: Deploy
+      - name: Deploy site (Cloudflare Pages)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name marathoncalendar --branch main --commit-dirty=true
+
+      - name: Deploy old-address redirect + keepalive cron
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

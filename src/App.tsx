@@ -23,7 +23,7 @@ const PAGE = 80;
 const OVERSEAS = REGIONS.filter((r) => r !== '한국') as Region[];
 const ENTRY_TYPES: EntryType[] = ['lottery', 'fcfs', 'qualifying', 'open', 'tour_only'];
 type Scope = 'all' | 'kr' | 'abroad';
-type Sort = 'entry' | 'race_date' | 'popular' | 'flight';
+type Sort = 'entry' | 'race_date' | 'popular' | 'size' | 'flight';
 type StatusFilter = EntryStatus | 'closing7' | 'opening30';
 
 const STATUS_GROUP: Record<EntryStatus, string> = {
@@ -263,9 +263,10 @@ function Main() {
     }
     const sorted = [...list].sort((a, b) => {
       if (sort === 'flight') return (a.flight_hours ?? 99) - (b.flight_hours ?? 99);
+      if (sort === 'size') return (b.field_size ?? -1) - (a.field_size ?? -1) || byEntry(a, b);
       return popScore(b) - popScore(a) || byEntry(a, b);
     });
-    return [{ key: 'all', title: sort === 'flight' ? '가까운 곳부터' : '인기순 (최근 7일 조회·저장 기준)', races: sorted }];
+    return [{ key: 'all', title: sort === 'flight' ? '가까운 곳부터' : sort === 'size' ? '참가자 많은 순 (규모 미공개 대회는 맨 뒤)' : '인기순 (최근 7일 조회·저장 기준)', races: sorted }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upcomingRaces, q, scope, regions, place, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids]);
 
@@ -516,6 +517,7 @@ function Main() {
                   <option value="entry">접수 순서</option>
                   <option value="race_date">대회 날짜</option>
                   <option value="popular">인기순</option>
+                  <option value="size">규모순</option>
                   <option value="flight">가까운 곳</option>
                 </select>
                 <CaretDown size={14} className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-ink-3" />

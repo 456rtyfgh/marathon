@@ -5,7 +5,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const ORIGIN = process.env.SITE_ORIGIN || 'https://marathon.junubenchoi.workers.dev';
+const ORIGIN = process.env.SITE_ORIGIN || 'https://marathoncalendar.pages.dev';
 const dist = new URL('../dist/index.html', import.meta.url);
 const snap = JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'));
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
