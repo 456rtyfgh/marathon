@@ -1,15 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // 예전 주소(marathon.junubenchoi.workers.dev) 담당: 새 주소로 301 이동 + Supabase 깨우기 예약 실행.
-  // 사이트 본체는 Cloudflare Pages(marathoncalendar.pages.dev) 로 배포한다 (scripts/pages.mjs).
+  // 예전 주소(marathon.junubenchoi.workers.dev) 담당: 새 주소로 301 이동만 한다.
+  // 사이트 본체는 Cloudflare Pages(marathoncalendar.pages.dev), DB 깨우기는 wrangler.cron.jsonc 워커.
   "name": "marathon",
   "main": "worker/index.ts",
   "compatibility_date": "2026-08-01",
-  // 매일 03:17, 15:17 UTC 에 Supabase 를 깨워 둔다 (heartbeat 한 줄 기록)
-  "triggers": { "crons": ["17 3,15 * * *"] },
-  "vars": {
-    "SUPABASE_URL": "https://zhwmfvkwtmakieatlqtz.supabase.co",
-    "SUPABASE_KEY": "sb_publishable_uOBwP5-BbK7keBuq3gsMAg_Oil1yg6O",
-    "SITE_ORIGIN": "https://marathoncalendar.pages.dev"
-  }
+  "triggers": { "crons": [] },
+  "vars": { "SITE_ORIGIN": "https://marathoncalendar.pages.dev" }
 }

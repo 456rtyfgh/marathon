@@ -4,8 +4,13 @@
  * 여기 함수는 _routes.json 으로 두 경로에서만 돈다.
  *  - /r/대회id      : 공유 링크. 대회별 제목·설명(og 태그), 검색엔진용 본문, 구조화 데이터를 넣는다.
  *  - /cal/대회id.ics: 캘린더 일정 파일 (아이폰 사파리는 열자마자 '캘린더에 추가').
+ *  - /__ping        : DB 연결 확인 (한 번 깨우기)
  */
 import { raceIcs, type CalKind } from '../src/lib/ics';
+import { keepalive } from './keepalive';
+
+// 공개 값(브라우저에도 들어 있는 publishable key)
+const DB = { SUPABASE_URL: 'https://zhwmfvkwtmakieatlqtz.supabase.co', SUPABASE_KEY: 'sb_publishable_uOBwP5-BbK7keBuq3gsMAg_Oil1yg6O' };
 
 export interface SiteEnv {
   ASSETS: { fetch: (req: Request | string) => Promise<Response> };
@@ -153,6 +158,10 @@ async function withRaceMeta(req: Request, env: Env, id: string): Promise<Respons
 
 export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
   const url = new URL(req.url);
+  if (url.pathname === '/__ping') {
+    const r = await keepalive(DB);
+    return new Response(`supabase ${r.status} ${r.body}`, { status: r.ok ? 200 : 502, headers: { 'Cache-Control': 'no-store' } });
+  }
   const m = url.pathname.match(/^\/r\/([a-z0-9-]{2,40})\/?$/);
   if (m) return withRaceMeta(req, env, m[1]);
   const c = url.pathname.match(/^\/cal\/([a-z0-9-]{2,40})\.ics$/);
