@@ -107,7 +107,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   maxLength={10}
-                  placeholder="000000"
+                  placeholder="00000000"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   className="num text-[20px] tracking-[0.2em]"
