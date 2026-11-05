@@ -50,7 +50,7 @@ export default function RaceDetail({
 
   async function share() {
     track('share', { race_id: race.id });
-    const url = `${location.origin}/?r=${encodeURIComponent(race.id)}`;
+    const url = `${location.origin}/r/${encodeURIComponent(race.id)}`;
     const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
     if (nav.share && matchMedia('(pointer: coarse)').matches) {
       try {
@@ -87,7 +87,10 @@ export default function RaceDetail({
           </span>
           <div className="flex items-center gap-1">
             <button
-              onClick={onToggleFavorite}
+              onClick={() => {
+                if (!favorite) track('favorite', { race_id: race.id });
+                onToggleFavorite();
+              }}
               aria-pressed={favorite}
               className={`inline-flex h-11 items-center gap-1.5 rounded-ctl px-3 text-[14px] sm:h-9 font-semibold transition active:translate-y-px ${
                 favorite ? 'bg-ink text-bg' : 'text-ink-2 hover:bg-sunken hover:text-ink'

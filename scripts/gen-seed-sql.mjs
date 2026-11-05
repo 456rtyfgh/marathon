@@ -1,21 +1,11 @@
 /**
- * src/lib/seed.ts 를 단일 소스로 삼아 supabase/seed.sql 을 생성한다.
+ * public/data.json (DB 사본) 을 바탕으로 supabase/seed.sql 을 생성한다. 새 Supabase 프로젝트로 옮길 때 쓴다.
  *   node scripts/gen-seed-sql.mjs
  */
-import { build } from 'esbuild';
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
-const out = join(tmpdir(), `seed-${Date.now()}.mjs`);
-await build({
-  entryPoints: ['src/lib/seed.ts'],
-  outfile: out,
-  format: 'esm',
-  bundle: true,
-  platform: 'node',
-});
-const { RACES, AGENCIES, PACKAGES, COSTS } = await import('file://' + out);
+const snap = JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'));
+const { races: RACES, agencies: AGENCIES, packages: PACKAGES, costs: COSTS } = snap;
 
 const q = (v) => {
   if (v === null || v === undefined) return 'null';

@@ -3,6 +3,7 @@ import { ArrowUpRight } from '@phosphor-icons/react';
 import { loadRaceRequests, submitRaceRequest, adminResolveRequest, type RaceRequest } from '../lib/data';
 import { useAuth } from '../lib/auth';
 import { Button, CloseButton, Field, Input, Note } from './ui';
+import { track } from '../lib/analytics';
 
 const STATUS_LABEL: Record<RaceRequest['status'], string> = {
   pending: '확인 전',
@@ -42,6 +43,7 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
     setBusy(true);
     try {
       await submitRaceRequest({ race_name: name, country, race_month: month, url, note }, session.user.id, profile?.nickname ?? '러너');
+      track('request_submit', { race_name: name.trim() });
       setMsg('받았습니다. 매주 월요일 정보를 갱신할 때 확인해서 넣겠습니다.');
       setName('');
       setCountry('');

@@ -7,8 +7,8 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    // 공유 링크(/?r=...)에 대회별 미리보기 태그를 넣으려고 "/" 만 워커가 먼저 받는다
-    "run_worker_first": ["/", "/__ping"]
+    // 공유 링크(/r/대회id)와 /__ping 만 워커가 받는다. 첫 화면·data.json 은 워커 없이 바로 나간다(무료 한도 보호).
+    "run_worker_first": ["/r/*", "/__ping"]
   },
   // 매일 03:17, 15:17 UTC 에 Supabase 를 깨워 둔다 (heartbeat 한 줄 기록)
   "triggers": { "crons": ["17 3,15 * * *"] },

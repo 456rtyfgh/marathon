@@ -4,6 +4,7 @@ import { subscribeAlert } from '../lib/data';
 import { useAuth } from '../lib/auth';
 import { daysBetween, TODAY, fmtDate } from '../lib/util';
 import { Button, Field, Input, Note } from './ui';
+import { track } from '../lib/analytics';
 
 const OPTIONS = [30, 14, 7, 3, 1];
 
@@ -27,6 +28,7 @@ export default function AlertForm({ race }: { race: Race }) {
     setState('busy');
     try {
       await subscribeAlert(email.trim(), race.id, days);
+      track('alert_subscribe', { race_id: race.id });
       setState('ok');
       setMsg(`${email.trim()} 로 알려 드립니다.`);
     } catch (err) {

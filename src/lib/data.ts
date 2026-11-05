@@ -1,5 +1,5 @@
 import { supabase, hasSupabase } from './supabase';
-import { RACES, AGENCIES, PACKAGES, COSTS, FX } from './seed';
+import { FX } from './seed';
 import type {
   Race,
   Agency,
@@ -16,49 +16,68 @@ export interface Dataset {
   packages: Package[];
   costs: CostBaseline[];
   ratings: RaceRating[];
-  source: 'supabase' | 'seed';
+  /** static: CDN 의 /data.json (매일 갱신) · supabase: DB 직접 · none: 둘 다 실패 */
+  source: 'static' | 'supabase' | 'none';
 }
 
-export const seedDataset = (): Dataset => ({
-  races: RACES,
-  agencies: AGENCIES,
-  packages: PACKAGES,
-  costs: COSTS,
-  ratings: [],
-  source: 'seed',
-});
+export const emptyDataset = (): Dataset => ({ races: [], agencies: [], packages: [], costs: [], ratings: [], source: 'none' });
 
-/** 서버가 느리거나 멈춰 있어도 목록은 바로 보이도록 4초 안에 응답이 없으면 내장 데이터로 연다. */
 const withTimeout = <T,>(p: Promise<T>, ms: number) =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
-export async function loadDataset(): Promise<Dataset> {
-  if (!hasSupabase || !supabase) return seedDataset();
-  return withTimeout(loadRemote(), 4000).catch(() => seedDataset());
+/**
+ * 방문자가 많아도 DB 를 거의 안 쓰도록, 대회 목록은 배포 때(매일) 만든 정적 파일 /data.json 을
+ * Cloudflare CDN 에서 받는다. 후기 별점만 DB 에서 가볍게 따로 받는다.
+ * live=true (관리자 저장 직후 등) 면 DB 에서 바로 읽는다.
+ */
+export async function loadDataset(opts: { live?: boolean } = {}): Promise<Dataset> {
+  if (opts.live && supabase) {
+    const d = await withTimeout(loadRemote(), 8000).catch(() => null);
+    if (d) return d;
+  }
+  try {
+    const [res, ratings] = await Promise.all([
+      withTimeout(fetch('/data.json'), 8000),
+      withTimeout(loadRatings(), 3000).catch(() => [] as RaceRating[]),
+    ]);
+    if (res.ok) {
+      const j = (await res.json()) as Omit<Dataset, 'ratings' | 'source'>;
+      if (j.races?.length) return { ...j, ratings, source: 'static' };
+    }
+  } catch {
+    /* 아래 DB 로 */
+  }
+  if (supabase) {
+    const d = await withTimeout(loadRemote(), 8000).catch(() => null);
+    if (d) return d;
+  }
+  return emptyDataset();
 }
 
-async function loadRemote(): Promise<Dataset> {
-  if (!supabase) return seedDataset();
-  try {
-    const [r, a, p, c, rt] = await Promise.all([
-      supabase.from('races').select('*').order('race_date'),
-      supabase.from('agencies').select('*'),
-      supabase.from('packages').select('*'),
-      supabase.from('cost_baselines').select('*'),
-      supabase.from('race_ratings').select('*'),
-    ]);
-    if (r.error || !r.data?.length) return seedDataset();
-    return {
-      races: r.data as Race[],
-      agencies: (a.data ?? AGENCIES) as Agency[],
-      packages: (p.data ?? PACKAGES) as Package[],
-      costs: (c.data ?? COSTS) as CostBaseline[],
-      ratings: (rt.data ?? []) as RaceRating[],
-      source: 'supabase',
-    };
-  } catch {
-    return seedDataset();
-  }
+async function loadRatings(): Promise<RaceRating[]> {
+  if (!supabase) return [];
+  const { data } = await supabase.from('race_ratings').select('*');
+  return (data ?? []) as RaceRating[];
+}
+
+async function loadRemote(): Promise<Dataset | null> {
+  if (!supabase) return null;
+  const [r, a, p, c, rt] = await Promise.all([
+    supabase.from('races').select('*').order('race_date'),
+    supabase.from('agencies').select('*'),
+    supabase.from('packages').select('*'),
+    supabase.from('cost_baselines').select('*'),
+    supabase.from('race_ratings').select('*'),
+  ]);
+  if (r.error || !r.data?.length) return null;
+  return {
+    races: r.data as Race[],
+    agencies: (a.data ?? []) as Agency[],
+    packages: (p.data ?? []) as Package[],
+    costs: (c.data ?? []) as CostBaseline[],
+    ratings: (rt.data ?? []) as RaceRating[],
+    source: 'supabase',
+  };
 }
 
 /* ── 후기 ───────────────────────────────────────────────── */
@@ -228,4 +247,17 @@ export async function adminConfirmMember(id: string) {
   if (!supabase) throw new Error('Supabase가 연결되지 않았습니다.');
   const { error } = await supabase.rpc('admin_confirm_member', { p_id: id });
   if (error) throw new Error(error.message);
+}
+
+export interface StatRow {
+  event: string;
+  key: string;
+  n: number;
+}
+
+export async function adminStats(days: number): Promise<StatRow[]> {
+  if (!supabase) throw new Error('Supabase가 연결되지 않았습니다.');
+  const { data, error } = await supabase.rpc('admin_stats', { p_days: days });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as StatRow[]).map((r) => ({ ...r, n: Number(r.n) }));
 }

@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, MapTrifold } from '@phosphor-icons/react';
 import type { Race, EntryType, Region } from './lib/types';
 import { ENTRY_LABEL, REGIONS } from './lib/types';
-import { loadDataset, seedDataset, type Dataset } from './lib/data';
+import { loadDataset, emptyDataset, type Dataset } from './lib/data';
 import { entryStatus, entrySortKey, daysBetween, TODAY, isDomestic, dateParts, type EntryStatus } from './lib/util';
 import { AuthProvider, useAuth } from './lib/auth';
 import { useFavorites } from './lib/favorites';
@@ -45,7 +45,7 @@ function Main() {
   const auth = useAuth();
   const { profile } = auth;
   // 내장 데이터로 즉시 그리고, 서버 응답이 오면 교체한다.
-  const [data, setData] = useState<Dataset>(seedDataset);
+  const [data, setData] = useState<Dataset>(emptyDataset);
   const [remote, setRemote] = useState<'loading' | 'ok' | 'fallback'>('loading');
   const [q, setQ] = useState('');
   const [scope, setScope] = useState<Scope>('all');
@@ -87,24 +87,28 @@ function Main() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
 
-  const reload = () =>
-    loadDataset().then((d) => {
+  const reload = (live = false) =>
+    loadDataset({ live }).then((d) => {
       setData(d);
-      setRemote(d.source === 'supabase' ? 'ok' : 'fallback');
+      setRemote(d.source === 'none' ? 'fallback' : 'ok');
     });
   useEffect(() => {
     reload();
   }, []);
+  // 관리자는 방금 고친 내용이 바로 보이도록 DB 에서 직접 읽는다
+  useEffect(() => {
+    if (profile?.is_admin) reload(true);
+  }, [profile?.is_admin]);
 
   useEffect(() => {
     if (auth.recovering) setAuthMode('reset');
   }, [auth.recovering]);
 
-  // ?r=대회id 로 들어오면 그 대회를 바로 연다 (공유 링크)
+  // /r/대회id (또는 예전 ?r=대회id) 로 들어오면 그 대회를 바로 연다 (공유 링크)
   const [deepLinked, setDeepLinked] = useState(false);
   useEffect(() => {
     if (deepLinked) return;
-    const id = new URLSearchParams(location.search).get('r');
+    const id = location.pathname.match(/^\/r\/([a-z0-9-]+)/)?.[1] ?? new URLSearchParams(location.search).get('r');
     if (!id) return setDeepLinked(true);
     const r = data.races.find((x) => x.id === id);
     if (r) {
@@ -116,8 +120,8 @@ function Main() {
   useEffect(() => {
     if (!deepLinked) return;
     const u = new URL(location.href);
-    if (selected) u.searchParams.set('r', selected.id);
-    else u.searchParams.delete('r');
+    u.searchParams.delete('r');
+    u.pathname = selected ? `/r/${selected.id}` : '/';
     history.replaceState(null, '', u.pathname + u.search + u.hash);
     document.title = selected ? `${selected.name_ko} | 마라톤 캘린더` : '마라톤 캘린더 | 국내·해외 마라톤 접수 일정';
     if (selected) {
@@ -266,6 +270,21 @@ function Main() {
 
   const openRace = useCallback((r: Race) => setSelected(r), []);
 
+  // 검색어: 입력이 1.2초 멈추면 한 번 기록 (결과 0건이면 '찾는데 없는 대회'로 따로 센다)
+  const shownRef = useRef(0);
+  shownRef.current = shown;
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) return;
+    const t = setTimeout(() => track('search', { search_term: term, results: shownRef.current }), 1200);
+    return () => clearTimeout(t);
+  }, [q]);
+  useEffect(() => {
+    if (maxFlight >= 24) return;
+    const t = setTimeout(() => track('filter', { name: 'flight', value: `${maxFlight}h` }), 1200);
+    return () => clearTimeout(t);
+  }, [maxFlight]);
+
   // 필터·정렬이 바뀌면 처음부터 다시 보여준다
   useEffect(() => setLimit(PAGE), [groups]);
 
@@ -295,6 +314,7 @@ function Main() {
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
   const pickStatus = (s: StatusFilter) => {
+    if (status !== s) track('filter', { name: 'status', value: s });
     setStatus((cur) => (cur === s ? null : s));
     setSort('entry');
     document.getElementById('list')?.scrollIntoView({ block: 'start' });
@@ -354,8 +374,8 @@ function Main() {
               마라톤 접수 일정
             </h1>
             <p className="mt-4 max-w-[42ch] text-[16px] leading-relaxed text-balance text-ink-2 sm:text-[17px]">
-              국내 {stats.kr}개, 해외 {stats.abroad}개 대회의 접수 방식과 기간을 접수가 가까운 순서로 모았습니다.
-            </p>
+              {remote === 'loading' ? '국내·해외 마라톤의 접수 방식과 기간을 접수가 가까운 순서로 모았습니다.' : <>국내 {stats.kr}개, 해외 {stats.abroad}개 대회의 접수 방식과 기간을 접수가 가까운 순서로 모았습니다.
+            </>}</p>
           </div>
 
           <div className="grid grid-cols-3 gap-px overflow-hidden rounded-box bg-line md:w-[27rem]">
@@ -395,6 +415,7 @@ function Main() {
                     setScope(s);
                     setRegions([]);
                     setPlace(null);
+                    if (s !== scope) track('filter', { name: 'scope', value: s });
                   }}
                   className={`flex h-9 items-center gap-1.5 rounded-[4px] px-3 sm:h-8 text-[14px] font-semibold transition ${
                     scope === s ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.08)]' : 'text-ink-3 hover:text-ink'
@@ -423,7 +444,10 @@ function Main() {
                 <span className="sr-only">정렬</span>
                 <select
                   value={sort}
-                  onChange={(e) => setSort(e.target.value as Sort)}
+                  onChange={(e) => {
+                    setSort(e.target.value as Sort);
+                    track('filter', { name: 'sort', value: e.target.value });
+                  }}
                   className="h-10 appearance-none rounded-ctl border border-line bg-surface pr-9 pl-3 text-[14px] font-semibold outline-none focus:border-ink"
                 >
                   <option value="entry">접수 순서</option>
@@ -435,7 +459,10 @@ function Main() {
               </label>
               {fav.ids.length > 0 && (
                 <button
-                  onClick={() => setFavOnly((v) => !v)}
+                  onClick={() => {
+                    if (!favOnly) track('filter', { name: 'favorites', value: 'on' });
+                    setFavOnly((v) => !v);
+                  }}
                   aria-pressed={favOnly}
                   className={`inline-flex h-10 items-center gap-1.5 rounded-ctl border px-3 text-[14px] font-semibold transition ${
                     favOnly ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
@@ -465,7 +492,10 @@ function Main() {
               <div className="mx-auto grid max-w-6xl gap-4 px-4 py-4 sm:px-6 md:grid-cols-2">
                 <FilterGroup label="접수 방식">
                   {ENTRY_TYPES.map((t) => (
-                    <Chip key={t} on={types.includes(t)} onClick={() => toggle(types, setTypes, t)}>
+                    <Chip key={t} on={types.includes(t)} onClick={() => {
+                        if (!types.includes(t)) track('filter', { name: 'entry_type', value: t });
+                        toggle(types, setTypes, t);
+                      }}>
                       {ENTRY_LABEL[t]}
                     </Chip>
                   ))}
@@ -478,11 +508,24 @@ function Main() {
                       ['closed', '접수 끝'],
                     ] as [EntryStatus, string][]
                   ).map(([s, label]) => (
-                    <Chip key={s} on={status === s} onClick={() => setStatus(status === s ? null : s)}>
+                    <Chip
+                      key={s}
+                      on={status === s}
+                      onClick={() => {
+                        if (status !== s) track('filter', { name: 'status', value: s });
+                        setStatus(status === s ? null : s);
+                      }}
+                    >
                       {label}
                     </Chip>
                   ))}
-                  <Chip on={majorOnly} onClick={() => setMajorOnly(!majorOnly)}>
+                  <Chip
+                    on={majorOnly}
+                    onClick={() => {
+                      if (!majorOnly) track('filter', { name: 'major', value: 'on' });
+                      setMajorOnly(!majorOnly);
+                    }}
+                  >
                     메이저만
                   </Chip>
                 </FilterGroup>
@@ -537,6 +580,7 @@ function Main() {
                       key={r}
                       on={regions.includes(r)}
                       onClick={() => {
+                        if (!regions.includes(r)) track('filter', { name: 'region', value: r });
                         setRegions(regions.includes(r) ? regions.filter((x) => x !== r) : [r]);
                         setPlace(null);
                       }}
@@ -595,7 +639,13 @@ function Main() {
 
         {/* 목록 */}
         <section id="list" className="mx-auto max-w-6xl scroll-mt-32 px-1 pb-16 sm:px-2">
-          {shown === 0 ? (
+          {remote === 'loading' ? (
+            <div className="space-y-px pt-8" aria-busy="true" aria-label="대회 목록 불러오는 중">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="h-[88px] animate-pulse bg-surface" />
+              ))}
+            </div>
+          ) : shown === 0 ? (
             <div className="px-3 py-20 text-center">
               <p className="text-[17px] font-semibold">조건에 맞는 대회가 없습니다.</p>
               <div className="mt-4 flex justify-center gap-3">
@@ -702,7 +752,7 @@ function Main() {
       </Panel>
 
       <Panel open={showAdmin && !!profile?.is_admin} onClose={() => setShowAdmin(false)} label="관리">
-        {<AdminPanel races={data.races} onClose={() => setShowAdmin(false)} onSaved={reload} />}
+        {<AdminPanel races={data.races} onClose={() => setShowAdmin(false)} onSaved={() => reload(true)} />}
       </Panel>
 
       <Panel
@@ -727,7 +777,7 @@ function Main() {
 
       {remote !== 'fallback' ? null : (
         <div className="fixed right-4 bottom-4 z-40 max-w-xs">
-          <Note tone="info">서버에 연결하지 못해 저장해 둔 목록을 표시합니다. 새로고침하면 다시 시도합니다.</Note>
+          <Note tone="error">대회 목록을 불러오지 못했습니다. 잠시 뒤 새로고침해 주세요.</Note>
         </div>
       )}
     </div>

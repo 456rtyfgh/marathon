@@ -42,7 +42,7 @@ export function raceIcs(race: Race, pageUrl: string): string {
 }
 
 export function downloadIcs(race: Race) {
-  const url = `${location.origin}/?r=${encodeURIComponent(race.id)}`;
+  const url = `${location.origin}/r/${encodeURIComponent(race.id)}`;
   const blob = new Blob([raceIcs(race, url)], { type: 'text/calendar;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { CloseButton, Tabs, Button, Note, inputCls } from './ui';
 import type { Race, ExternalKind, Region, Course, EntryType, Confidence } from '../lib/types';
 import { REGIONS, COURSES, ENTRY_LABEL, CONFIDENCE_LABEL, KIND_LABEL } from '../lib/types';
-import { adminUpsertRace, adminDeleteRace, adminAddExternalReview, adminListMembers, adminConfirmMember, type Member } from '../lib/data';
+import { adminUpsertRace, adminDeleteRace, adminAddExternalReview, adminListMembers, adminConfirmMember, adminStats, type Member, type StatRow } from '../lib/data';
 
 const EMPTY: Race = {
   id: '',
@@ -32,7 +32,7 @@ const EMPTY: Race = {
 };
 
 export default function AdminPanel({ races, onClose, onSaved }: { races: Race[]; onClose: () => void; onSaved: () => void }) {
-  const [tab, setTab] = useState<'race' | 'ext' | 'members'>('race');
+  const [tab, setTab] = useState<'stats' | 'race' | 'ext' | 'members'>('stats');
 
   return (
     <div className="flex h-full flex-col">
@@ -44,10 +44,11 @@ export default function AdminPanel({ races, onClose, onSaved }: { races: Race[];
         <CloseButton onClick={onClose} />
       </header>
 
-      <Tabs<'race' | 'ext' | 'members'>
+      <Tabs<'stats' | 'race' | 'ext' | 'members'>
         value={tab}
         onChange={setTab}
         items={[
+          ['stats', '통계'],
           ['race', '대회 추가·수정'],
           ['ext', '다른 곳 후기 링크'],
           ['members', '회원'],
@@ -55,6 +56,7 @@ export default function AdminPanel({ races, onClose, onSaved }: { races: Race[];
       />
 
       <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-7">
+        {tab === 'stats' && <Stats races={races} />}
         {tab === 'race' && <RaceForm races={races} onSaved={onSaved} />}
         {tab === 'ext' && <ExtForm races={races} onSaved={onSaved} />}
         {tab === 'members' && <Members />}
@@ -410,6 +412,128 @@ function Members() {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+const EVENT_LABEL: Record<string, string> = {
+  race_view: '많이 본 대회',
+  official_click: '공식 홈페이지로 넘어간 대회',
+  agency_click: '여행사 링크 클릭',
+  search: '많이 찾은 검색어',
+  search_empty: '찾았는데 결과가 없던 검색어 (추가 후보)',
+  place: '지도·지역에서 고른 곳',
+  filter: '많이 쓴 필터',
+  race_tab: '상세에서 본 탭',
+  source: '어디서 왔나',
+  calendar_add: '캘린더에 넣은 대회',
+  share: '공유한 대회',
+  favorite: '관심 추가한 대회',
+  alert: '알림 신청한 대회',
+};
+const RACE_KEYED = new Set(['race_view', 'official_click', 'calendar_add', 'share', 'favorite', 'alert']);
+const TAB_LABEL: Record<string, string> = { overview: '정보', reviews: '후기', packages: '여행사', cost: '비용', alert: '알림' };
+
+/** 광고 영업에 쓸 숫자: 방문·검색어·많이 본 대회·클릭. 일별 합계만 쌓인다. */
+function Stats({ races }: { races: Race[] }) {
+  const [days, setDays] = useState(30);
+  const [rows, setRows] = useState<StatRow[] | null>(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    setRows(null);
+    adminStats(days)
+      .then(setRows)
+      .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
+  }, [days]);
+
+  if (err) return <Note tone="error">{err}</Note>;
+  const name = new Map(races.map((r) => [r.id, r.name_ko]));
+  const total = (ev: string) => (rows ?? []).filter((r) => r.event === ev).reduce((a, r) => a + r.n, 0);
+  const top = (ev: string, limit = 12) =>
+    (rows ?? []).filter((r) => r.event === ev && r.key).sort((a, b) => b.n - a.n).slice(0, limit);
+  const daily = (rows ?? []).filter((r) => r.event === 'day:visit').sort((a, b) => a.key.localeCompare(b.key));
+  const maxDay = Math.max(1, ...daily.map((d) => d.n));
+  const label = (ev: string, k: string) =>
+    RACE_KEYED.has(ev) ? name.get(k) ?? k : ev === 'race_tab' ? TAB_LABEL[k] ?? k : k;
+
+  return (
+    <div className="space-y-7">
+      <div className="flex flex-wrap items-center gap-2">
+        {[7, 30, 90].map((d) => (
+          <Button key={d} tone={d === days ? 'primary' : 'quiet'} onClick={() => setDays(d)}>
+            최근 {d}일
+          </Button>
+        ))}
+      </div>
+
+      {!rows ? (
+        <p className="text-[15px] text-ink-3">불러오는 중</p>
+      ) : (
+        <>
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {(
+              [
+                ['방문', total('visit')],
+                ['대회 상세 조회', total('race_view')],
+                ['공식 홈페이지 이동', total('official_click')],
+                ['여행사 클릭', total('agency_click')],
+              ] as [string, number][]
+            ).map(([l, v]) => (
+              <div key={l} className="rounded-box bg-surface px-4 py-3">
+                <dt className="text-[13px] text-ink-3">{l}</dt>
+                <dd className="num mt-0.5 text-[26px] leading-none font-bold">{v.toLocaleString()}</dd>
+              </div>
+            ))}
+          </dl>
+
+          {daily.length > 0 && (
+            <section>
+              <h3 className="mb-2 text-[15px] font-bold">일별 방문</h3>
+              <div className="flex h-28 items-end gap-[3px]">
+                {daily.map((d) => (
+                  <div key={d.key} className="group relative flex-1" title={`${d.key} · ${d.n}`}>
+                    <div className="rounded-t-[2px] bg-accent" style={{ height: `${Math.max(4, (d.n / maxDay) * 108)}px` }} />
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1 flex justify-between text-[12px] text-ink-3">
+                <span>{daily[0].key}</span>
+                <span>{daily[daily.length - 1].key}</span>
+              </p>
+            </section>
+          )}
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {Object.keys(EVENT_LABEL).map((ev) => {
+              const list = top(ev);
+              if (!list.length) return null;
+              const max = list[0].n;
+              return (
+                <section key={ev}>
+                  <h3 className="mb-2 text-[15px] font-bold">{EVENT_LABEL[ev]}</h3>
+                  <ol className="space-y-1">
+                    {list.map((r) => (
+                      <li key={r.key} className="relative overflow-hidden rounded-ctl bg-surface px-3 py-1.5 text-[14px]">
+                        <span className="absolute inset-y-0 left-0 bg-sunken" style={{ width: `${(r.n / max) * 100}%` }} />
+                        <span className="relative flex justify-between gap-3">
+                          <span className="truncate">{label(ev, r.key)}</span>
+                          <span className="num text-[15px] font-semibold">{r.n.toLocaleString()}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              );
+            })}
+          </div>
+          {total('visit') === 0 && (
+            <p className="text-[14px] text-ink-3">아직 쌓인 기록이 없습니다. 방문이 생기면 몇 초 안에 여기에 보입니다.</p>
+          )}
+          <p className="text-[13px] leading-relaxed text-ink-3">
+            방문자 기기·지역·체류 시간 같은 더 자세한 숫자는 Google Analytics(analytics.google.com → 마라톤 캘린더 속성)에서 볼 수 있습니다.
+          </p>
+        </>
+      )}
     </div>
   );
 }

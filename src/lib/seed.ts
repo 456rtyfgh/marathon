@@ -1,15 +1,7 @@
-import type { Race, Agency, Package, CostBaseline } from './types';
-import snapshot from './snapshot.json';
-
 /**
- * 서버(Supabase)에 연결하지 못할 때 쓰는 내장 데이터.
- * 원본은 DB 이고, 이 파일은 `npm run snapshot` 으로 DB 를 떠온 사본이다.
- * 배포(GitHub Actions) 때마다 새로 떠서 넣는다.
+ * 대회 데이터는 DB 가 원본이고, 배포 때 public/data.json 으로 떠서 CDN 에서 내보낸다(scripts/snapshot.mjs).
+ * 여기는 참가비를 원화로 어림잡는 환율만 둔다.
  */
-export const RACES = snapshot.races as unknown as Race[];
-export const AGENCIES = snapshot.agencies as unknown as Agency[];
-export const PACKAGES = snapshot.packages as unknown as Package[];
-export const COSTS = snapshot.costs as unknown as CostBaseline[];
 
 /** 참가비 환산용 대략 환율 (KRW, 2026-09 기준 참고용) */
 export const FX: Record<string, number> = {

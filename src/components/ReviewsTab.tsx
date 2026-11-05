@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth';
 import { hasSupabase } from '../lib/supabase';
 import StarRating from './StarRating';
 import { Button, Field, Input, Note, inputCls } from './ui';
+import { track } from '../lib/analytics';
 
 export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () => void }) {
   const { session, profile } = useAuth();
@@ -202,6 +203,7 @@ function ReviewForm({
         userId,
         nickname,
       );
+      track('review_submit', { race_id: race.id });
       onDone();
     } catch {
       setErr('저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
