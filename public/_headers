@@ -1,3 +1,13 @@
+# 보안 헤더 (Pages 정적 파일 전체). 함수(/r/*) 응답은 worker/site.ts 의 SECURITY_HEADERS 가 같은 값을 붙인다.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Cross-Origin-Opener-Policy: same-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net https://www.google.com https://www.google.co.kr; font-src 'self' data:; connect-src 'self' https://zhwmfvkwtmakieatlqtz.supabase.co wss://zhwmfvkwtmakieatlqtz.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.doubleclick.net https://www.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+
 # 해시가 붙은 빌드 파일은 1년 캐시, 대회 목록(data.json)은 5분 캐시 + 하루 동안은 낡은 사본을 먼저 보여 주고 뒤에서 갱신
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

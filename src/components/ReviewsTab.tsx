@@ -9,6 +9,7 @@ import StarRating from './StarRating';
 import { Button, Field, Input, Note, inputCls } from './ui';
 import { track } from '../lib/analytics';
 import { spamReason, friendlyError } from '../lib/spam';
+import { safeUrl } from '../lib/util';
 
 export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () => void }) {
   const { session, profile } = useAuth();
@@ -136,7 +137,7 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
             {ext.map((e) => (
               <li key={e.id}>
                 <a
-                  href={e.url}
+                  href={safeUrl(e.url)}
                   target="_blank"
                   rel="noreferrer"
                   className="group flex items-start justify-between gap-4 rounded-box bg-surface px-4 py-3 transition hover:bg-sunken"

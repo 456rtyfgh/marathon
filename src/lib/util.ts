@@ -125,3 +125,14 @@ export function shortCount(n: number): string {
   if (n >= 10000) return `${(n / 10000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, '')}만`;
   return n.toLocaleString();
 }
+
+/** 링크로 걸어도 되는 주소만 통과시킨다 (javascript:, data: 등 차단). 아니면 undefined. */
+export function safeUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const u = new URL(url.trim());
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}

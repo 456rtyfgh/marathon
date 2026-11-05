@@ -15,6 +15,7 @@ import {
   statusLine,
   dateParts,
   isSearchLink,
+  safeUrl,
 } from '../lib/util';
 import CostCalculator from './CostCalculator';
 import PackageTable from './PackageTable';
@@ -187,7 +188,7 @@ export default function RaceDetail({
 
             <div className="flex flex-wrap items-center gap-2">
               <a
-                href={race.official_url}
+                href={safeUrl(race.official_url)}
                 onClick={() => track('official_click', { race_id: race.id, search: isSearchLink(race.official_url) })}
                 target="_blank"
                 rel="noreferrer"
@@ -213,7 +214,7 @@ export default function RaceDetail({
               </button>
               {race.source_url && (
                 <a
-                  href={race.source_url}
+                  href={safeUrl(race.source_url)}
                   target="_blank"
                   rel="noreferrer"
                   className="ml-1 inline-flex h-10 items-center text-sm font-semibold text-ink-2 underline decoration-line underline-offset-4 hover:text-ink"

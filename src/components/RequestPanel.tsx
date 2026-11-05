@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth';
 import { Button, CloseButton, Field, Input, Note } from './ui';
 import { track } from '../lib/analytics';
 import { spamReason, friendlyError } from '../lib/spam';
+import { safeUrl } from '../lib/util';
 
 const STATUS_LABEL: Record<RaceRequest['status'], string> = {
   pending: '확인 전',
@@ -136,7 +137,7 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
                   {r.note && <p className="mt-1 text-[14px] text-ink-2">{r.note}</p>}
                   {r.admin_note && <p className="mt-1 text-[14px] text-ink">답변: {r.admin_note}</p>}
                   {r.url && (
-                    <a href={r.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[13px] text-ink-2 underline underline-offset-4">
+                    <a href={safeUrl(r.url)} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[13px] text-ink-2 underline underline-offset-4">
                       홈페이지 <ArrowUpRight size={12} />
                     </a>
                   )}

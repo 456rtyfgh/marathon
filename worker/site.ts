@@ -9,6 +9,21 @@
 import { raceIcs, type CalKind } from '../src/lib/ics';
 import { keepalive } from './keepalive';
 
+// 사이트 전체 CSP (public/_headers 의 값과 같게 유지)
+export const CSP = [
+  "default-src 'self'",
+  "script-src 'self' https://www.googletagmanager.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net https://www.google.com https://www.google.co.kr",
+  "font-src 'self' data:",
+  "connect-src 'self' https://zhwmfvkwtmakieatlqtz.supabase.co wss://zhwmfvkwtmakieatlqtz.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.doubleclick.net https://www.google.com",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  'upgrade-insecure-requests',
+].join('; ');
+
 // 공개 값(브라우저에도 들어 있는 publishable key)
 const DB = { SUPABASE_URL: 'https://zhwmfvkwtmakieatlqtz.supabase.co', SUPABASE_KEY: 'sb_publishable_uOBwP5-BbK7keBuq3gsMAg_Oil1yg6O' };
 
@@ -61,6 +76,22 @@ function describe(r: RaceMeta): string {
   return parts.join(', ') + '. 일정, 비용, 후기를 확인하세요.';
 }
 
+/** <script> 안에 넣는 JSON: '</script>' 같은 글자로 태그를 빠져나가지 못하게 < > & 를 이스케이프 */
+const jsonForScript = (v: unknown) =>
+  JSON.stringify(v).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+const httpUrl = (u: string | null | undefined) => (u && /^https?:\/\//i.test(u) ? u : '');
+
+/** 함수가 내보내는 HTML 에도 정적 파일과 같은 보안 헤더를 붙인다 (public/_headers 와 맞출 것) */
+export const SECURITY_HEADERS: Record<string, string> = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Content-Security-Policy': CSP,
+};
+
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 function raceHtml(r: RaceMeta, desc: string): string {
@@ -80,7 +111,7 @@ ${r.name_en ? `<p>${esc(r.name_en)}</p>` : ''}
 <p>${esc(desc)}</p>
 <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
 ${r.notes_ko ? `<p>${esc(r.notes_ko)}</p>` : ''}
-<p><a href="${esc(r.official_url)}" rel="nofollow">공식 홈페이지</a></p>
+${httpUrl(r.official_url) ? `<p><a href="${esc(httpUrl(r.official_url))}" rel="nofollow noopener">공식 홈페이지</a></p>` : ''}
 </main>`;
 }
 
@@ -103,7 +134,7 @@ function eventLd(r: RaceMeta, url: string, desc: string) {
       address: { '@type': 'PostalAddress', addressLocality: r.city_ko, addressCountry: r.country_code || r.country_ko },
     },
     ...(r.entry_fee != null
-      ? { offers: { '@type': 'Offer', price: r.entry_fee, priceCurrency: r.entry_fee_currency, url: r.official_url, ...(r.entry_opens ? { validFrom: r.entry_opens } : {}) } }
+      ? { offers: { '@type': 'Offer', price: r.entry_fee, priceCurrency: r.entry_fee_currency, url: httpUrl(r.official_url) || url, ...(r.entry_opens ? { validFrom: r.entry_opens } : {}) } }
       : {}),
   };
 }
@@ -147,11 +178,12 @@ async function withRaceMeta(req: Request, env: Env, id: string): Promise<Respons
     .on('link[rel="canonical"]', { element: (el) => el.setAttribute('href', canonical) })
     // 검색엔진이 읽을 대회 본문과 구조화 데이터 (화면이 뜨면 React 가 갈아 끼운다)
     .on('div#root', { element: (el) => el.setInnerContent(raceHtml(race!, desc), { html: true }) })
-    .on('head', { element: (el) => el.append(`<script type="application/ld+json">${JSON.stringify(eventLd(race!, canonical, desc))}</script>`, { html: true }) })
+    .on('head', { element: (el) => el.append(`<script type="application/ld+json">${jsonForScript(eventLd(race!, canonical, desc))}</script>`, { html: true }) })
     .transform(page);
 
   const res = new Response(out.body, out);
   res.headers.set('Cache-Control', 'public, max-age=600');
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v);
   return res;
 }
 
@@ -178,6 +210,7 @@ export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
         'Content-Type': 'text/calendar; charset=utf-8',
         'Content-Disposition': `inline; filename="${race.id}.ics"`,
         'Cache-Control': 'public, max-age=600',
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   }

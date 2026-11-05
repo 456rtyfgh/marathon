@@ -45,6 +45,7 @@ const ld = {
 
 let page = readFileSync(dist, 'utf8');
 page = page.replace('<div id="root"></div>', `<div id="root">${html}</div>`);
-page = page.replace('</head>', `<script type="application/ld+json">${JSON.stringify(ld)}</script>\n</head>`);
+const safeJson = JSON.stringify(ld).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
+page = page.replace('</head>', `<script type="application/ld+json">${safeJson}</script>\n</head>`);
 writeFileSync(dist, page);
 console.log(`prerender: ${Math.min(upcoming.length, 240)}개 대회를 첫 화면 HTML 에 넣음`);
