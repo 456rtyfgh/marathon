@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CloseButton, Tabs, Button, Note, inputCls } from './ui';
 import type { Race, ExternalKind, Region, Course, EntryType, Confidence } from '../lib/types';
 import { REGIONS, COURSES, ENTRY_LABEL, CONFIDENCE_LABEL, KIND_LABEL } from '../lib/types';
-import { adminUpsertRace, adminDeleteRace, adminAddExternalReview } from '../lib/data';
+import { adminUpsertRace, adminDeleteRace, adminAddExternalReview, adminListMembers, adminConfirmMember, type Member } from '../lib/data';
 
 const EMPTY: Race = {
   id: '',
@@ -32,7 +32,7 @@ const EMPTY: Race = {
 };
 
 export default function AdminPanel({ races, onClose, onSaved }: { races: Race[]; onClose: () => void; onSaved: () => void }) {
-  const [tab, setTab] = useState<'race' | 'ext'>('race');
+  const [tab, setTab] = useState<'race' | 'ext' | 'members'>('race');
 
   return (
     <div className="flex h-full flex-col">
@@ -44,17 +44,20 @@ export default function AdminPanel({ races, onClose, onSaved }: { races: Race[];
         <CloseButton onClick={onClose} />
       </header>
 
-      <Tabs<'race' | 'ext'>
+      <Tabs<'race' | 'ext' | 'members'>
         value={tab}
         onChange={setTab}
         items={[
           ['race', '대회 추가·수정'],
           ['ext', '다른 곳 후기 링크'],
+          ['members', '회원'],
         ]}
       />
 
       <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-7">
-        {tab === 'race' ? <RaceForm races={races} onSaved={onSaved} /> : <ExtForm races={races} onSaved={onSaved} />}
+        {tab === 'race' && <RaceForm races={races} onSaved={onSaved} />}
+        {tab === 'ext' && <ExtForm races={races} onSaved={onSaved} />}
+        {tab === 'members' && <Members />}
       </div>
     </div>
   );
@@ -344,5 +347,69 @@ function Check({ label, checked, onChange }: { label: string; checked: boolean; 
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="size-4" />
       {label}
     </label>
+  );
+}
+
+const dt = (s: string | null) =>
+  s ? new Date(s).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+
+/** 가입 확인 메일이 스팸함으로 가서 막힌 회원을 직접 인증 처리한다 */
+function Members() {
+  const [rows, setRows] = useState<Member[] | null>(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = () =>
+    adminListMembers()
+      .then(setRows)
+      .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
+  useEffect(() => {
+    load();
+  }, []);
+
+  if (err) return <Note tone="error">{err}</Note>;
+  if (!rows) return <p className="text-[15px] text-ink-3">불러오는 중</p>;
+
+  const pending = rows.filter((r) => !r.confirmed_at).length;
+  return (
+    <div className="space-y-4">
+      <p className="text-[15px] leading-relaxed text-ink-2">
+        회원 <strong className="num text-[17px] text-ink">{rows.length}</strong>명, 메일 인증 전{' '}
+        <strong className="num text-[17px] text-ink">{pending}</strong>명. 인증 메일을 못 받았다고 연락 온 회원은 여기서 바로 인증해 줄 수 있습니다.
+      </p>
+      <ul className="divide-y divide-line rounded-box border border-line bg-surface">
+        {rows.map((m) => (
+          <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-[15px] font-semibold">{m.email}</p>
+              <p className="text-[13px] text-ink-3">
+                {m.nickname ?? '닉네임 없음'} · 가입 {dt(m.created_at)} · 마지막 로그인 {dt(m.last_sign_in_at)}
+              </p>
+            </div>
+            {m.confirmed_at ? (
+              <span className="text-[13px] font-semibold text-ink-3">인증됨</span>
+            ) : (
+              <Button
+                tone="quiet"
+                disabled={busy === m.id}
+                onClick={async () => {
+                  setBusy(m.id);
+                  try {
+                    await adminConfirmMember(m.id);
+                    await load();
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e));
+                  } finally {
+                    setBusy(null);
+                  }
+                }}
+              >
+                {busy === m.id ? '처리 중' : '인증 처리'}
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

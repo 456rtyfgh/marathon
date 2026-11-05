@@ -12,7 +12,8 @@ declare global {
   }
 }
 
-const ID = import.meta.env.VITE_GA_ID;
+// 측정 ID 는 페이지 소스에 그대로 보이는 공개 값이라 기본값으로 넣어 둔다 (env 로 덮어쓸 수 있음)
+const ID = import.meta.env.VITE_GA_ID || 'G-CJKPZCKZMB';
 const on = !!ID && /^G-[A-Z0-9]+$/.test(ID) && typeof window !== 'undefined' && !/^(localhost|127\.)/.test(location.hostname);
 
 export function initAnalytics() {

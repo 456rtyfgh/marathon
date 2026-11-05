@@ -206,3 +206,26 @@ export async function subscribeAlert(email: string, raceId: string, daysBefore: 
 }
 
 export { FX };
+
+export interface Member {
+  id: string;
+  email: string;
+  nickname: string | null;
+  created_at: string;
+  confirmed_at: string | null;
+  last_sign_in_at: string | null;
+  confirmation_sent_at: string | null;
+}
+
+export async function adminListMembers(): Promise<Member[]> {
+  if (!supabase) throw new Error('Supabase가 연결되지 않았습니다.');
+  const { data, error } = await supabase.rpc('admin_list_members');
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Member[];
+}
+
+export async function adminConfirmMember(id: string) {
+  if (!supabase) throw new Error('Supabase가 연결되지 않았습니다.');
+  const { error } = await supabase.rpc('admin_confirm_member', { p_id: id });
+  if (error) throw new Error(error.message);
+}

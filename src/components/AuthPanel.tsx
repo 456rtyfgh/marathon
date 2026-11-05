@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { EnvelopeSimple, SignOut, UserCircle } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
 import { Button, CloseButton, Field, Input, Note } from './ui';
+import { track } from '../lib/analytics';
 
 export function AuthBar({ onOpen }: { onOpen: () => void }) {
   const { session, profile, signOut } = useAuth();
@@ -34,7 +35,8 @@ export function AuthBar({ onOpen }: { onOpen: () => void }) {
 type Mode = 'in' | 'up' | 'sent' | 'forgot' | 'forgot_sent' | 'reset';
 
 export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; initial?: Mode }) {
-  const { signIn, signUp, resendConfirm, sendReset, updatePassword } = useAuth();
+  const { signIn, signUp, resendConfirm, sendReset, updatePassword, verifyCode } = useAuth();
+  const [code, setCode] = useState('');
   const [mode, setMode] = useState<Mode>(initial);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -87,7 +89,38 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
             <strong className="text-ink">{email}</strong> 로{' '}
             {mode === 'sent' ? '가입 확인 메일을 보냈습니다. 메일의 버튼을 누르면 바로 로그인됩니다.' : '비밀번호를 다시 정하는 링크를 보냈습니다.'}
           </p>
-          <p className="text-[13px] text-ink-3">몇 분 안에 오지 않으면 스팸함도 확인해 주세요.</p>
+          <form
+            className="space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              run(async () => {
+                await verifyCode(email, code, mode === 'sent' ? 'signup' : 'recovery');
+                track(mode === 'sent' ? 'sign_up_confirmed' : 'password_reset_code');
+                if (mode === 'sent') onClose();
+                else go('reset');
+              });
+            }}
+          >
+            <Field label="또는 메일의 숫자 코드 입력" hint="다른 기기에서 메일을 볼 때">
+              <div className="flex gap-2">
+                <Input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={10}
+                  placeholder="000000"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="num text-[20px] tracking-[0.2em]"
+                />
+                <Button type="submit" disabled={busy || code.replace(/\D/g, '').length < 6}>
+                  확인
+                </Button>
+              </div>
+            </Field>
+          </form>
+          <p className="text-[13px] leading-relaxed text-ink-3">
+            몇 분 안에 오지 않으면 스팸함과 프로모션 탭도 확인해 주세요. 보내는 주소는 junubenchoi@gmail.com 입니다.
+          </p>
           {info && <Note tone="ok">{info}</Note>}
           {err && <Note tone="error">{err}</Note>}
           <div className="flex flex-wrap gap-2">
@@ -174,6 +207,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
               }
               if (password.length < 8) throw new Error('비밀번호는 8자 이상으로 정해 주세요.');
               const r = await signUp(email.trim(), password, nickname);
+              track('sign_up', { result: r });
               if (r === 'signed_in') onClose();
               else if (r === 'check_email') setMode('sent');
               else {

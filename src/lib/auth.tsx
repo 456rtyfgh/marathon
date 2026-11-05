@@ -18,6 +18,8 @@ interface AuthState {
   signUp: (email: string, password: string, nickname: string) => Promise<SignUpResult>;
   resendConfirm: (email: string) => Promise<void>;
   sendReset: (email: string) => Promise<void>;
+  /** 메일로 받은 숫자 코드로 인증 (링크가 안 열리거나 다른 기기에서 메일을 볼 때) */
+  verifyCode: (email: string, code: string, kind: 'signup' | 'recovery') => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -34,6 +36,7 @@ const Ctx = createContext<AuthState>({
   signUp: async () => 'check_email',
   resendConfirm: noop,
   sendReset: noop,
+  verifyCode: noop,
   updatePassword: noop,
   signOut: noop,
 });
@@ -133,6 +136,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await need().auth.resetPasswordForEmail(email, { redirectTo: redirectTo() });
       if (error) throw new Error(translate(error.message));
     },
+    async verifyCode(email, code, kind) {
+      const token = code.replace(/\D/g, '');
+      if (token.length < 6) throw new Error('메일에 적힌 숫자 코드를 그대로 입력해 주세요.');
+      const types = kind === 'recovery' ? (['recovery'] as const) : (['signup', 'email'] as const);
+      let last: string | null = null;
+      for (const type of types) {
+        const { error } = await need().auth.verifyOtp({ email, token, type });
+        if (!error) {
+          if (kind === 'recovery') setRecovering(true);
+          else setJustConfirmed(true);
+          return;
+        }
+        last = error.message;
+      }
+      throw new Error(translate(last ?? ''));
+    },
     async updatePassword(password) {
       const { error } = await need().auth.updateUser({ password });
       if (error) throw new Error(translate(error.message));
@@ -154,6 +173,8 @@ function translate(msg: string): string {
     return '이미 가입된 이메일입니다. 로그인하거나 비밀번호를 다시 설정하세요.';
   if (m.includes('password should be at least')) return '비밀번호는 8자 이상으로 정해주세요.';
   if (m.includes('unable to validate email') || m.includes('invalid email')) return '이메일 주소를 다시 확인해 주세요.';
+  if (m.includes('token has expired') || m.includes('otp') || m.includes('invalid token'))
+    return '코드가 맞지 않거나 시간이 지났습니다. 메일을 다시 받아 새 코드를 넣어 주세요.';
   if (m.includes('email not confirmed')) return '아직 메일 인증을 하지 않았습니다. 받은 메일의 링크를 눌러주세요.';
   if (m.includes('rate limit') || m.includes('security purposes'))
     return '메일을 너무 자주 요청했습니다. 1분쯤 뒤에 다시 시도해 주세요.';
