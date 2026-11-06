@@ -41,6 +41,7 @@ const STATUS_GROUP: Record<EntryStatus, string> = {
   open: '지금 접수 중',
   upcoming: '곧 접수 시작',
   unknown: '접수 일정 미공개',
+  soldout: '조기 마감',
   closed: '이번 회차 접수 끝',
 };
 
@@ -250,6 +251,9 @@ function Main() {
         if (st !== 'open' || !r.entry_closes || daysBetween(today, r.entry_closes) > 7) return false;
       } else if (status === 'opening30') {
         if (st !== 'upcoming' || !r.entry_opens || daysBetween(today, r.entry_opens) > 30) return false;
+      } else if (status === 'closed') {
+        // '접수 끝' 칩은 정원이 차서 일찍 끝난 대회도 함께 보여 준다
+        if (st !== 'closed' && st !== 'soldout') return false;
       } else if (st !== status) return false;
     }
     if (!isDomestic(r) && r.flight_hours != null && r.flight_hours > maxFlight) return false;
@@ -267,7 +271,7 @@ function Main() {
       return [{ key: 'registered', title: '접수한 대회', races: sorted }];
     }
     if (sort === 'entry') {
-      const order: EntryStatus[] = ['open', 'upcoming', 'unknown', 'closed'];
+      const order: EntryStatus[] = ['open', 'upcoming', 'unknown', 'soldout', 'closed'];
       return order
         .map((st) => ({
           key: st,

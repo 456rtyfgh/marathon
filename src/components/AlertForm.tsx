@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Race } from '../lib/types';
 import { subscribeAlert } from '../lib/data';
 import { useAuth } from '../lib/auth';
-import { daysBetween, TODAY, fmtDate } from '../lib/util';
+import { daysBetween, TODAY, fmtDate, isSoldOut } from '../lib/util';
 import { Button, Field, Input, Note } from './ui';
 import { track } from '../lib/analytics';
 
@@ -19,6 +19,19 @@ export default function AlertForm({ race }: { race: Race }) {
   const opensAhead = race.entry_opens && daysBetween(today, race.entry_opens) > 0;
   const target = opensAhead ? race.entry_opens : race.entry_closes ?? race.entry_opens;
   const d = target ? daysBetween(today, target) : null;
+
+  // 정원이 차서 이미 끝난 대회는 접수 알림이 의미 없으니 신청을 받지 않는다
+  if (isSoldOut(race, today) && !opensAhead) {
+    return (
+      <div className="rounded-box bg-surface px-4 py-4">
+        <div className="text-[13px] text-ink-3">조기 마감</div>
+        <div className="mt-0.5 text-[17px] font-bold">{fmtDate(race.sold_out_on!)} 정원 마감</div>
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
+          이번 회차 접수가 끝나 알림을 받을 수 없습니다. 취소분 추가 접수는 공식 홈페이지에서 확인하세요.
+        </p>
+      </div>
+    );
+  }
 
   const toggle = (n: number) =>
     setDays((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n].sort((a, b) => b - a)));

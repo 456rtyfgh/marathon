@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { CaretRight, Star, BookmarkSimple, Eye, CalendarCheck, Check } from '@phosphor-icons/react';
 import type { Race, RaceRating } from '../lib/types';
 import { ENTRY_LABEL } from '../lib/types';
-import { dateParts, feeLabel, isDomestic, isTrail, statusLine, raceDayLine, TODAY, shortCount } from '../lib/util';
+import { dateParts, feeLabel, isDomestic, isTrail, statusLine, raceDayLine, TODAY, shortCount, mayFillEarly } from '../lib/util';
 
 const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
 
@@ -27,6 +27,8 @@ function RaceRow({
   const domestic = isDomestic(race);
   const trail = isTrail(race);
   const raceDay = raceDayLine(race, today);
+  // 선착순 접수 중인데 아직 마감 확인이 안 된 대회. 접수한 사람에게는 필요 없는 말이라 뺀다
+  const mayFill = !registered && mayFillEarly(race, today);
 
   return (
     <li style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 104px' }}>
@@ -63,7 +65,7 @@ function RaceRow({
             {domestic ? race.city_ko : `${race.country_ko} ${race.city_ko}`}
             <span className="text-ink-3">
               {'  '}
-              {ENTRY_LABEL[race.entry_type]}
+              {mayFill ? '선착순 · 조기 마감될 수 있음' : ENTRY_LABEL[race.entry_type]}
               {race.date_confidence !== 'confirmed' && ', 날짜 예상'}
               {trail && race.elevation_gain != null && `, 상승 ${race.elevation_gain.toLocaleString('ko-KR')}m`}
             </span>
@@ -132,7 +134,7 @@ function RaceRow({
             </span>
           ) : (
             <span className="mt-1 text-[14px] font-semibold text-ink-3">
-              {st.label === '정원 마감 시까지' ? '접수 중' : ''}
+              {st.label === '정원 마감 시까지' ? '접수 중' : st.label === '조기 마감' ? '정원 마감' : ''}
             </span>
           )}
           {/* 휴대폰: 참가비 칸이 숨으므로 대회일 D-day 를 여기 작게 */}
