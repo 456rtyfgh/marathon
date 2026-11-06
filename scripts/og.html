@@ -1,0 +1,133 @@
+<!doctype html>
+<!--
+  public/og.png 원본 (1200×630).
+  만드는 법: 저장소 루트에서
+    agent-browser set viewport 1200 630
+    agent-browser open "file://$PWD/scripts/og.html"
+    agent-browser screenshot public/og.png
+  색은 아래 :root 에서만 바꾼다. 값은 src/index.css 의 *-light 값과 같게 둔다.
+-->
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../node_modules/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.css" />
+    <link rel="stylesheet" href="../node_modules/@fontsource/barlow-condensed/700.css" />
+    <style>
+      :root {
+        --bg: #f1f2f4;
+        --surface: #fbfbfc;
+        --line: #dcdfe4;
+        --ink: #121418;
+        --ink-2: #474c55;
+        --accent: #cdf53a;
+        --on-accent: #121418;
+      }
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+      }
+      body {
+        position: relative;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: 'Wanted Sans Variable', 'Wanted Sans', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .num {
+        font-family: 'Barlow Condensed', sans-serif;
+        font-weight: 700;
+      }
+      .brand {
+        position: absolute;
+        top: 72px;
+        left: 80px;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+      .logo {
+        display: grid;
+        place-items: center;
+        width: 64px;
+        height: 64px;
+        border-radius: 6px;
+        background: var(--accent);
+        color: var(--on-accent);
+        font-size: 36px;
+      }
+      h1 {
+        position: absolute;
+        top: 182px;
+        left: 76px;
+        font-size: 88px;
+        font-weight: 800;
+        line-height: 1.14;
+        letter-spacing: -0.02em;
+      }
+      .stats {
+        position: absolute;
+        top: 426px;
+        left: 80px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2px;
+        width: 742px;
+        height: 132px;
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--line);
+      }
+      .stats > div {
+        padding: 18px 28px 0;
+        background: var(--surface);
+      }
+      .stats > .hot {
+        background: var(--accent);
+        color: var(--on-accent);
+      }
+      .stats span {
+        display: block;
+        font-size: 20px;
+        color: var(--ink-2);
+      }
+      .stats .hot span {
+        color: inherit;
+        opacity: 0.85;
+      }
+      .stats b {
+        display: block;
+        margin-top: 4px;
+        font-size: 66px;
+        line-height: 1;
+      }
+      .tag {
+        position: absolute;
+        right: 80px;
+        bottom: 80px;
+        font-size: 24px;
+        line-height: 1.7;
+        text-align: right;
+        color: var(--ink-2);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="brand"><span class="logo num">42</span>마라톤 캘린더</div>
+    <h1>마라톤 접수,<br />이번엔 놓치지 않게</h1>
+    <div class="stats">
+      <div><span>접수 시작</span><b class="num">D-12</b></div>
+      <div class="hot"><span>마감까지</span><b class="num">D-3</b></div>
+      <div><span>대회일</span><b class="num">10.25</b></div>
+    </div>
+    <p class="tag">국내·해외 마라톤<br />접수 일정을 한눈에</p>
+  </body>
+</html>
