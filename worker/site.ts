@@ -1,5 +1,5 @@
 /**
- * 마라톤 캘린더 사이트 (Cloudflare Pages: marathoncalendar.pages.dev)
+ * 마라톤 캘린더 사이트 (Cloudflare Pages, 주소 marathon82.com)
  * 정적 파일(첫 화면, /data.json …)은 Pages 가 함수 없이 바로 내보낸다 — 방문이 몰려도 함수·DB 를 거의 안 쓴다.
  * 여기 함수는 _routes.json 으로 두 경로에서만 돈다.
  *  - /r/대회id      : 공유 링크. 대회별 제목·설명(og 태그), 검색엔진용 본문, 구조화 데이터를 넣는다.
@@ -23,6 +23,10 @@ export const CSP = [
   "object-src 'none'",
   'upgrade-insecure-requests',
 ].join('; ');
+
+/** 대표 주소. pages.dev 로 들어온 공유 링크는 여기로 영구 이동한다. */
+export const SITE = 'https://marathon82.com';
+const OLD_HOST = 'marathoncalendar.pages.dev';
 
 // 공개 값(브라우저에도 들어 있는 publishable key)
 const DB = { SUPABASE_URL: 'https://zhwmfvkwtmakieatlqtz.supabase.co', SUPABASE_KEY: 'sb_publishable_uOBwP5-BbK7keBuq3gsMAg_Oil1yg6O' };
@@ -163,8 +167,7 @@ async function withRaceMeta(req: Request, env: Env, id: string): Promise<Respons
 
   const title = `${race.name_ko} ${race.race_date.slice(0, 4)} 일정·접수 기간 | 마라톤 캘린더`;
   const desc = describe(race);
-  const url = new URL(req.url);
-  const canonical = `${url.origin}/r/${encodeURIComponent(race.id)}`;
+  const canonical = `${SITE}/r/${encodeURIComponent(race.id)}`;
   const set = (content: string) => ({ element: (el: Element) => el.setAttribute('content', content) });
 
   const out = new HTMLRewriter()
@@ -194,6 +197,8 @@ export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
     const r = await keepalive(DB);
     return new Response(`supabase ${r.status} ${r.body}`, { status: r.ok ? 200 : 502, headers: { 'Cache-Control': 'no-store' } });
   }
+  // 예전 주소로 연 공유 링크는 대표 주소로 (미리보기 주소 xxx.marathoncalendar.pages.dev 는 그대로)
+  if (url.hostname === OLD_HOST) return Response.redirect(SITE + url.pathname + url.search, 301);
   const m = url.pathname.match(/^\/r\/([a-z0-9-]{2,40})\/?$/);
   if (m) return withRaceMeta(req, env, m[1]);
   const c = url.pathname.match(/^\/cal\/([a-z0-9-]{2,40})\.ics$/);
@@ -204,7 +209,7 @@ export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
     const kinds = (url.searchParams.get('e') ?? 'race,open,close')
       .split(',')
       .filter((k): k is CalKind => allowed.includes(k as CalKind));
-    const ics = raceIcs(race, `${url.origin}/r/${race.id}`, kinds.length ? kinds : allowed);
+    const ics = raceIcs(race, `${SITE}/r/${race.id}`, kinds.length ? kinds : allowed);
     return new Response(ics, {
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',

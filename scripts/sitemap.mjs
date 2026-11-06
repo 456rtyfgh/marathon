@@ -1,7 +1,7 @@
 /** 빌드 뒤 dist/sitemap.xml 을 만든다. 대회마다 공유 링크(/r/id) 하나씩. */
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const ORIGIN = process.env.SITE_ORIGIN || 'https://marathoncalendar.pages.dev';
+const ORIGIN = process.env.SITE_ORIGIN || 'https://marathon82.com';
 const snap = JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'));
 const today = new Date().toISOString().slice(0, 10);
 const urls = [

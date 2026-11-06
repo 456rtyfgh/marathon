@@ -1,5 +1,5 @@
 /** 예전 주소 runworld.junubenchoi.workers.dev → 새 주소로 영구 이동 */
-const TARGET = 'https://marathoncalendar.pages.dev';
+const TARGET = 'https://marathon82.com';
 
 export default {
   fetch(req: Request): Response {
