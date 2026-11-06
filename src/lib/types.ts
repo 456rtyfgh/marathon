@@ -46,6 +46,8 @@ export interface Race {
   discipline?: Discipline;
   /** 누적 상승 (m) */
   elevation_gain?: number | null;
+  /** 정원이 차서 조기 마감된 날 (YYYY-MM-DD). 없거나 null 이면 확인 안 됨 */
+  sold_out_on?: string | null;
 }
 
 export interface Agency {

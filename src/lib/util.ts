@@ -9,21 +9,40 @@ export function daysBetween(from: Date, isoDate: string): number {
   return Math.round((to.getTime() - from.getTime()) / 86400000);
 }
 
-export type EntryStatus = 'open' | 'upcoming' | 'closed' | 'unknown';
+/** 오늘 날짜 'YYYY-MM-DD' (한국 시간). new Date().toISOString() 은 UTC 라 0~9시에 하루 밀린다 */
+export const todayISO = () => TODAY().toISOString().slice(0, 10);
 
+export type EntryStatus = 'open' | 'upcoming' | 'soldout' | 'closed' | 'unknown';
+
+/** 조기 마감일이 들어 있고 오늘이거나 지났으면 true */
+export function isSoldOut(race: Race, today = TODAY()): boolean {
+  return !!race.sold_out_on && daysBetween(today, race.sold_out_on) <= 0;
+}
+
+/**
+ * 접수 상태. 조기 마감은 접수가 열린 뒤(open·closed)에만 인정한다.
+ * 접수 시작 전인데 조기 마감일이 있으면 데이터 오류로 보고 'upcoming' 을 둔다.
+ */
 export function entryStatus(race: Race, today = TODAY()): EntryStatus {
   const { entry_opens, entry_closes } = race;
-  if (!entry_opens && !entry_closes) return 'unknown';
+  if (!entry_opens && !entry_closes) return isSoldOut(race, today) ? 'soldout' : 'unknown';
   const o = entry_opens ? daysBetween(today, entry_opens) : -Infinity;
   const c = entry_closes ? daysBetween(today, entry_closes) : Infinity;
   if (o > 0) return 'upcoming';
+  if (isSoldOut(race, today)) return 'soldout';
   if (c < 0) return 'closed';
   return 'open';
+}
+
+/** 선착순인데 접수 중이고 아직 조기 마감 확인이 안 된 대회 */
+export function mayFillEarly(race: Race, today = TODAY()): boolean {
+  return race.entry_type === 'fcfs' && entryStatus(race, today) === 'open';
 }
 
 export const STATUS_LABEL: Record<EntryStatus, string> = {
   open: '접수 중',
   upcoming: '접수 예정',
+  soldout: '조기 마감',
   closed: '접수 마감',
   unknown: '일정 미공개',
 };
@@ -52,6 +71,7 @@ export function statusLine(
     const d = race.entry_opens ? daysBetween(today, race.entry_opens) : null;
     return { label: '접수 시작까지', days: d, hot: false };
   }
+  if (st === 'soldout') return { label: '조기 마감', days: null, hot: false };
   if (st === 'closed') return { label: '접수 마감', days: null, hot: false };
   return { label: '일정 미공개', days: null, hot: false };
 }
@@ -104,7 +124,7 @@ export function costFor(race: Race, costs: CostBaseline[]): CostBaseline | undef
  * 1) 지금 신청 중 → 마감이 가까운 순
  * 2) 곧 오픈 → 오픈이 가까운 순
  * 3) 일정 미공개
- * 4) 이미 마감 → 대회일 가까운 순
+ * 4) 이미 마감(조기 마감 포함) → 대회일 가까운 순
  */
 export function entrySortKey(race: Race, today = TODAY()): number {
   const st = entryStatus(race, today);
