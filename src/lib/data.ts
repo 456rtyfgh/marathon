@@ -253,6 +253,14 @@ export async function adminSetSoldOut(race: Race, soldOutOn: string | null) {
   if (!data?.length) throw new Error('대회를 찾지 못했거나 고칠 권한이 없습니다.');
 }
 
+/** 제보된 대회들의 지금 DB 값. 화면의 races 는 스냅샷이라 이미 처리한 조기 마감이 안 보일 수 있다 */
+export async function loadSoldOutDates(ids: string[]): Promise<Record<string, string | null>> {
+  if (!supabase || !ids.length) return {};
+  const { data, error } = await supabase.from('races').select('id, sold_out_on').in('id', ids);
+  if (error) throw new Error(error.message);
+  return Object.fromEntries((data ?? []).map((r: { id: string; sold_out_on: string | null }) => [r.id, r.sold_out_on]));
+}
+
 export async function adminResolveRequest(id: string, status: RaceRequest['status'], adminNote: string | null) {
   if (!supabase) throw new Error('Supabase가 연결되지 않았습니다.');
   const { error } = await supabase

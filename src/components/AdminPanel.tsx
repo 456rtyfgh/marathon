@@ -4,7 +4,7 @@ import type { Race, ExternalKind, Region, Course, EntryType, Confidence, Discipl
 import { REGIONS, COURSES, ENTRY_LABEL, CONFIDENCE_LABEL, KIND_LABEL, DISCIPLINES, DISCIPLINE_LABEL } from '../lib/types';
 import {
   adminUpsertRace, adminDeleteRace, adminAddExternalReview, adminListMembers, adminConfirmMember, adminStats,
-  loadRaceRequests, adminResolveRequest, adminSetSoldOut, soldOutReportRaceId,
+  loadRaceRequests, adminResolveRequest, adminSetSoldOut, soldOutReportRaceId, loadSoldOutDates,
   type Member, type StatRow, type RaceRequest,
 } from '../lib/data';
 import { entryStatus, fmtDate, safeUrl, STATUS_LABEL, todayISO } from '../lib/util';
@@ -270,10 +270,17 @@ function SoldOutReports({ races, onSaved }: { races: Race[]; onSaved: () => void
   /** 저장 직후 races 가 새로 오기 전까지 화면에 바로 보여 줄 값 */
   const [local, setLocal] = useState<Record<string, string | null>>({});
 
-  const load = () =>
-    loadRaceRequests()
-      .then((r) => setRows(r.filter((x) => soldOutReportRaceId(x) != null)))
-      .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
+  const load = async () => {
+    try {
+      const r = (await loadRaceRequests()).filter((x) => soldOutReportRaceId(x) != null);
+      // 조기 마감 여부는 스냅샷이 아니라 지금 DB 값으로 본다 (이미 처리한 날짜를 오늘로 덮지 않게)
+      const live = await loadSoldOutDates([...new Set(r.map((x) => soldOutReportRaceId(x)!))]);
+      setLocal(live);
+      setRows(r);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  };
   useEffect(() => {
     load();
   }, []);
@@ -293,7 +300,7 @@ function SoldOutReports({ races, onSaved }: { races: Race[]; onSaved: () => void
   }
   const groups = [...map.values()].sort((a, b) => Number(b.pending > 0) - Number(a.pending > 0) || b.latest.localeCompare(a.latest));
 
-  async function act(g: ReportGroup, kind: 'soldout' | 'undo' | 'reject') {
+  async function act(g: ReportGroup, kind: 'soldout' | 'undo' | 'reject' | 'already') {
     if (!g.race) return;
     setBusy(g.raceId);
     setErr('');
@@ -307,6 +314,9 @@ function SoldOutReports({ races, onSaved }: { races: Race[]; onSaved: () => void
         await adminSetSoldOut(g.race, null);
         setLocal((p) => ({ ...p, [g.raceId]: null }));
         await Promise.all(g.reqs.filter((q) => q.status === 'added').map((q) => adminResolveRequest(q.id, 'pending', null)));
+      } else if (kind === 'already') {
+        // 조기 마감일은 그대로 두고 남은 제보만 정리
+        await Promise.all(g.reqs.filter((q) => q.status === 'pending').map((q) => adminResolveRequest(q.id, 'added', '이미 조기 마감')));
       } else {
         await Promise.all(g.reqs.filter((q) => q.status === 'pending').map((q) => adminResolveRequest(q.id, 'rejected', '마감 확인 안 됨')));
       }
@@ -356,7 +366,7 @@ function SoldOutReports({ races, onSaved }: { races: Race[]; onSaved: () => void
                       {' '}
                       · 지금 <strong className="font-semibold text-ink-2">{status}</strong>
                       {soldOn && ` (${fmtDate(soldOn)})`}
-                      {g.race.entry_closes && ` · 원래 마감 ${fmtDate(g.race.entry_closes)}`}
+                      {g.race.entry_closes && (!soldOn || soldOn < g.race.entry_closes) && ` · 원래 마감 ${fmtDate(g.race.entry_closes)}`}
                     </>
                   )}
                 </p>
@@ -380,7 +390,12 @@ function SoldOutReports({ races, onSaved }: { races: Race[]; onSaved: () => void
                         {busy === g.raceId ? '처리 중' : '조기 마감 처리'}
                       </Button>
                     )}
-                    {g.pending > 0 && !soldOn && (
+                    {g.pending > 0 && soldOn && (
+                      <Button size="sm" disabled={busy === g.raceId} onClick={() => act(g, 'already')}>
+                        이미 반영됨
+                      </Button>
+                    )}
+                    {g.pending > 0 && (
                       <Button size="sm" tone="quiet" disabled={busy === g.raceId} onClick={() => act(g, 'reject')}>
                         보류
                       </Button>
