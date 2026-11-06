@@ -70,10 +70,26 @@ async function loadRatings(): Promise<RaceRating[]> {
   return (data ?? []) as RaceRating[];
 }
 
+/** DB 는 한 번에 최대 1000줄만 준다 — 대회가 그보다 많아 나눠 받는다 */
+async function loadAllRaces(): Promise<{ data: Race[] | null; error: unknown }> {
+  const all: Race[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase!
+      .from('races')
+      .select('*')
+      .order('race_date')
+      .order('id')
+      .range(from, from + 999);
+    if (error) return { data: null, error };
+    all.push(...((data ?? []) as Race[]));
+    if (!data || data.length < 1000) return { data: all, error: null };
+  }
+}
+
 async function loadRemote(): Promise<Dataset | null> {
   if (!supabase) return null;
   const [r, a, p, c, rt] = await Promise.all([
-    supabase.from('races').select('*').order('race_date'),
+    loadAllRaces(),
     supabase.from('agencies').select('*'),
     supabase.from('packages').select('*'),
     supabase.from('cost_baselines').select('*'),

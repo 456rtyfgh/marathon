@@ -17,8 +17,17 @@ const get = async (path) => {
   if (!r.ok) throw new Error(`${path} ${r.status}`);
   return r.json();
 };
+/** DB 는 한 번에 최대 1000줄만 준다 — 끝날 때까지 나눠 받는다 */
+const getAll = async (path) => {
+  const rows = [];
+  for (let offset = 0; ; offset += 1000) {
+    const page = await get(`${path}&limit=1000&offset=${offset}`);
+    rows.push(...page);
+    if (page.length < 1000) return rows;
+  }
+};
 try {
-  const races = (await get('races?select=*&order=race_date')).map(({ created_at, updated_at, ...r }) => r);
+  const races = (await getAll('races?select=*&order=race_date,id')).map(({ created_at, updated_at, ...r }) => r);
   const snap = {
     generated_at: new Date().toISOString(),
     races,
