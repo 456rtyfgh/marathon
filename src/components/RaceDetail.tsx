@@ -87,7 +87,9 @@ export default function RaceDetail({
   const raceDay = raceDayLine(race, today);
   const st = statusLine(race, today, registered);
   const soldOut = isSoldOut(race, today) ? dateParts(race.sold_out_on!) : null;
-  const canReport = raceDay.days != null && entryStatus(race, today) === 'open';
+  // 정원이 차서 끝나는 건 선착순·상시 접수뿐. 추첨·기록 기준 대회는 제보 대상이 아니다
+  const canReport =
+    raceDay.days != null && (race.entry_type === 'fcfs' || race.entry_type === 'open') && entryStatus(race, today) === 'open';
   const trail = isTrail(race);
   const p = dateParts(race.race_date);
   const feeKrw = feeToKrw(race);
@@ -225,13 +227,15 @@ export default function RaceDetail({
                   <Fact
                     label="접수 마감"
                     value={`${soldOut.m}월 ${soldOut.d}일 정원 마감`}
-                    sub={race.entry_closes ? `원래 마감 ${fmtDate(race.entry_closes)}` : undefined}
+                    sub={
+                      race.entry_closes && race.sold_out_on! < race.entry_closes ? `원래 마감 ${fmtDate(race.entry_closes)}` : undefined
+                    }
                   />
                 ) : (
                   <Fact label="접수 마감" value={race.entry_closes ? fmtDate(race.entry_closes) : '정원이 차면 마감'} />
                 )}
               </dl>
-              {mayFillEarly(race, today) && (
+              {!registered && mayFillEarly(race, today) && (
                 <div className="mt-3 max-w-[60ch] rounded-box border border-line px-4 py-3">
                   <p className="text-[14px] font-semibold">선착순 · 조기 마감될 수 있음</p>
                   <p className="mt-0.5 text-[14px] leading-relaxed text-ink-2">
@@ -373,10 +377,11 @@ function CalendarPicker({ race }: { race: Race }) {
         </button>
       )}
       <p className="mt-3 text-[12px] leading-relaxed text-ink-3">
-        접수 시작·마감 일정에는 하루 전 알림이 붙습니다.{' '}
-        {race.sold_out_on && dates.length === 1
-          ? '조기 마감된 대회라 대회 날만 넣을 수 있습니다.'
-          : '접수일이 아직 발표되지 않은 대회는 대회 날만 넣을 수 있습니다.'}
+        {dates.length > 1
+          ? '접수 시작·마감 일정에는 하루 전 알림이 붙습니다.'
+          : race.sold_out_on
+            ? '조기 마감된 대회라 대회 날만 넣을 수 있습니다.'
+            : '접수일이 아직 발표되지 않은 대회는 대회 날만 넣을 수 있습니다.'}
         카카오톡에서 열었다면 휴대폰 기본 브라우저로 넘어가서 저장됩니다.
       </p>
     </div>
@@ -422,7 +427,9 @@ function SoldOutReport({ race, onLogin }: { race: Race; onLogin: () => void }) {
       setJustSent(true);
       setOpen(false);
     } catch (e2) {
-      setErr(friendlyError(e2, '제보를 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'));
+      const m = friendlyError(e2, '제보를 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+      // DB 의 하루 제한은 '대회 추가 요청' 과 같이 센다 (스키마는 그대로)
+      setErr(/하루에 5개/.test(m) ? `마감 제보도 대회 추가 요청과 합쳐 하루 5건까지입니다. ${m}` : m);
     } finally {
       setBusy(false);
     }
