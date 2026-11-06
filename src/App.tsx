@@ -1,11 +1,22 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, MapTrifold } from '@phosphor-icons/react';
-import type { Race, EntryType, Region } from './lib/types';
-import { ENTRY_LABEL, REGIONS } from './lib/types';
+import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, MapTrifold, CheckSquare } from '@phosphor-icons/react';
+import type { Race, EntryType, Region, Discipline } from './lib/types';
+import { ENTRY_LABEL, REGIONS, DISCIPLINES, DISCIPLINE_LABEL } from './lib/types';
 import { loadDataset, emptyDataset, type Dataset } from './lib/data';
-import { entryStatus, entrySortKey, daysBetween, TODAY, isDomestic, dateParts, shortCount, type EntryStatus } from './lib/util';
+import {
+  entryStatus,
+  entrySortKey,
+  daysBetween,
+  TODAY,
+  isDomestic,
+  isTrail,
+  dateParts,
+  shortCount,
+  type EntryStatus,
+} from './lib/util';
 import { AuthProvider, useAuth } from './lib/auth';
 import { useFavorites } from './lib/favorites';
+import { useRegistered } from './lib/registered';
 import RaceRow from './components/RaceRow';
 import RaceDetail from './components/RaceDetail';
 import AdminPanel from './components/AdminPanel';
@@ -82,6 +93,13 @@ function Main() {
   const [pastLimit, setPastLimit] = useState(PAGE);
   const fav = useFavorites();
   const [favOnly, setFavOnly] = useState(false);
+  const reg = useRegistered();
+  const [regOnly, setRegOnly] = useState(false);
+  const [discipline, setDiscipline] = useState<Discipline | null>(null);
+  // 마지막 접수 표시를 지우면 버튼이 사라지므로 필터도 같이 끈다
+  useEffect(() => {
+    if (!reg.ids.length) setRegOnly(false);
+  }, [reg.ids.length]);
 
   const [selected, setSelected] = useState<Race | null>(null);
   const [authMode, setAuthMode] = useState<null | 'in' | 'reset'>(null);
@@ -218,6 +236,8 @@ function Main() {
 
   const matches = (r: Race) => {
     if (favOnly && !fav.has(r.id)) return false;
+    if (regOnly && !reg.has(r.id)) return false;
+    if (discipline && (isTrail(r) ? 'trail' : 'road') !== discipline) return false;
     if (scope === 'kr' && !isDomestic(r)) return false;
     if (scope === 'abroad' && isDomestic(r)) return false;
     if (majorOnly && !r.is_major) return false;
@@ -241,6 +261,11 @@ function Main() {
   const groups = useMemo(() => {
     const list = upcomingRaces.filter(matches);
     const byEntry = (a: Race, b: Race) => entrySortKey(a, today) - entrySortKey(b, today);
+    // 접수한 대회만 볼 때는 접수 상태가 의미 없으니 대회일 순 한 묶음
+    if (regOnly) {
+      const sorted = [...list].sort((a, b) => a.race_date.localeCompare(b.race_date));
+      return [{ key: 'registered', title: '접수한 대회', races: sorted }];
+    }
     if (sort === 'entry') {
       const order: EntryStatus[] = ['open', 'upcoming', 'unknown', 'closed'];
       return order
@@ -268,10 +293,11 @@ function Main() {
     });
     return [{ key: 'all', title: sort === 'flight' ? '가까운 곳부터' : sort === 'size' ? '참가자 많은 순 (규모 미공개 대회는 맨 뒤)' : '인기순 (최근 7일 조회·저장 기준)', races: sorted }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upcomingRaces, q, scope, regions, place, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids]);
+  }, [upcomingRaces, q, scope, regions, place, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, discipline]);
 
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
-  const activeFilters = types.length + (status ? 1 : 0) + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0);
+  const activeFilters =
+    types.length + (status ? 1 : 0) + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0) + (discipline ? 1 : 0);
 
   const reset = () => {
     setQ('');
@@ -283,6 +309,8 @@ function Main() {
     setMajorOnly(false);
     setMaxFlight(24);
     setFavOnly(false);
+    setRegOnly(false);
+    setDiscipline(null);
   };
 
   const openRace = useCallback((r: Race) => setSelected(r), []);
@@ -538,6 +566,24 @@ function Main() {
                   <span className="sr-only">관심 대회만 보기</span>
                 </button>
               )}
+              {reg.ids.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (!regOnly) track('filter', { name: 'registered', value: 'on' });
+                    setRegOnly((v) => !v);
+                  }}
+                  aria-pressed={regOnly}
+                  title="접수한 대회"
+                  className={`inline-flex h-10 items-center gap-1.5 rounded-ctl border px-3 text-[14px] font-semibold transition ${
+                    regOnly ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
+                  }`}
+                >
+                  <CheckSquare size={16} weight={regOnly ? 'fill' : 'bold'} />
+                  <span className="hidden sm:inline">접수한 대회</span>
+                  <span className="num text-[15px]">{reg.ids.length}</span>
+                  <span className="sr-only sm:hidden">접수한 대회만 보기</span>
+                </button>
+              )}
               <button
                 onClick={() => setFiltersOpen((v) => !v)}
                 aria-expanded={filtersOpen}
@@ -555,6 +601,20 @@ function Main() {
           {filtersOpen && (
             <div className="border-t border-line">
               <div className="mx-auto grid max-w-6xl gap-4 px-4 py-4 sm:px-6 md:grid-cols-2">
+                <FilterGroup label="종목">
+                  {DISCIPLINES.map((d) => (
+                    <Chip
+                      key={d}
+                      on={discipline === d}
+                      onClick={() => {
+                        if (discipline !== d) track('filter', { name: 'discipline', value: d });
+                        setDiscipline(discipline === d ? null : d);
+                      }}
+                    >
+                      {DISCIPLINE_LABEL[d]}
+                    </Chip>
+                  ))}
+                </FilterGroup>
                 <FilterGroup label="접수 방식">
                   {ENTRY_TYPES.map((t) => (
                     <Chip key={t} on={types.includes(t)} onClick={() => {
@@ -731,7 +791,7 @@ function Main() {
                 </h2>
                 <ul className="divide-y divide-line border-y border-line">
                   {g.races.map((r) => (
-                    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} onOpen={openRace} />
+                    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} registered={reg.has(r.id)} onOpen={openRace} />
                   ))}
                 </ul>
               </div>
@@ -752,7 +812,7 @@ function Main() {
               {showPast && (
                 <ul className="mt-3 divide-y divide-line border-y border-line opacity-70">
                   {pastRaces.slice(0, pastLimit).map((r) => (
-                    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} onOpen={openRace} />
+                    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} registered={reg.has(r.id)} onOpen={openRace} />
                   ))}
                 </ul>
               )}
@@ -806,6 +866,8 @@ function Main() {
             rating={ratingMap.get(selected.id)}
             favorite={fav.has(selected.id)}
             onToggleFavorite={() => fav.toggle(selected.id)}
+            registered={reg.has(selected.id)}
+            onToggleRegistered={() => reg.toggle(selected.id)}
             onClose={() => setSelected(null)}
             onLogin={() => setAuthMode('in')}
           />

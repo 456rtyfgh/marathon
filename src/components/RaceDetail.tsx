@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { ArrowUpRight, CalendarPlus, LinkSimple, Check, BookmarkSimple } from '@phosphor-icons/react';
+import { ArrowUpRight, CalendarPlus, LinkSimple, Check, BookmarkSimple, CheckSquare, Square } from '@phosphor-icons/react';
 import { calDates, CAL_LABEL, googleCalUrl, openIcs, openOutside, type CalKind } from '../lib/ics';
 import { track } from '../lib/analytics';
 import type { Race, Agency, Package, CostBaseline, RaceRating } from '../lib/types';
 import { ENTRY_LABEL, ENTRY_DESC, CONFIDENCE_LABEL } from '../lib/types';
 import {
-  daysBetween,
   TODAY,
   fmtDate,
   feeLabel,
@@ -13,6 +12,8 @@ import {
   krw,
   isDomestic,
   statusLine,
+  raceDayLine,
+  isTrail,
   dateParts,
   isSearchLink,
   safeUrl,
@@ -22,6 +23,8 @@ import PackageTable from './PackageTable';
 import AlertForm from './AlertForm';
 import ReviewsTab from './ReviewsTab';
 import { CloseButton, Tabs } from './ui';
+
+const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
 
 type Tab = 'overview' | 'reviews' | 'packages' | 'cost' | 'alert';
 
@@ -33,6 +36,8 @@ export default function RaceDetail({
   rating,
   favorite,
   onToggleFavorite,
+  registered,
+  onToggleRegistered,
   onClose,
   onLogin,
 }: {
@@ -43,6 +48,8 @@ export default function RaceDetail({
   rating?: RaceRating;
   favorite: boolean;
   onToggleFavorite: () => void;
+  registered: boolean;
+  onToggleRegistered: () => void;
   onClose: () => void;
   onLogin: () => void;
 }) {
@@ -72,7 +79,8 @@ export default function RaceDetail({
   }
   const today = TODAY();
   const st = statusLine(race, today);
-  const dRace = daysBetween(today, race.race_date);
+  const raceDay = raceDayLine(race, today);
+  const trail = isTrail(race);
   const p = dateParts(race.race_date);
   const feeKrw = feeToKrw(race);
   const racePackages = packages.filter((x) => x.race_id === race.id);
@@ -107,6 +115,11 @@ export default function RaceDetail({
 
         <h2 className="mt-2 text-[28px] leading-tight font-extrabold tracking-tight sm:text-[32px]">
           {race.name_ko}
+          {trail && (
+            <span className="ml-2 inline-block translate-y-[-4px] rounded-tag border border-ink-3 px-1.5 py-px align-middle text-[11px] font-bold text-ink-2">
+              트레일
+            </span>
+          )}
           {race.is_major && (
             <span className="ml-2 inline-block translate-y-[-4px] rounded-tag bg-ink px-1.5 py-0.5 align-middle text-[11px] font-bold text-bg">
               메이저
@@ -117,27 +130,56 @@ export default function RaceDetail({
 
         <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-box bg-line">
           <div className="bg-surface px-4 py-3">
-            <div className="text-[13px] text-ink-3">대회일</div>
+            <div className="text-[13px] text-ink-3">
+              대회일 <span className="num">{p.m}.{p.d}</span> {p.w}
+            </div>
             <div className="num mt-0.5 text-[26px] leading-none font-bold">
-              {p.m}.{p.d}
-              <span className="ml-1 font-sans text-[14px] font-semibold text-ink-2">{p.w}</span>
+              {raceDay.days != null ? dday(raceDay.days) : '종료'}
             </div>
             <div className="mt-1 text-[13px] text-ink-3">
-              {dRace >= 0 ? `${dRace}일 남음` : '종료'}
+              {raceDay.label}
               {race.date_confidence !== 'confirmed' && `, 날짜 ${CONFIDENCE_LABEL[race.date_confidence]}`}
             </div>
           </div>
-          <div className={`px-4 py-3 ${st.hot ? 'bg-accent text-on-accent' : 'bg-surface'}`}>
-            <div className={`text-[13px] ${st.hot ? 'opacity-70' : 'text-ink-3'}`}>{st.label}</div>
-            <div className="num mt-0.5 text-[26px] leading-none font-bold">
-              {st.days != null ? (st.days === 0 ? 'D-DAY' : `D-${st.days}`) : '-'}
+          {registered ? (
+            <div className="bg-surface px-4 py-3">
+              <div className="text-[13px] text-ink-3">접수</div>
+              <div className="mt-0.5 inline-flex items-center gap-1 text-[24px] leading-none font-bold">
+                <Check size={20} weight="bold" />
+                완료
+              </div>
+              <div className="mt-1 text-[13px] text-ink-3">{ENTRY_LABEL[race.entry_type]}</div>
             </div>
-            <div className={`mt-1 text-[13px] ${st.hot ? 'opacity-70' : 'text-ink-3'}`}>
-              {ENTRY_LABEL[race.entry_type]}
-              {race.entry_confidence !== 'confirmed' && `, 일정 ${CONFIDENCE_LABEL[race.entry_confidence]}`}
+          ) : (
+            <div className={`px-4 py-3 ${st.hot ? 'bg-accent text-on-accent' : 'bg-surface'}`}>
+              <div className={`text-[13px] ${st.hot ? 'opacity-70' : 'text-ink-3'}`}>{st.label}</div>
+              <div className="num mt-0.5 text-[26px] leading-none font-bold">{st.days != null ? dday(st.days) : '-'}</div>
+              <div className={`mt-1 text-[13px] ${st.hot ? 'opacity-70' : 'text-ink-3'}`}>
+                {ENTRY_LABEL[race.entry_type]}
+                {race.entry_confidence !== 'confirmed' && `, 일정 ${CONFIDENCE_LABEL[race.entry_confidence]}`}
+              </div>
             </div>
-          </div>
+          )}
         </div>
+
+        {raceDay.days != null && (
+          <button
+            onClick={() => {
+              if (!registered) track('registered', { race_id: race.id });
+              onToggleRegistered();
+            }}
+            aria-pressed={registered}
+            className={`mt-3 inline-flex h-11 items-center gap-2 rounded-ctl px-3.5 text-[14px] font-semibold transition active:translate-y-px sm:h-9 ${
+              registered ? 'bg-ink text-bg' : 'bg-surface text-ink hover:bg-sunken'
+            }`}
+          >
+            {registered ? <CheckSquare size={18} weight="fill" /> : <Square size={18} weight="bold" />}
+            {registered ? '접수 완료' : '접수했어요'}
+            <span className={`text-[13px] font-normal ${registered ? 'opacity-70' : 'text-ink-3'}`}>
+              {registered ? '대회일 기준으로 표시 중' : '체크하면 대회일 기준으로 표시'}
+            </span>
+          </button>
+        )}
       </header>
 
       <Tabs<Tab>
@@ -170,7 +212,15 @@ export default function RaceDetail({
             <dl className="grid grid-cols-2 gap-3">
               <Fact label="참가비" value={feeLabel(race)} sub={feeKrw && race.entry_fee_currency !== 'KRW' ? `약 ${krw(feeKrw)}` : undefined} num />
               <Fact label="종목" value={race.distances.join(', ')} />
-              <Fact label="코스" value={race.course ?? '-'} />
+              {trail ? (
+                <Fact
+                  label="누적 상승"
+                  value={race.elevation_gain != null ? `${race.elevation_gain.toLocaleString('ko-KR')}m` : '-'}
+                  num
+                />
+              ) : (
+                <Fact label="코스" value={race.course ?? '-'} />
+              )}
               <Fact label="규모" value={race.field_size ? `${race.field_size.toLocaleString()}명` : '-'} num />
               <Fact
                 label={domestic ? '서울에서' : '인천에서'}
