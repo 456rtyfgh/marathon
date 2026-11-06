@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight } from '@phosphor-icons/react';
-import { loadRaceRequests, submitRaceRequest, adminResolveRequest, type RaceRequest } from '../lib/data';
+import { loadRaceRequests, submitRaceRequest, adminResolveRequest, soldOutReportRaceId, type RaceRequest } from '../lib/data';
 import { useAuth } from '../lib/auth';
 import { Button, CloseButton, Field, Input, Note } from './ui';
 import { track } from '../lib/analytics';
@@ -17,6 +17,7 @@ const STATUS_LABEL: Record<RaceRequest['status'], string> = {
 export default function RequestPanel({ onClose, onLogin }: { onClose: () => void; onLogin: () => void }) {
   const { session, profile } = useAuth();
   const [list, setList] = useState<RaceRequest[] | null>(null);
+  const [reportCount, setReportCount] = useState(0);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -28,7 +29,12 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
 
   const reload = () =>
     loadRaceRequests()
-      .then(setList)
+      .then((rows) => {
+        // 조기 마감 제보는 같은 표에 들어가지만 대회 추가 요청이 아니다 → 관리 화면 '마감 제보' 탭에서 본다
+        const reports = rows.filter((r) => soldOutReportRaceId(r) != null);
+        setReportCount(reports.filter((r) => r.status === 'pending').length);
+        setList(rows.filter((r) => soldOutReportRaceId(r) == null));
+      })
       .catch(() => setList([]));
 
   useEffect(() => {
@@ -108,6 +114,11 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
           <h3 className="text-[15px] font-bold">
             들어온 요청 <span className="num ml-1 text-[17px] text-ink-3">{list?.length ?? 0}</span>
           </h3>
+          {profile?.is_admin && reportCount > 0 && (
+            <p className="mt-1 text-[13px] text-ink-3">
+              확인 전 조기 마감 제보 <span className="num">{reportCount}</span>건은 관리 화면 '마감 제보' 탭에 있습니다.
+            </p>
+          )}
           {list === null ? (
             <div className="mt-3 h-16 animate-pulse rounded-box bg-surface" />
           ) : list.length === 0 ? (
