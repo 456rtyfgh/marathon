@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ArrowUpRight, Minus, Plus } from '@phosphor-icons/react';
 import type { Race, CostBaseline } from '../lib/types';
 import { costFor, feeToKrw, feeLabel, krwExact, isDomestic } from '../lib/util';
-import { stayDates, stayLinks, stayQuery, transportLinks, type BookingLink } from '../lib/booking';
+import { isUlleung, stayDates, stayLinks, stayQuery, transportLinks, type BookingLink } from '../lib/booking';
 import { track } from '../lib/analytics';
 
 type Tier = 'low' | 'mid' | 'high';
@@ -18,6 +18,8 @@ function DomesticBooking({ race }: { race: Race }) {
   const stays = stayLinks(race);
   const rides = transportLinks(race);
   const jeju = rides.length === 1 && rides[0].id === 'naver-flight';
+  const ferry = isUlleung(race);
+  const out = dates?.nextDay ? '다음 날 체크아웃' : '당일 체크아웃';
   return (
     <div className="space-y-7">
       <section className="space-y-3">
@@ -27,8 +29,9 @@ function DomesticBooking({ race }: { race: Race }) {
             {!dates
               ? `대회 날짜가 정해지지 않아 ‘${stayQuery(race)}’ 지역만 넣어 검색합니다. 날짜는 직접 고르세요.`
               : race.date_confidence === 'expected'
-                ? `예상 대회일 기준으로 전날 체크인, 당일 체크아웃 ‘${stayQuery(race)}’ 숙소를 검색합니다. 날짜가 바뀔 수 있습니다.`
-                : `대회 전날 체크인, 당일 체크아웃으로 ‘${stayQuery(race)}’ 숙소를 검색합니다.`}
+                ? `예상 대회일 기준으로 전날 체크인, ${out} ‘${stayQuery(race)}’ 숙소를 검색합니다. 날짜가 바뀔 수 있습니다.`
+                : `대회 전날 체크인, ${out}으로 ‘${stayQuery(race)}’ 숙소를 검색합니다.`}
+            {dates?.nextDay && ' 100km 이상 종목은 다음 날 끝나는 경우가 많아 하루 더 잡았습니다.'}
           </p>
         </div>
         <BookingList race={race} links={stays} />
@@ -38,12 +41,14 @@ function DomesticBooking({ race }: { race: Race }) {
         <div>
           <h3 className="text-[15px] font-semibold text-ink">교통편 예매</h3>
           <p className="mt-0.5 text-[13px] text-ink-3">
-            {jeju
-              ? '제주는 항공편으로 갑니다. 서울 출발로 검색하니 다른 공항 출발은 예매 화면에서 바꾸세요.'
-              : '출발역·도착역과 날짜는 예매 화면에서 고르세요.'}
+            {ferry
+              ? '울릉도는 포항·강릉·묵호에서 여객선으로 갑니다. 항구·선사마다 예매처가 달라 링크는 따로 걸지 않았습니다. 배는 날씨로 결항이 잦습니다.'
+              : jeju
+                ? '제주는 항공편으로 갑니다. 서울 출발로 검색하니 다른 공항 출발은 예매 화면에서 바꾸세요.'
+                : '출발역·도착역과 날짜는 예매 화면에서 고르세요.'}
           </p>
         </div>
-        <BookingList race={race} links={rides} />
+        {rides.length > 0 && <BookingList race={race} links={rides} />}
       </section>
 
       <dl className="flex items-baseline justify-between gap-4 border-t border-line pt-4">
@@ -80,8 +85,7 @@ function BookingList({ race, links }: { race: Race; links: BookingLink[] }) {
 
 function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
   const base = costFor(race, costs);
-  const domestic = isDomestic(race);
-  const [nights, setNights] = useState(domestic ? 1 : race.flight_hours && race.flight_hours > 8 ? 5 : 3);
+  const [nights, setNights] = useState(race.flight_hours && race.flight_hours > 8 ? 5 : 3);
   const [people, setPeople] = useState(1);
   const [tier, setTier] = useState<Tier>('mid');
   const [shareRoom, setShareRoom] = useState(true);
@@ -96,21 +100,21 @@ function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
     const hotel = base.hotel_night_krw * hotelMul * nights * rooms;
     const daily = base.daily_krw * dailyMul * (nights + 1) * people;
     const fee = (feeToKrw(race) ?? 0) * people;
-    const misc = (domestic ? 10000 : 60000) * people;
+    const misc = 60000 * people;
     const total = travel + hotel + daily + fee + misc;
     return { travel, hotel, daily, fee, misc, total, per: total / people, rooms };
-  }, [base, nights, people, tier, shareRoom, race, domestic]);
+  }, [base, nights, people, tier, shareRoom, race]);
 
   if (!base || !r) {
     return <p className="text-sm text-ink-3">이 지역은 아직 비용 기준값이 없습니다.</p>;
   }
 
   const rows: [string, number, string][] = [
-    [domestic ? '왕복 교통 (서울 출발)' : '왕복 항공 (인천 출발)', r.travel, `${people}명`],
+    ['왕복 항공 (인천 출발)', r.travel, `${people}명`],
     ['숙박', r.hotel, nights ? `${nights}박, 방 ${r.rooms}개` : '당일치기'],
     ['식비·현지 교통', r.daily, `${nights + 1}일`],
     ['대회 참가비', r.fee, race.entry_fee ? `${people}명` : '미공개'],
-    [domestic ? '기타' : '보험·기타', r.misc, ''],
+    ['보험·기타', r.misc, ''],
   ];
 
   return (
@@ -171,7 +175,7 @@ function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
       </div>
 
       <p className="max-w-[60ch] text-[13px] leading-relaxed text-ink-3">
-        {domestic ? '서울 출발' : '인천 출발 왕복 이코노미'} 기준 추정치입니다. 대회 주간에는 숙박비가 평소보다
+        인천 출발 왕복 이코노미 기준 추정치입니다. 대회 주간에는 숙박비가 평소보다
         오르는 경우가 많으니 여행사 패키지 가격과 비교해 확인하세요.
       </p>
     </div>
