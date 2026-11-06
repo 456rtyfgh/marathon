@@ -13,6 +13,9 @@ import {
   isDomestic,
   statusLine,
   raceDayLine,
+  entryStatus,
+  isSoldOut,
+  mayFillEarly,
   isTrail,
   dateParts,
   isSearchLink,
@@ -22,7 +25,10 @@ import CostCalculator from './CostCalculator';
 import PackageTable from './PackageTable';
 import AlertForm from './AlertForm';
 import ReviewsTab from './ReviewsTab';
-import { CloseButton, Tabs } from './ui';
+import { Button, CloseButton, Input, Note, Tabs } from './ui';
+import { useAuth } from '../lib/auth';
+import { submitSoldOutReport } from '../lib/data';
+import { spamReason, friendlyError } from '../lib/spam';
 
 const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
 
@@ -78,8 +84,10 @@ export default function RaceDetail({
     }
   }
   const today = TODAY();
-  const st = statusLine(race, today);
   const raceDay = raceDayLine(race, today);
+  const st = statusLine(race, today, registered);
+  const soldOut = isSoldOut(race, today) ? dateParts(race.sold_out_on!) : null;
+  const canReport = raceDay.days != null && entryStatus(race, today) === 'open';
   const trail = isTrail(race);
   const p = dateParts(race.race_date);
   const feeKrw = feeToKrw(race);
@@ -153,10 +161,18 @@ export default function RaceDetail({
           ) : (
             <div className={`px-4 py-3 ${st.hot ? 'bg-accent text-on-accent' : 'bg-surface'}`}>
               <div className={`text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>{st.label}</div>
-              <div className="num mt-0.5 text-[26px] leading-none font-bold">{st.days != null ? dday(st.days) : '-'}</div>
+              <div className={`mt-0.5 text-[26px] leading-none font-bold ${soldOut ? '' : 'num'}`}>
+                {st.days != null ? dday(st.days) : soldOut ? '마감' : '-'}
+              </div>
               <div className={`mt-1 text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>
-                {ENTRY_LABEL[race.entry_type]}
-                {race.entry_confidence !== 'confirmed' && `, 일정 ${CONFIDENCE_LABEL[race.entry_confidence]}`}
+                {soldOut ? (
+                  `${soldOut.m}월 ${soldOut.d}일 정원 마감`
+                ) : (
+                  <>
+                    {ENTRY_LABEL[race.entry_type]}
+                    {race.entry_confidence !== 'confirmed' && `, 일정 ${CONFIDENCE_LABEL[race.entry_confidence]}`}
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -205,8 +221,25 @@ export default function RaceDetail({
               <p className="mt-1 max-w-[60ch] text-[15px] leading-relaxed text-ink-2">{ENTRY_DESC[race.entry_type]}</p>
               <dl className="mt-4 grid grid-cols-2 gap-3">
                 <Fact label="접수 시작" value={race.entry_opens ? fmtDate(race.entry_opens) : '미공개'} />
-                <Fact label="접수 마감" value={race.entry_closes ? fmtDate(race.entry_closes) : '정원이 차면 마감'} />
+                {soldOut ? (
+                  <Fact
+                    label="접수 마감"
+                    value={`${soldOut.m}월 ${soldOut.d}일 정원 마감`}
+                    sub={race.entry_closes ? `원래 마감 ${fmtDate(race.entry_closes)}` : undefined}
+                  />
+                ) : (
+                  <Fact label="접수 마감" value={race.entry_closes ? fmtDate(race.entry_closes) : '정원이 차면 마감'} />
+                )}
               </dl>
+              {mayFillEarly(race, today) && (
+                <div className="mt-3 max-w-[60ch] rounded-box border border-line px-4 py-3">
+                  <p className="text-[14px] font-semibold">선착순 · 조기 마감될 수 있음</p>
+                  <p className="mt-0.5 text-[14px] leading-relaxed text-ink-2">
+                    정원이 차면 마감일 전에 끝날 수 있습니다. 신청 전에 공식 홈페이지에서 확인하세요.
+                  </p>
+                </div>
+              )}
+              {canReport && <SoldOutReport key={race.id} race={race} onLogin={onLogin} />}
             </section>
 
             <dl className="grid grid-cols-2 gap-3">
@@ -253,7 +286,7 @@ export default function RaceDetail({
                   calOpen ? 'bg-ink text-bg' : 'bg-surface text-ink hover:bg-sunken'
                 }`}
               >
-                <CalendarPlus size={16} weight="bold" /> 캘린더에 저장
+                <CalendarPlus size={16} weight="bold" /> {calDates(race).length === 1 ? '대회 날 캘린더에 저장' : '캘린더에 저장'}
               </button>
               <button
                 onClick={share}
@@ -340,9 +373,97 @@ function CalendarPicker({ race }: { race: Race }) {
         </button>
       )}
       <p className="mt-3 text-[12px] leading-relaxed text-ink-3">
-        접수 시작·마감 일정에는 하루 전 알림이 붙습니다. 접수일이 아직 발표되지 않은 대회는 대회 날만 넣을 수 있습니다.
+        접수 시작·마감 일정에는 하루 전 알림이 붙습니다.{' '}
+        {race.sold_out_on && dates.length === 1
+          ? '조기 마감된 대회라 대회 날만 넣을 수 있습니다.'
+          : '접수일이 아직 발표되지 않은 대회는 대회 날만 넣을 수 있습니다.'}
         카카오톡에서 열었다면 휴대폰 기본 브라우저로 넘어가서 저장됩니다.
       </p>
     </div>
+  );
+}
+
+const REPORTED_KEY = 'marathon-cal:soldout-reported';
+const reportedIds = (): string[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(REPORTED_KEY) ?? '[]');
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+};
+
+/** '마감됐어요 제보' — 대회 추가 요청과 같은 표(race_requests)·같은 로그인·하루 제한 규칙 */
+function SoldOutReport({ race, onLogin }: { race: Race; onLogin: () => void }) {
+  const { session, profile } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [memo, setMemo] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [done, setDone] = useState(() => reportedIds().includes(race.id));
+  const [justSent, setJustSent] = useState(false);
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    setErr('');
+    if (!session) return onLogin();
+    const spam = spamReason(memo);
+    if (spam) return setErr(spam);
+    setBusy(true);
+    try {
+      await submitSoldOutReport(race, session.user.id, profile?.nickname ?? '러너', memo);
+      track('soldout_report', { race_id: race.id });
+      try {
+        localStorage.setItem(REPORTED_KEY, JSON.stringify([...reportedIds(), race.id].slice(-200)));
+      } catch {
+        /* 저장 못 해도 제보는 들어감 */
+      }
+      setDone(true);
+      setJustSent(true);
+      setOpen(false);
+    } catch (e2) {
+      setErr(friendlyError(e2, '제보를 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done)
+    return justSent ? (
+      <div className="mt-3">
+        <Note tone="ok">제보 고맙습니다. 확인 후 반영합니다.</Note>
+      </div>
+    ) : (
+      <p className="mt-3 text-[13px] text-ink-3">마감 제보를 보냈습니다. 확인 후 반영합니다.</p>
+    );
+
+  if (!open)
+    return (
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Button tone="quiet" size="sm" type="button" onClick={() => (session ? setOpen(true) : onLogin())}>
+          마감됐어요 제보
+        </Button>
+        <span className="text-[13px] text-ink-3">공식 홈페이지에 마감 공지가 있으면 알려 주세요</span>
+      </div>
+    );
+
+  return (
+    <form onSubmit={send} className="mt-3 max-w-[60ch] space-y-2 rounded-box bg-surface p-4">
+      <label className="block">
+        <span className="mb-1.5 block text-[13px] font-semibold text-ink-2">
+          어디서 봤나요 <span className="font-normal text-ink-3">선택</span>
+        </span>
+        <Input value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={200} placeholder="예: 홈페이지 공지에 정원 마감" />
+      </label>
+      {err && <Note tone="error">{err}</Note>}
+      <div className="flex gap-2">
+        <Button size="sm" type="submit" disabled={busy}>
+          {busy ? '보내는 중' : '제보 보내기'}
+        </Button>
+        <Button size="sm" tone="quiet" type="button" onClick={() => setOpen(false)}>
+          취소
+        </Button>
+      </div>
+    </form>
   );
 }
