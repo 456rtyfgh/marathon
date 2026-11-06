@@ -1,12 +1,84 @@
 import { useMemo, useState } from 'react';
-import { Minus, Plus } from '@phosphor-icons/react';
+import { ArrowUpRight, Minus, Plus } from '@phosphor-icons/react';
 import type { Race, CostBaseline } from '../lib/types';
-import { costFor, feeToKrw, krwExact, isDomestic } from '../lib/util';
+import { costFor, feeToKrw, feeLabel, krwExact, isDomestic } from '../lib/util';
+import { stayDates, stayLinks, stayQuery, transportLinks, type BookingLink } from '../lib/booking';
+import { track } from '../lib/analytics';
 
 type Tier = 'low' | 'mid' | 'high';
 const TIER_LABEL: Record<Tier, string> = { low: '절약', mid: '보통', high: '여유' };
 
 export default function CostCalculator({ race, costs }: { race: Race; costs: CostBaseline[] }) {
+  return isDomestic(race) ? <DomesticBooking race={race} /> : <Estimate race={race} costs={costs} />;
+}
+
+/** 국내 대회: 금액 추정 대신 숙소·교통 예약 사이트로 바로 연결 */
+function DomesticBooking({ race }: { race: Race }) {
+  const dates = stayDates(race);
+  const stays = stayLinks(race);
+  const rides = transportLinks(race);
+  const jeju = rides.length === 1 && rides[0].id === 'naver-flight';
+  return (
+    <div className="space-y-7">
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-[15px] font-semibold text-ink">숙소 찾기</h3>
+          <p className="mt-0.5 text-[13px] text-ink-3">
+            {!dates
+              ? `대회 날짜가 정해지지 않아 ‘${stayQuery(race)}’ 지역만 넣어 검색합니다. 날짜는 직접 고르세요.`
+              : race.date_confidence === 'expected'
+                ? `예상 대회일 기준으로 전날 체크인, 당일 체크아웃 ‘${stayQuery(race)}’ 숙소를 검색합니다. 날짜가 바뀔 수 있습니다.`
+                : `대회 전날 체크인, 당일 체크아웃으로 ‘${stayQuery(race)}’ 숙소를 검색합니다.`}
+          </p>
+        </div>
+        <BookingList race={race} links={stays} />
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-[15px] font-semibold text-ink">교통편 예매</h3>
+          <p className="mt-0.5 text-[13px] text-ink-3">
+            {jeju
+              ? '제주는 항공편으로 갑니다. 서울 출발로 검색하니 다른 공항 출발은 예매 화면에서 바꾸세요.'
+              : '출발역·도착역과 날짜는 예매 화면에서 고르세요.'}
+          </p>
+        </div>
+        <BookingList race={race} links={rides} />
+      </section>
+
+      <dl className="flex items-baseline justify-between gap-4 border-t border-line pt-4">
+        <dt className="text-[14px] text-ink-2">대회 참가비</dt>
+        <dd className="num text-[17px] font-semibold text-ink">{feeLabel(race)}</dd>
+      </dl>
+    </div>
+  );
+}
+
+function BookingList({ race, links }: { race: Race; links: BookingLink[] }) {
+  return (
+    <ul className="grid grid-cols-2 gap-2">
+      {links.map((l) => (
+        <li key={l.id}>
+          <a
+            href={l.url}
+            onClick={() => track('booking', { race_id: race.id, kind: l.id })}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex min-h-14 items-center justify-between gap-3 rounded-box bg-surface px-4 py-3 transition hover:bg-sunken"
+          >
+            <span>
+              <span className="block text-[15px] font-semibold text-ink">{l.label}</span>
+              {l.note && <span className="block text-[13px] text-ink-3">{l.note}</span>}
+            </span>
+            <ArrowUpRight size={16} className="shrink-0 text-ink-3 group-hover:text-ink" />
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
   const base = costFor(race, costs);
   const domestic = isDomestic(race);
   const [nights, setNights] = useState(domestic ? 1 : race.flight_hours && race.flight_hours > 8 ? 5 : 3);
