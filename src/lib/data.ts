@@ -215,6 +215,44 @@ export async function submitRaceRequest(
   if (error) throw new Error(error.message);
 }
 
+/* ── 조기 마감 제보 (race_requests 를 그대로 쓰고 note 머리말로 구분) ── */
+
+export const SOLD_OUT_TAG = '[조기마감 제보]';
+const SOLD_OUT_RE = /^\[조기마감 제보\] ([a-z0-9-]{2,40})(?:\s|$)/;
+
+/** note 가 '[조기마감 제보] <race id>' 형태면 race id, 아니면 null */
+export function soldOutReportRaceId(req: Pick<RaceRequest, 'note'>): string | null {
+  return req.note?.match(SOLD_OUT_RE)?.[1] ?? null;
+}
+
+/** 대회 추가 요청과 같은 경로·규칙(로그인, 하루 5건, 스팸 검사)으로 들어간다 */
+export async function submitSoldOutReport(race: Race, userId: string, nickname: string, memo?: string) {
+  if (!supabase) throw new Error('Supabase가 연결되지 않았습니다.');
+  const url = /^https?:\/\//.test(race.official_url) ? race.official_url : null;
+  const extra = memo?.trim();
+  const { error } = await supabase.from('race_requests').insert({
+    race_name: race.name_ko,
+    country: race.country_ko || null,
+    url,
+    note: `${SOLD_OUT_TAG} ${race.id}${extra ? `\n${extra}` : ''}`,
+    requested_by: userId,
+    nickname,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * 관리자: 조기 마감일 넣기/지우기. 대회 수정과 같은 races_admin_write 권한.
+ * 화면의 race 는 보통 data.json 스냅샷(최대 일주일 묵음)이라 행 전체를 upsert 하면
+ * 그 뒤 자동 갱신된 칸을 되돌린다 → 이 칸 하나만 update 한다.
+ */
+export async function adminSetSoldOut(race: Race, soldOutOn: string | null) {
+  if (!supabase) throw new Error('Supabase가 연결되지 않았습니다.');
+  const { data, error } = await supabase.from('races').update({ sold_out_on: soldOutOn }).eq('id', race.id).select('id');
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error('대회를 찾지 못했거나 고칠 권한이 없습니다.');
+}
+
 export async function adminResolveRequest(id: string, status: RaceRequest['status'], adminNote: string | null) {
   if (!supabase) throw new Error('Supabase가 연결되지 않았습니다.');
   const { error } = await supabase
