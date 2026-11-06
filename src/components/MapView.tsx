@@ -380,13 +380,13 @@ export default function MapView({
         })}
       </svg>
       {tip && counts[tip] ? (
-        <div className="pointer-events-none absolute top-2 left-2 rounded-ctl bg-surface px-2.5 py-1.5 text-[14px] shadow-[0_1px_3px_rgb(0_0_0/0.12)]">
+        <div className="pointer-events-none absolute top-2 left-2 rounded-ctl bg-surface px-2.5 py-1.5 text-[14px] shadow-[0_1px_3px_var(--shadow)]">
           <span className="font-semibold">{names[tip] ?? tip}</span>
           <span className="num ml-1.5 text-[16px] font-semibold">{counts[tip]}</span>
           <span className="text-ink-3">개</span>
         </div>
       ) : null}
-      <div className="absolute top-2 right-2 flex flex-col divide-y divide-line overflow-hidden rounded-ctl border border-line shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
+      <div className="absolute top-2 right-2 flex flex-col divide-y divide-line overflow-hidden rounded-ctl border border-line shadow-[0_1px_2px_var(--shadow)]">
         <button type="button" className={ctl} onClick={() => zoomBy(1.6)} disabled={zoom >= MAX_ZOOM} aria-label="지도 확대">
           <Plus size={16} weight="bold" />
         </button>

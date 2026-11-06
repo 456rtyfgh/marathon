@@ -5,7 +5,8 @@
 
 /*
   디자인 규칙
-  - 색: 중립 회색 한 계열 + 강조색(볼트) 하나. 강조색은 배경으로만 쓰고 글자는 항상 --ink.
+  - 색: 중립 회색 한 계열 + 강조색(볼트) 하나. 강조색은 배경으로 쓰고 그 위 글자는 --on-accent.
+    강조색 계열을 글자로 써야 하면 --accent-ink. 색 값은 :root 의 *-light / *-dark 에서만 바꾼다.
   - 모서리: 컨테이너 10px, 컨트롤·칩 6px, 작은 배지 3px. 이 외의 값은 쓰지 않는다.
   - 숫자: 날짜·D-day·금액은 Barlow Condensed 또는 tabular-nums.
 */
@@ -27,6 +28,17 @@
   --line-dark: #272a2f;
   --accent-light: #cdf53a;
   --accent-dark: #d4ff45;
+  /* 강조색 면 위 글자 */
+  --on-accent-light: #121418;
+  --on-accent-dark: #121418;
+  /* 강조색 계열을 글자로 써야 할 때 (바탕 대비 4.5 이상) */
+  --accent-ink-light: #121418;
+  --accent-ink-dark: #eceef1;
+
+  /* 모드와 상관없는 그림자·뒤 막 */
+  --shadow: rgb(0 0 0 / 0.08);
+  --scrim: rgb(8 9 11 / 0.45);
+  --scrim-off: rgb(8 9 11 / 0);
 
   --bg: var(--bg-light);
   --surface: var(--surface-light);
@@ -36,6 +48,8 @@
   --ink-3: var(--ink3-light);
   --line: var(--line-light);
   --accent: var(--accent-light);
+  --on-accent: var(--on-accent-light);
+  --accent-ink: var(--accent-ink-light);
 
   @media (prefers-color-scheme: dark) {
     --bg: var(--bg-dark);
@@ -46,6 +60,8 @@
     --ink-3: var(--ink3-dark);
     --line: var(--line-dark);
     --accent: var(--accent-dark);
+    --on-accent: var(--on-accent-dark);
+    --accent-ink: var(--accent-ink-dark);
   }
 
   @supports (color: light-dark(white, black)) {
@@ -57,6 +73,8 @@
     --ink-3: light-dark(var(--ink3-light), var(--ink3-dark));
     --line: light-dark(var(--line-light), var(--line-dark));
     --accent: light-dark(var(--accent-light), var(--accent-dark));
+    --on-accent: light-dark(var(--on-accent-light), var(--on-accent-dark));
+    --accent-ink: light-dark(var(--accent-ink-light), var(--accent-ink-dark));
   }
 
   color-scheme: light dark;
@@ -77,8 +95,8 @@
   --color-ink-3: var(--ink-3);
   --color-line: var(--line);
   --color-accent: var(--accent);
-  /* 강조색 위 글자는 모드와 상관없이 항상 짙은 잉크 */
-  --color-on-accent: #121418;
+  --color-on-accent: var(--on-accent);
+  --color-accent-ink: var(--accent-ink);
 
   --radius-box: 10px;
   --radius-ctl: 6px;
@@ -101,7 +119,7 @@ body {
 
 ::selection {
   background: var(--accent);
-  color: #121418;
+  color: var(--on-accent);
 }
 
 :focus-visible {
@@ -184,7 +202,7 @@ dialog.sheet {
 
 dialog.panel::backdrop,
 dialog.sheet::backdrop {
-  background-color: rgb(8 9 11 / 0);
+  background-color: var(--scrim-off);
   transition:
     display 0.28s allow-discrete,
     overlay 0.28s allow-discrete,
@@ -193,10 +211,10 @@ dialog.sheet::backdrop {
 
 dialog.panel[open]::backdrop,
 dialog.sheet[open]::backdrop {
-  background-color: rgb(8 9 11 / 0.45);
+  background-color: var(--scrim);
 
   @starting-style {
-    background-color: rgb(8 9 11 / 0);
+    background-color: var(--scrim-off);
   }
 }
 
