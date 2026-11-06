@@ -380,7 +380,7 @@ export default function MapView({
         })}
       </svg>
       {tip && counts[tip] ? (
-        <div className="pointer-events-none absolute top-2 left-2 rounded-ctl bg-surface px-2.5 py-1.5 text-[14px] shadow-[0_1px_3px_var(--shadow)]">
+        <div className="pointer-events-none absolute top-2 left-2 rounded-ctl bg-surface px-2.5 py-1.5 text-[14px] shadow-[0_1px_3px_var(--shadow-strong)]">
           <span className="font-semibold">{names[tip] ?? tip}</span>
           <span className="num ml-1.5 text-[16px] font-semibold">{counts[tip]}</span>
           <span className="text-ink-3">개</span>

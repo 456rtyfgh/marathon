@@ -35,10 +35,9 @@
   --accent-ink-light: #121418;
   --accent-ink-dark: #eceef1;
 
-  /* 모드와 상관없는 그림자·뒤 막 */
+  /* 모드와 상관없는 그림자 */
   --shadow: rgb(0 0 0 / 0.08);
-  --scrim: rgb(8 9 11 / 0.45);
-  --scrim-off: rgb(8 9 11 / 0);
+  --shadow-strong: rgb(0 0 0 / 0.12);
 
   --bg: var(--bg-light);
   --surface: var(--surface-light);
@@ -80,6 +79,13 @@
   color-scheme: light dark;
   accent-color: var(--ink);
   scrollbar-color: var(--line) transparent;
+}
+
+/* 패널 뒤 막. ::backdrop 은 Safari 17.4·Chrome 122 이전엔 :root 변수를 물려받지 않아 여기에도 직접 둔다 */
+:root,
+::backdrop {
+  --scrim: rgb(8 9 11 / 0.45);
+  --scrim-off: rgb(8 9 11 / 0);
 }
 
 @theme {
