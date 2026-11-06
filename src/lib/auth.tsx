@@ -21,6 +21,8 @@ interface AuthState {
   /** 메일로 받은 숫자 코드로 인증 (링크가 안 열리거나 다른 기기에서 메일을 볼 때) */
   verifyCode: (email: string, code: string, kind: 'signup' | 'recovery') => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
+  /** 닉네임 바꾸기 (2~16자, 광고·운영진 사칭 금지는 서버가 확인) */
+  updateNickname: (nickname: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -38,6 +40,7 @@ const Ctx = createContext<AuthState>({
   sendReset: noop,
   verifyCode: noop,
   updatePassword: noop,
+  updateNickname: noop,
   signOut: noop,
 });
 
@@ -156,6 +159,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await need().auth.updateUser({ password });
       if (error) throw new Error(translate(error.message));
       setRecovering(false);
+    },
+    async updateNickname(nickname) {
+      const nick = nickname.trim();
+      if (nick.length < 2 || nick.length > 16) throw new Error('닉네임은 2자에서 16자 사이로 정해 주세요.');
+      const uid = session?.user.id;
+      if (!uid) throw new Error('로그인이 필요합니다.');
+      const { data, error } = await need()
+        .from('profiles')
+        .update({ nickname: nick })
+        .eq('id', uid)
+        .select('id, nickname, is_admin')
+        .maybeSingle();
+      if (error) {
+        if (error.code === '23505') throw new Error('이미 다른 분이 쓰는 닉네임입니다.');
+        throw new Error(/[가-힣]/.test(error.message) ? error.message : '닉네임을 바꾸지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+      }
+      if (data) setProfile(data as Profile);
     },
     async signOut() {
       if (!supabase) return;

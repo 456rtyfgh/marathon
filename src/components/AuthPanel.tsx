@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { EnvelopeSimple, SignOut, UserCircle } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
-import { Button, CloseButton, Field, Input, Note } from './ui';
+import { Button, CloseButton, Field, Input, Note, Panel } from './ui';
+import { spamReason } from '../lib/spam';
 import { track } from '../lib/analytics';
 
 export function AuthBar({ onOpen }: { onOpen: () => void }) {
   const { session, profile, signOut } = useAuth();
+  const [editing, setEditing] = useState(false);
 
   if (!session) {
     return (
@@ -16,10 +18,15 @@ export function AuthBar({ onOpen }: { onOpen: () => void }) {
   }
   return (
     <div className="flex items-center gap-1">
-      <span className="hidden items-center gap-1.5 text-[14px] font-semibold text-ink-2 sm:inline-flex">
+      <button
+        onClick={() => setEditing(true)}
+        title="닉네임 바꾸기"
+        className="inline-flex h-8 items-center gap-1.5 rounded-ctl px-2 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink"
+      >
         <UserCircle size={18} />
-        {profile?.nickname ?? session.user.email}
-      </span>
+        <span className="hidden max-w-[10rem] truncate sm:inline">{profile?.nickname ?? session.user.email}</span>
+        <span className="sr-only sm:hidden">내 정보</span>
+      </button>
       <button
         onClick={() => signOut()}
         aria-label="로그아웃"
@@ -28,7 +35,54 @@ export function AuthBar({ onOpen }: { onOpen: () => void }) {
       >
         <SignOut size={17} />
       </button>
+      <Panel open={editing} onClose={() => setEditing(false)} label="내 정보" variant="sheet">
+        {editing && <ProfileForm onClose={() => setEditing(false)} />}
+      </Panel>
     </div>
+  );
+}
+
+/** 내 정보: 닉네임 바꾸기 */
+function ProfileForm({ onClose }: { onClose: () => void }) {
+  const { session, profile, updateNickname } = useAuth();
+  const [nick, setNick] = useState(profile?.nickname ?? '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [ok, setOk] = useState(false);
+  return (
+    <form
+      className="space-y-4 p-6"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setErr('');
+        setOk(false);
+        const spam = spamReason(nick);
+        if (spam) return setErr(spam);
+        setBusy(true);
+        try {
+          await updateNickname(nick);
+          setOk(true);
+        } catch (e2) {
+          setErr(e2 instanceof Error ? e2.message : '닉네임을 바꾸지 못했습니다.');
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[22px] font-extrabold tracking-tight">내 정보</h2>
+        <CloseButton onClick={onClose} />
+      </div>
+      <p className="text-[14px] text-ink-3">{session?.user.email}</p>
+      <Field label="닉네임" hint="2~16자, 후기와 요청에 표시됩니다">
+        <Input required minLength={2} maxLength={16} value={nick} onChange={(e) => setNick(e.target.value)} />
+      </Field>
+      {err && <Note tone="error">{err}</Note>}
+      {ok && <Note tone="ok">바꿨습니다. 이미 쓴 후기에도 새 닉네임이 보입니다.</Note>}
+      <Button type="submit" disabled={busy || nick.trim() === profile?.nickname} className="w-full">
+        {busy ? '저장 중' : '닉네임 저장'}
+      </Button>
+    </form>
   );
 }
 
@@ -119,7 +173,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
             </Field>
           </form>
           <p className="text-[13px] leading-relaxed text-ink-3">
-            몇 분 안에 오지 않으면 스팸함과 프로모션 탭도 확인해 주세요. 보내는 주소는 junubenchoi@gmail.com 입니다.
+            몇 분 안에 오지 않으면 스팸함과 프로모션 탭도 확인해 주세요.
           </p>
           {info && <Note tone="ok">{info}</Note>}
           {err && <Note tone="error">{err}</Note>}

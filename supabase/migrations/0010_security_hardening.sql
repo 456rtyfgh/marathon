@@ -233,3 +233,18 @@ create index if not exists alert_subscriptions_race_id_idx on public.alert_subsc
 create index if not exists packages_agency_id_idx on public.packages(agency_id);
 create index if not exists race_requests_requested_by_idx on public.race_requests(requested_by);
 create index if not exists reviews_user_id_idx on public.reviews(user_id, created_at);
+
+-- 닉네임 변경 (0011)
+create unique index if not exists profiles_nickname_lower_uniq on public.profiles (lower(nickname));
+create or replace function public.sync_nickname()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.nickname is distinct from old.nickname then
+    update public.reviews set nickname = new.nickname where user_id = new.id;
+    update public.race_requests set nickname = new.nickname where requested_by = new.id;
+  end if;
+  return null;
+end $$;
+revoke execute on function public.sync_nickname() from public, anon, authenticated;
+drop trigger if exists profiles_sync_nickname on public.profiles;
+create trigger profiles_sync_nickname after update of nickname on public.profiles for each row execute function public.sync_nickname();
