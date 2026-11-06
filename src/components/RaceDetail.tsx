@@ -152,9 +152,9 @@ export default function RaceDetail({
             </div>
           ) : (
             <div className={`px-4 py-3 ${st.hot ? 'bg-accent text-on-accent' : 'bg-surface'}`}>
-              <div className={`text-[13px] ${st.hot ? 'opacity-70' : 'text-ink-3'}`}>{st.label}</div>
+              <div className={`text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>{st.label}</div>
               <div className="num mt-0.5 text-[26px] leading-none font-bold">{st.days != null ? dday(st.days) : '-'}</div>
-              <div className={`mt-1 text-[13px] ${st.hot ? 'opacity-70' : 'text-ink-3'}`}>
+              <div className={`mt-1 text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>
                 {ENTRY_LABEL[race.entry_type]}
                 {race.entry_confidence !== 'confirmed' && `, 일정 ${CONFIDENCE_LABEL[race.entry_confidence]}`}
               </div>

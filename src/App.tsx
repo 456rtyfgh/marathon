@@ -405,7 +405,7 @@ function Main() {
           <div className="mx-auto max-w-6xl px-4 pt-4 sm:px-6">
             <div className="flex items-center justify-between gap-3 rounded-box bg-accent px-4 py-3 text-on-accent">
               <span className="text-[15px] font-semibold">메일 인증이 끝났습니다. 이제 후기를 남길 수 있습니다.</span>
-              <button onClick={auth.clearFlags} aria-label="닫기" className="grid size-8 place-items-center rounded-ctl hover:bg-black/10">
+              <button onClick={auth.clearFlags} aria-label="닫기" className="grid size-8 place-items-center rounded-ctl hover:bg-on-accent/10">
                 <X size={16} weight="bold" />
               </button>
             </div>
@@ -510,7 +510,7 @@ function Main() {
                     if (s !== scope) track('filter', { name: 'scope', value: s });
                   }}
                   className={`flex h-9 items-center gap-1.5 rounded-[4px] px-3 sm:h-8 text-[14px] font-semibold transition ${
-                    scope === s ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.08)]' : 'text-ink-3 hover:text-ink'
+                    scope === s ? 'bg-surface text-ink shadow-[0_1px_2px_var(--shadow)]' : 'text-ink-3 hover:text-ink'
                   }`}
                 >
                   {label}
@@ -695,7 +695,7 @@ function Main() {
                   .map((p) => (
                     <Chip key={p.id} on={place === p.id} onClick={() => pickPlace(place === p.id ? null : p.id)}>
                       {p.name}
-                      <span className="num ml-0.5 text-[14px] opacity-60">{geo.province[p.id]}</span>
+                      <span className="num ml-0.5 text-[14px] opacity-80">{geo.province[p.id]}</span>
                     </Chip>
                   ))
               : (scope === 'abroad' ? OVERSEAS : REGIONS)
@@ -711,7 +711,7 @@ function Main() {
                       }}
                     >
                       {r}
-                      <span className="num ml-0.5 text-[14px] opacity-60">{geo.region[r]}</span>
+                      <span className="num ml-0.5 text-[14px] opacity-80">{geo.region[r]}</span>
                     </Chip>
                   ))}
           </div>
@@ -722,7 +722,7 @@ function Main() {
               {geo.regionCountries.map(([c, n]) => (
                 <Chip key={c} on={place === c} onClick={() => pickPlace(place === c ? null : c)}>
                   {geo.names[c]}
-                  <span className="num ml-0.5 text-[14px] opacity-60">{n}</span>
+                  <span className="num ml-0.5 text-[14px] opacity-80">{n}</span>
                 </Chip>
               ))}
             </div>
@@ -935,7 +935,7 @@ function Stat({
         active ? 'bg-ink text-bg' : hot ? 'bg-accent text-on-accent hover:brightness-95' : 'bg-surface hover:bg-sunken'
       }`}
     >
-      <span className={`text-[13px] ${active || hot ? 'opacity-75' : 'text-ink-3'}`}>{label}</span>
+      <span className={`text-[13px] ${active ? 'opacity-75' : hot ? 'opacity-85' : 'text-ink-3'}`}>{label}</span>
       <span className="num mt-1 text-[40px] leading-none font-bold">{value}</span>
     </button>
   );
