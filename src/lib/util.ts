@@ -28,8 +28,20 @@ export const STATUS_LABEL: Record<EntryStatus, string> = {
   unknown: '일정 미공개',
 };
 
-/** 목록 오른쪽에 크게 보여줄 상태 한 줄 */
-export function statusLine(race: Race, today = TODAY()): { label: string; days: number | null; hot: boolean } {
+/** 대회일까지 남은 날 */
+export function raceDayLine(race: Race, today = TODAY()): { label: string; days: number | null } {
+  const d = daysBetween(today, race.race_date);
+  if (d < 0) return { label: '대회 종료', days: null };
+  return { label: d === 0 ? '오늘 대회' : '대회까지', days: d };
+}
+
+/** 목록 오른쪽에 크게 보여줄 상태 한 줄. 접수한 대회면 대회일 기준 */
+export function statusLine(
+  race: Race,
+  today = TODAY(),
+  registered = false,
+): { label: string; days: number | null; hot: boolean } {
+  if (registered) return { ...raceDayLine(race, today), hot: false };
   const st = entryStatus(race, today);
   if (st === 'open') {
     if (!race.entry_closes) return { label: '정원 마감 시까지', days: null, hot: false };
@@ -104,6 +116,13 @@ export function entrySortKey(race: Race, today = TODAY()): number {
 }
 
 export const isDomestic = (race: Race) => race.region === '한국';
+
+export const isTrail = (race: Race) => race.discipline === 'trail';
+
+/** 1234 → '누적 상승 1,234m' */
+export function elevationLabel(race: Race): string | null {
+  return race.elevation_gain != null ? `누적 상승 ${race.elevation_gain.toLocaleString('ko-KR')}m` : null;
+}
 
 export function fmtDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00Z');

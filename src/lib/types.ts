@@ -13,6 +13,10 @@ export type Region = (typeof REGIONS)[number];
 export const COURSES = ['평지', '완만', '언덕'] as const;
 export type Course = (typeof COURSES)[number];
 
+export const DISCIPLINES = ['road', 'trail'] as const;
+export type Discipline = (typeof DISCIPLINES)[number];
+export const DISCIPLINE_LABEL: Record<Discipline, string> = { road: '로드', trail: '트레일' };
+
 export interface Race {
   id: string;
   name_ko: string;
@@ -38,6 +42,10 @@ export interface Race {
   source_url: string | null;
   last_verified: string;
   notes_ko: string | null;
+  /** 없으면 로드로 본다 (내장 시드·예전 스냅샷 호환) */
+  discipline?: Discipline;
+  /** 누적 상승 (m) */
+  elevation_gain?: number | null;
 }
 
 export interface Agency {
