@@ -749,7 +749,10 @@ function Main() {
                 />
               </Suspense>
               <p className="mt-2 flex flex-wrap justify-between gap-2 text-[12px] text-ink-3">
-                <span>{scope === 'kr' ? '시·도' : '나라'}를 누르면 그곳 대회만 보입니다. 색이 진할수록 대회가 많습니다.</span>
+                <span>
+                  {scope === 'kr' ? '시·도' : '나라'}를 누르면 그곳 대회만 보입니다. 색이 진할수록 대회가 많습니다. 두 손가락이나
+                  휠로 확대하고 끌어서 옮깁니다.
+                </span>
                 <span>
                   지도{' '}
                   <a href="https://github.com/VictorCazanave/svg-maps" target="_blank" rel="noreferrer" className="underline underline-offset-2">

@@ -46,7 +46,7 @@ function RaceRow({
         {/* 대회명 */}
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="truncate text-[17px] font-bold tracking-tight text-ink">{race.name_ko}</h3>
+            <h3 className="truncate break-keep text-[17px] font-bold tracking-tight text-ink">{race.name_ko}</h3>
             {favorite && <BookmarkSimple size={15} weight="fill" className="shrink-0 text-ink" aria-label="관심 대회" />}
             {trail && (
               <span className="shrink-0 rounded-tag border border-ink-3 px-1 py-px text-[10px] font-bold text-ink-2">
@@ -59,7 +59,7 @@ function RaceRow({
               </span>
             )}
           </div>
-          <p className="mt-1 truncate text-[14px] text-ink-2">
+          <p className="mt-1 truncate break-keep text-[14px] text-ink-2">
             {domestic ? race.city_ko : `${race.country_ko} ${race.city_ko}`}
             <span className="text-ink-3">
               {'  '}
