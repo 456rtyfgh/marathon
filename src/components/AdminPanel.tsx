@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CloseButton, Tabs, Button, Note, inputCls } from './ui';
-import type { Race, ExternalKind, Region, Course, EntryType, Confidence } from '../lib/types';
-import { REGIONS, COURSES, ENTRY_LABEL, CONFIDENCE_LABEL, KIND_LABEL } from '../lib/types';
+import type { Race, ExternalKind, Region, Course, EntryType, Confidence, Discipline } from '../lib/types';
+import { REGIONS, COURSES, ENTRY_LABEL, CONFIDENCE_LABEL, KIND_LABEL, DISCIPLINES, DISCIPLINE_LABEL } from '../lib/types';
 import { adminUpsertRace, adminDeleteRace, adminAddExternalReview, adminListMembers, adminConfirmMember, adminStats, type Member, type StatRow } from '../lib/data';
 
 const EMPTY: Race = {
@@ -29,6 +29,8 @@ const EMPTY: Race = {
   source_url: null,
   last_verified: new Date().toISOString().slice(0, 10),
   notes_ko: null,
+  discipline: 'road',
+  elevation_gain: null,
 };
 
 export default function AdminPanel({ races, onClose, onSaved }: { races: Race[]; onClose: () => void; onSaved: () => void }) {
@@ -182,7 +184,20 @@ function RaceForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
       <Group title="상세">
         <Text label="참가비" type="number" value={f.entry_fee?.toString() ?? ''} onChange={(v) => set('entry_fee', v ? Number(v) : null)} />
         <Text label="통화" hint="KRW, JPY, USD, EUR…" value={f.entry_fee_currency} onChange={(v) => set('entry_fee_currency', v.toUpperCase())} />
-        <Text label="종목" hint="쉼표로 구분: 풀, 하프, 10km" value={distText} onChange={setDistText} />
+        <Select
+          label="종목 구분"
+          value={f.discipline ?? 'road'}
+          onChange={(v) => set('discipline', v as Discipline)}
+          options={DISCIPLINES.map((d) => [d, DISCIPLINE_LABEL[d]])}
+        />
+        <Text
+          label="누적 상승 (m)"
+          type="number"
+          hint="트레일만, 모르면 빈칸"
+          value={f.elevation_gain?.toString() ?? ''}
+          onChange={(v) => set('elevation_gain', v ? Math.round(Number(v)) : null)}
+        />
+        <Text label="거리" hint="쉼표로 구분: 풀, 하프, 10km, 50K, 100M" value={distText} onChange={setDistText} />
         <Text label="참가 규모 (명)" type="number" value={f.field_size?.toString() ?? ''} onChange={(v) => set('field_size', v ? Number(v) : null)} />
         <Select label="코스" value={f.course ?? ''} onChange={(v) => set('course', (v || null) as Course | null)} options={[['', '선택 안 함'], ...COURSES.map((c) => [c, c] as [string, string])]} />
         <Text label="이동 시간 (시간)" type="number" hint="인천/서울 출발 기준" value={f.flight_hours?.toString() ?? ''} onChange={(v) => set('flight_hours', v ? Number(v) : null)} />
