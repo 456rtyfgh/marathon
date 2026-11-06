@@ -1,6 +1,9 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Plus, Minus, ArrowsIn } from '@phosphor-icons/react';
 
 type MapData = { viewBox: string; locations: { id: string; d: string }[] };
+type Box = { x: number; y: number; w: number; h: number };
+type Pt = { x: number; y: number };
 
 const cache: Partial<Record<'kr' | 'world', MapData>> = {};
 const loaders = {
@@ -8,9 +11,22 @@ const loaders = {
   world: () => import('../maps/world.json').then((m) => m.default as MapData),
 };
 
+const MAX_ZOOM = 8;
+/** 이만큼 움직이기 전까지는 탭(지역 선택)으로 본다 */
+const TAP_SLOP = 6;
+
+const parseBox = (s: string): Box => {
+  const [x, y, w, h] = s.split(' ').map(Number);
+  return { x, y, w, h };
+};
+const fmtBox = (b: Box) => `${b.x.toFixed(2)} ${b.y.toFixed(2)} ${b.w.toFixed(2)} ${b.h.toFixed(2)}`;
+const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
+
 /**
  * 시·도(국내) 또는 나라(해외) 별 대회 수를 색으로 보여 주는 지도.
  * 색이 칠해진 곳을 누르면 그 지역 대회만 목록에 남는다.
+ * 두 손가락·휠로 확대하고, 확대한 뒤에는 끌어서 옮긴다.
  */
 export default function MapView({
   kind,
@@ -29,9 +45,15 @@ export default function MapView({
   onSelect: (id: string | null) => void;
 }) {
   const [map, setMap] = useState<MapData | undefined>(cache[kind]);
-  const [box, setBox] = useState<string | null>(null);
+  // 처음 화면: focus 가 있으면 그 지역, 없으면 지도 전체
+  const [base, setBase] = useState<Box | null>(null);
+  // 지금 보이는 영역. 제스처 중에는 ref 로 바로 그리고 배율만 state 로 둔다
+  const view = useRef<Box | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [panned, setPanned] = useState(false);
   const [hover, setHover] = useState<string | null>(null);
   const refs = useRef(new Map<string, SVGPathElement>());
+  const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
     let live = true;
@@ -49,27 +71,231 @@ export default function MapView({
   const focusKey = focus.join(',');
   useLayoutEffect(() => {
     if (!map) return;
-    const ids = focus.filter((id) => refs.current.has(id));
-    if (!ids.length) return setBox(null);
-    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-    for (const id of ids) {
-      const b = refs.current.get(id)!.getBBox();
-      // 러시아·미국처럼 큰 나라가 끼면 화면이 다시 넓어지므로 아주 넓은 나라는 빼고 본다
-      if (kind === 'world' && b.width > 180 && ids.length > 1) continue;
-      x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
-      x2 = Math.max(x2, b.x + b.width); y2 = Math.max(y2, b.y + b.height);
-    }
-    if (!isFinite(x1)) return setBox(null);
-    const [, , vw, vh] = map.viewBox.split(' ').map(Number);
-    const ratio = vw / vh;
-    let w = x2 - x1, h = y2 - y1;
-    const pad = Math.max(w, h) * 0.06 + 4;
-    w += pad * 2; h += pad * 2;
-    if (w / h > ratio) h = w / ratio; else w = h * ratio;
-    const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
-    setBox(`${(cx - w / 2).toFixed(1)} ${(cy - h / 2).toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
+    const full = parseBox(map.viewBox);
+    const fit = () => {
+      const ids = focus.filter((id) => refs.current.has(id));
+      if (!ids.length) return full;
+      let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+      for (const id of ids) {
+        const b = refs.current.get(id)!.getBBox();
+        // 러시아·미국처럼 큰 나라가 끼면 화면이 다시 넓어지므로 아주 넓은 나라는 빼고 본다
+        if (kind === 'world' && b.width > 180 && ids.length > 1) continue;
+        x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
+        x2 = Math.max(x2, b.x + b.width); y2 = Math.max(y2, b.y + b.height);
+      }
+      if (!isFinite(x1)) return full;
+      const ratio = full.w / full.h;
+      let w = x2 - x1, h = y2 - y1;
+      const pad = Math.max(w, h) * 0.06 + 4;
+      w += pad * 2; h += pad * 2;
+      if (w / h > ratio) h = w / ratio; else w = h * ratio;
+      const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+      return { x: cx - w / 2, y: cy - h / 2, w, h };
+    };
+    const b = fit();
+    setBase(b);
+    // 지역(국내/해외, 유럽 등)이 바뀌면 처음 화면으로
+    view.current = b;
+    setZoom(1);
+    setPanned(false);
+    svgRef.current?.setAttribute('viewBox', fmtBox(b));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, focusKey, kind]);
+
+  /** 옮길 수 있는 범위: 지도 전체 (focus 영역이 지도보다 크면 그만큼 넓힘) */
+  const bounds = useMemo(() => {
+    if (!map || !base) return null;
+    const f = parseBox(map.viewBox);
+    const x1 = Math.min(f.x, base.x), y1 = Math.min(f.y, base.y);
+    const x2 = Math.max(f.x + f.w, base.x + base.w), y2 = Math.max(f.y + f.h, base.y + base.h);
+    return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  }, [map, base]);
+
+  const apply = useCallback(
+    (v: Box) => {
+      if (!base || !bounds) return;
+      const w = Math.min(Math.max(v.w, base.w / MAX_ZOOM), base.w);
+      const h = (w * base.h) / base.w;
+      // 확대 배율이 바뀌었으면 가운데를 기준으로 맞춘다 (밖으로 못 나가게 아래에서 다시 자름)
+      let x = v.x + (v.w - w) / 2;
+      let y = v.y + (v.h - h) / 2;
+      x = w >= bounds.w ? bounds.x + (bounds.w - w) / 2 : Math.min(Math.max(x, bounds.x), bounds.x + bounds.w - w);
+      y = h >= bounds.h ? bounds.y + (bounds.h - h) / 2 : Math.min(Math.max(y, bounds.y), bounds.y + bounds.h - h);
+      const next = { x, y, w, h };
+      view.current = next;
+      svgRef.current?.setAttribute('viewBox', fmtBox(next));
+      setZoom(Math.round((base.w / w) * 100) / 100);
+      setPanned(Math.abs(x - base.x) > base.w * 0.005 || Math.abs(y - base.y) > base.h * 0.005);
+    },
+    [base, bounds],
+  );
+
+  /**
+   * 화면 좌표 prev 아래에 있던 지도 지점이 cur 로 오도록, f 배 확대하면서 옮긴다.
+   * 한 손가락 드래그는 f=1, 핀치는 손가락 사이 거리 비율, 휠은 커서 위치 기준.
+   */
+  const move = useCallback(
+    (prev: Pt, cur: Pt, f: number) => {
+      const svg = svgRef.current;
+      const v = view.current;
+      if (!svg || !v || !base) return;
+      const r = svg.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      // viewBox 비율은 늘 같으므로 그려지는 영역의 위치(가로·세로 여백)는 확대해도 그대로
+      const a = Math.min(r.width / v.w, r.height / v.h);
+      const ox = r.left + (r.width - v.w * a) / 2;
+      const oy = r.top + (r.height - v.h * a) / 2;
+      const w = Math.min(Math.max(v.w / f, base.w / MAX_ZOOM), base.w);
+      const a2 = (a * v.w) / w;
+      const qx = v.x + (prev.x - ox) / a;
+      const qy = v.y + (prev.y - oy) / a;
+      const h = (w * v.h) / v.w;
+      apply({ x: qx - (cur.x - ox) / a2, y: qy - (cur.y - oy) / a2, w, h });
+    },
+    [apply, base],
+  );
+
+  // 버튼으로 확대·축소할 때만 짧게 움직임을 준다 (손가락·휠은 바로 따라가야 하므로 애니메이션 없음)
+  const anim = useRef(0);
+  const animateTo = useCallback(
+    (target: Box) => {
+      const from = view.current;
+      if (!from) return apply(target);
+      cancelAnimationFrame(anim.current);
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return apply(target);
+      const t0 = performance.now();
+      const step = (t: number) => {
+        const p = Math.min((t - t0) / 200, 1);
+        const e = 1 - Math.pow(1 - p, 3);
+        apply({
+          x: from.x + (target.x - from.x) * e,
+          y: from.y + (target.y - from.y) * e,
+          w: from.w + (target.w - from.w) * e,
+          h: from.h + (target.h - from.h) * e,
+        });
+        if (p < 1) anim.current = requestAnimationFrame(step);
+      };
+      anim.current = requestAnimationFrame(step);
+    },
+    [apply],
+  );
+  useEffect(() => () => cancelAnimationFrame(anim.current), []);
+
+  const zoomBy = (f: number) => {
+    const v = view.current;
+    if (!v || !base) return;
+    const w = Math.min(Math.max(v.w / f, base.w / MAX_ZOOM), base.w);
+    const h = (w * v.h) / v.w;
+    animateTo({ x: v.x + (v.w - w) / 2, y: v.y + (v.h - h) / 2, w, h });
+  };
+
+  /* ── 포인터 (마우스·터치·펜 공통) ───────────────────────── */
+  const pointers = useRef(new Map<number, Pt>());
+  const gesture = useRef({ start: { x: 0, y: 0 }, dragging: false, suppressClick: false });
+
+  const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    cancelAnimationFrame(anim.current);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 1) {
+      gesture.current.start = { x: e.clientX, y: e.clientY };
+      gesture.current.dragging = false;
+    } else {
+      // 두 번째 손가락이 닿으면 탭이 아니라 핀치
+      gesture.current.dragging = true;
+      for (const id of pointers.current.keys()) {
+        try {
+          e.currentTarget.setPointerCapture(id);
+        } catch {
+          /* 이미 떨어진 손가락 */
+        }
+      }
+    }
+  };
+
+  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const ps = pointers.current;
+    const old = ps.get(e.pointerId);
+    if (!old) return;
+    const cur = { x: e.clientX, y: e.clientY };
+    const g = gesture.current;
+    if (!g.dragging) {
+      if (dist(cur, g.start) < TAP_SLOP) return;
+      g.dragging = true;
+      // 드래그로 확정된 뒤에만 잡는다 (먼저 잡으면 탭이 지역 path 대신 svg 로 가서 선택이 안 된다)
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* 포인터가 이미 끝났으면 무시 */
+      }
+    }
+    if (ps.size >= 2) {
+      const [ida, idb] = [...ps.keys()];
+      const otherId = e.pointerId === ida ? idb : ida;
+      const other = ps.get(otherId)!;
+      const d0 = dist(old, other);
+      const d1 = dist(cur, other);
+      if (d0 > 0) move(mid(old, other), mid(cur, other), d1 / d0);
+    } else {
+      move(old, cur, 1);
+    }
+    ps.set(e.pointerId, cur);
+  };
+
+  const onPointerEnd = (e: React.PointerEvent<SVGSVGElement>) => {
+    const ps = pointers.current;
+    if (!ps.has(e.pointerId)) return;
+    ps.delete(e.pointerId);
+    if (ps.size === 0 && gesture.current.dragging) {
+      // 드래그 직후 따라오는 click 은 지역 선택으로 치지 않는다
+      gesture.current.suppressClick = true;
+      setTimeout(() => (gesture.current.suppressClick = false), 0);
+    }
+  };
+
+  /* ── 휠·트랙패드 (non-passive 라 직접 붙인다) ─────────────── */
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.deltaY) return;
+      // 처음 화면에서 더 줄이려는 휠은 그대로 페이지 스크롤로 보낸다
+      if (e.deltaY > 0 && zoomRef.current <= 1) return;
+      e.preventDefault();
+      cancelAnimationFrame(anim.current);
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      // 트랙패드 핀치(ctrlKey)는 값이 작게 와서 더 민감하게
+      const f = Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.002));
+      const p = { x: e.clientX, y: e.clientY };
+      move(p, p, f);
+    };
+    // 맥 사파리 트랙패드 핀치는 휠 대신 gesture 이벤트로 온다 (터치 기기는 포인터로 처리하므로 제외)
+    let lastScale = 1;
+    const fine = matchMedia('(pointer: fine)').matches;
+    const onGestureStart = (e: Event) => {
+      e.preventDefault();
+      lastScale = 1;
+    };
+    const onGestureChange = (e: Event) => {
+      e.preventDefault();
+      const ge = e as Event & { scale: number; clientX: number; clientY: number };
+      const p = { x: ge.clientX, y: ge.clientY };
+      move(p, p, ge.scale / lastScale);
+      lastScale = ge.scale;
+    };
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    if (fine) {
+      svg.addEventListener('gesturestart', onGestureStart);
+      svg.addEventListener('gesturechange', onGestureChange);
+    }
+    return () => {
+      svg.removeEventListener('wheel', onWheel);
+      svg.removeEventListener('gesturestart', onGestureStart);
+      svg.removeEventListener('gesturechange', onGestureChange);
+    };
+  }, [move, map]);
 
   const max = useMemo(() => Math.max(1, ...Object.values(counts)), [counts]);
 
@@ -88,15 +314,34 @@ export default function MapView({
   };
 
   const tip = hover ?? selected;
+  const zoomed = zoom > 1.001;
+  const moved = zoomed || panned;
+  const ctl =
+    'grid size-11 place-items-center bg-surface text-ink transition hover:bg-sunken active:bg-line disabled:text-ink-3 disabled:hover:bg-surface sm:size-8';
 
   return (
     <div className="relative">
       <svg
-        viewBox={box ?? map.viewBox}
-        className={`block w-full ${kind === 'kr' ? 'mx-auto max-h-[320px] sm:max-h-[440px]' : 'max-h-[460px]'}`}
+        ref={svgRef}
+        viewBox={view.current ? fmtBox(view.current) : map.viewBox}
+        className={`block w-full select-none ${kind === 'kr' ? 'mx-auto max-h-[320px] sm:max-h-[440px]' : 'max-h-[460px]'} ${
+          zoomed ? 'cursor-grab active:cursor-grabbing' : ''
+        }`}
+        // 처음 화면에서는 한 손가락 세로 스와이프를 페이지 스크롤로 넘기고, 확대한 뒤에는 지도를 옮긴다
+        style={{ touchAction: zoomed ? 'none' : 'pan-y', WebkitTapHighlightColor: 'transparent' }}
         role="group"
         aria-label={kind === 'kr' ? '시·도별 대회 지도' : '나라별 대회 지도'}
         onMouseLeave={() => setHover(null)}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        onClickCapture={(e) => {
+          if (gesture.current.suppressClick) {
+            e.stopPropagation();
+            e.preventDefault();
+          }
+        }}
       >
         {map.locations.map(({ id, d }) => {
           const n = inFocus(id) ? counts[id] ?? 0 : 0;
@@ -141,6 +386,17 @@ export default function MapView({
           <span className="text-ink-3">개</span>
         </div>
       ) : null}
+      <div className="absolute top-2 right-2 flex flex-col divide-y divide-line overflow-hidden rounded-ctl border border-line shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
+        <button type="button" className={ctl} onClick={() => zoomBy(1.6)} disabled={zoom >= MAX_ZOOM} aria-label="지도 확대">
+          <Plus size={16} weight="bold" />
+        </button>
+        <button type="button" className={ctl} onClick={() => zoomBy(1 / 1.6)} disabled={!zoomed} aria-label="지도 축소">
+          <Minus size={16} weight="bold" />
+        </button>
+        <button type="button" className={ctl} onClick={() => base && animateTo(base)} disabled={!moved} aria-label="지도 처음 화면으로">
+          <ArrowsIn size={16} weight="bold" />
+        </button>
+      </div>
     </div>
   );
 }
