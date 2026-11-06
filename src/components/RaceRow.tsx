@@ -65,7 +65,15 @@ function RaceRow({
             {domestic ? race.city_ko : `${race.country_ko} ${race.city_ko}`}
             <span className="text-ink-3">
               {'  '}
-              {mayFill ? '선착순 · 조기 마감될 수 있음' : ENTRY_LABEL[race.entry_type]}
+              {mayFill ? (
+                <>
+                  {/* 휴대폰은 한 줄에 들어가게 짧게 */}
+                  <span className="sm:hidden">선착순 · 조기 마감 가능</span>
+                  <span className="hidden sm:inline">선착순 · 조기 마감될 수 있음</span>
+                </>
+              ) : (
+                ENTRY_LABEL[race.entry_type]
+              )}
               {race.date_confidence !== 'confirmed' && ', 날짜 예상'}
               {trail && race.elevation_gain != null && `, 상승 ${race.elevation_gain.toLocaleString('ko-KR')}m`}
             </span>
