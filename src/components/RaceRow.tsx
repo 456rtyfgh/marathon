@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { CaretRight, Star, BookmarkSimple, Eye, CalendarCheck, Check } from '@phosphor-icons/react';
 import type { Race, RaceRating } from '../lib/types';
 import { ENTRY_LABEL } from '../lib/types';
-import { dateParts, feeLabel, isDomestic, isTrail, statusLine, raceDayLine, TODAY, shortCount, mayFillEarly } from '../lib/util';
+import { dateParts, feeLabel, isDomestic, isTrail, statusLine, raceDayLine, TODAY, shortCount, mayFillEarly, isCancelled } from '../lib/util';
 
 const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
 
@@ -29,6 +29,8 @@ function RaceRow({
   const raceDay = raceDayLine(race, today);
   // 선착순 접수 중인데 아직 마감 확인이 안 된 대회. 접수한 사람에게는 필요 없는 말이라 뺀다
   const mayFill = !registered && mayFillEarly(race, today);
+  // 취소된 대회: 지우지 않고 남겨 두되 흐리게, D-day 대신 '대회 취소'
+  const cancelled = isCancelled(race);
 
   return (
     <li style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 104px' }}>
@@ -37,7 +39,7 @@ function RaceRow({
         className="group grid w-full grid-cols-[4rem_1fr_auto] items-center gap-x-4 gap-y-2 px-3 py-4 text-left transition hover:bg-surface sm:grid-cols-[5rem_1fr_auto_7.5rem_1.25rem] sm:gap-x-6 sm:px-5"
       >
         {/* 대회 날짜 */}
-        <div className="flex flex-col items-start leading-none">
+        <div className={`flex flex-col items-start leading-none ${cancelled ? 'opacity-50' : ''}`}>
           <span className="num text-[13px] font-semibold text-ink-3">
             {p.y !== thisYear ? `${p.y}. ${p.m}월` : `${p.m}월`}
           </span>
@@ -48,7 +50,9 @@ function RaceRow({
         {/* 대회명 */}
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="truncate break-keep text-[17px] font-bold tracking-tight text-ink">{race.name_ko}</h3>
+            <h3 className={`truncate break-keep text-[17px] font-bold tracking-tight ${cancelled ? 'text-ink-2' : 'text-ink'}`}>
+              {race.name_ko}
+            </h3>
             {favorite && <BookmarkSimple size={15} weight="fill" className="shrink-0 text-ink" aria-label="관심 대회" />}
             {trail && (
               <span className="shrink-0 rounded-tag border border-ink-3 px-1 py-px text-[10px] font-bold text-ink-2">
@@ -118,7 +122,7 @@ function RaceRow({
           <div className="contents">
             <dt className="text-ink-3">대회까지</dt>
             <dd className="num text-right text-[15px] font-semibold text-ink">
-              {raceDay.days != null ? dday(raceDay.days) : '종료'}
+              {raceDay.days != null ? dday(raceDay.days) : cancelled ? '-' : '종료'}
             </dd>
           </div>
         </dl>
@@ -131,8 +135,12 @@ function RaceRow({
               접수 완료
             </span>
           )}
-          <span className="text-[12px] text-ink-3">{st.label}</span>
-          {st.days != null ? (
+          {cancelled ? (
+            <span className="mt-0.5 rounded-tag border border-ink-3 px-1.5 py-0.5 text-[13px] font-bold text-ink-2">대회 취소</span>
+          ) : (
+            <span className="text-[12px] text-ink-3">{st.label}</span>
+          )}
+          {cancelled ? null : st.days != null ? (
             <span
               className={`num mt-0.5 inline-block rounded-tag px-1.5 text-[26px] font-bold leading-tight ${
                 st.hot ? 'bg-accent text-on-accent' : 'text-ink'
