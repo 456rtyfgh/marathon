@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { lazy, memo, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Check, MapTrifold } from '@phosphor-icons/react';
 import type { Race, Region } from '../lib/types';
 import { REGIONS } from '../lib/types';
@@ -14,12 +14,17 @@ export type Scope = 'all' | 'kr' | 'abroad';
 const OVERSEAS = REGIONS.filter((r) => r !== '한국') as Region[];
 /** 나라 칩은 이만큼만 먼저 보여 준다 */
 const CHIP_LIMIT = 12;
+/** 지역을 안 골랐을 때의 focus. 그릴 때마다 새 [] 를 넘기면 지도 path 묶음의 memo 가 깨진다 */
+const NO_ZONE: string[] = [];
 
 /**
  * 지역 막대(시·도 / 지역 칩) + 나라 칩 + 지도.
  * 고른 지역·나라는 App 의 regions·place 로 올려 보내 목록 필터와 같이 움직인다.
+ * props 가 같으면 다시 그리지 않는다 (검색 입력 등으로 App 이 다시 그려져도 지도는 그대로).
  */
-export default function MapSection({
+export default memo(MapSection);
+
+function MapSection({
   scope,
   races,
   regions,
@@ -88,7 +93,7 @@ export default function MapSection({
 
   // 지역 칩은 하나만 고르므로 지도도 그 지역으로 확대
   const zone = scope === 'kr' ? null : (regions[0] ?? null);
-  const zoneIds = zone ? (geo.byRegion[zone] ?? []) : [];
+  const zoneIds = zone ? (geo.byRegion[zone] ?? NO_ZONE) : NO_ZONE;
   const [allChips, setAllChips] = useState(false);
   useEffect(() => setAllChips(false), [zone]);
 

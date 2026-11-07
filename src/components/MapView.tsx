@@ -1,17 +1,33 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Minus, ArrowsIn, ArrowLeft } from '@phosphor-icons/react';
-import { mainBox, union, type Box } from '../lib/geo';
+import { union, type Box } from '../lib/geo';
 import { MAP_SELECTED, mapFill, mapStep } from '../lib/mapColor';
 import MapLegend from './MapLegend';
+// 지도는 JS 모듈 대신 JSON 파일로 받아 res.json() 으로 읽는다 (800KB 짜리 JS 를 해석·실행하지 않게)
+import koreaUrl from '../maps/korea.json?url';
+import worldUrl from '../maps/world.json?url';
+// 조각별 경계 상자 중 가장 큰 것 = geo.ts 의 mainBox(d). 791KB 의 d 를 화면에서 훑지 않게 미리 계산해 둔 것
+// (지도 json 이 바뀌면 다시 만든다: node .duo-data/perf/gen-boxes.mjs)
+import koreaBoxes from '../maps/korea-boxes.json';
+import worldBoxes from '../maps/world-boxes.json';
 
-type MapData = { viewBox: string; locations: { id: string; d: string }[] };
+type Kind = 'kr' | 'world';
+type MapData = { viewBox: string; locations: { id: string; d: string }[]; boxes: Map<string, Box> };
 type Pt = { x: number; y: number };
 
-const cache: Partial<Record<'kr' | 'world', MapData>> = {};
-const loaders = {
-  kr: () => import('../maps/korea.json').then((m) => m.default as MapData),
-  world: () => import('../maps/world.json').then((m) => m.default as MapData),
-};
+const BOXES: Record<Kind, Record<string, number[]>> = { kr: koreaBoxes, world: worldBoxes };
+const URLS: Record<Kind, string> = { kr: koreaUrl, world: worldUrl };
+const cache: Partial<Record<Kind, MapData>> = {};
+// 받는 중인 것은 같이 기다린다 (StrictMode 의 두 번 실행에도 한 번만 받고 한 번만 읽게)
+const pending: Partial<Record<Kind, Promise<MapData>>> = {};
+const load = (kind: Kind) =>
+  (pending[kind] ??= fetch(URLS[kind])
+    .then((r) => r.json() as Promise<Omit<MapData, 'boxes'>>)
+    .then((m) => ({
+      ...m,
+      boxes: new Map(Object.entries(BOXES[kind]).map(([id, [x, y, w, h]]) => [id, { x, y, w, h }])),
+    })));
+const NO_BOXES = new Map<string, Box>();
 
 const MAX_ZOOM = 8;
 /** 이만큼 움직이기 전까지는 탭(지역 선택)으로 본다 */
@@ -66,7 +82,7 @@ export default function MapView({
   onSelect,
   onBack,
 }: {
-  kind: 'kr' | 'world';
+  kind: Kind;
   counts: Record<string, number>;
   names: Record<string, string>;
   selected: string | null;
@@ -93,7 +109,7 @@ export default function MapView({
     let live = true;
     if (cache[kind]) setMap(cache[kind]);
     else
-      loaders[kind]().then((m) => {
+      load(kind).then((m) => {
         cache[kind] = m;
         if (live) setMap(m);
       });
@@ -117,14 +133,7 @@ export default function MapView({
   }, [map]);
 
   /** 조각별 경계 상자 중 가장 큰 것 (미국은 본토, 프랑스는 본토) */
-  const boxes = useMemo(() => {
-    const out = new Map<string, Box>();
-    for (const l of map?.locations ?? []) {
-      const b = mainBox(l.d);
-      if (b) out.set(l.id, b);
-    }
-    return out;
-  }, [map]);
+  const boxes = map?.boxes ?? NO_BOXES;
 
   /** ids 가 꽉 차게. 큰 나라·대회 적은 먼 나라는 화면을 넓히지 않게 뺀다 */
   const fitIds = useCallback(
@@ -381,6 +390,13 @@ export default function MapView({
     [counts, kind],
   );
 
+  // 부모가 그릴 때마다 새로 만드는 onSelect 를 path 묶음(Paths)에 그대로 넘기면 memo 가 깨진다 → 늘 같은 함수로 감싼다
+  const onSelectRef = useRef(onSelect);
+  useLayoutEffect(() => {
+    onSelectRef.current = onSelect;
+  });
+  const select = useCallback((id: string) => onSelectRef.current(id), []);
+
   // CSS 로 크기를 정한다 (viewBox 와 상관없이 → 비율 측정과 되먹임 없음). PC 에서 더 크게
   const size =
     kind === 'kr'
@@ -390,13 +406,6 @@ export default function MapView({
   if (!map) {
     return <div className={`w-full animate-pulse rounded-box bg-sunken ${size}`} />;
   }
-
-  const inFocus = (id: string) => !focus.length || focus.includes(id);
-  const fill = (id: string) => {
-    if (id === selected) return MAP_SELECTED;
-    // 세계 지도의 한국은 max 보다 크므로 가장 진한 단계
-    return mapFill(mapStep(counts[id] ?? 0, max));
-  };
 
   const sel = kind === 'world' && selected ? boxes.get(selected) : undefined;
   const ring =
@@ -432,40 +441,18 @@ export default function MapView({
           }
         }}
       >
-        {map.locations.map(({ id, d }) => {
-          const n = counts[id] ?? 0;
-          // 지역 확대 중 밖의 나라도 누를 수 있게 두고(그 지역으로 옮겨 감) 색만 흐리게
-          const dim = n > 0 && !inFocus(id) && id !== selected;
-          return (
-            <path
-              key={id}
-              d={d}
-              fill={fill(id)}
-              fillOpacity={dim ? 0.45 : undefined}
-              stroke="var(--bg)"
-              strokeWidth={kind === 'kr' ? 1.2 : 0.4}
-              vectorEffect="non-scaling-stroke"
-              className={n ? 'cursor-pointer transition-[fill,fill-opacity] duration-150 hover:brightness-95 focus:outline-none' : ''}
-              {...(n
-                ? {
-                    role: 'button',
-                    tabIndex: 0,
-                    'aria-label': `${names[id] ?? id} 대회 ${n}개`,
-                    'aria-pressed': id === selected,
-                    onClick: () => onSelect(id),
-                    onKeyDown: (e: React.KeyboardEvent) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onSelect(id);
-                      }
-                    },
-                    onMouseEnter: () => setHover(id),
-                    onFocus: () => setHover(id),
-                  }
-                : { 'aria-hidden': true })}
-            />
-          );
-        })}
+        <Paths
+          map={map}
+          kind={kind}
+          counts={counts}
+          names={names}
+          max={max}
+          selected={selected}
+          focus={focus}
+          onSelect={select}
+          onHover={setHover}
+        />
+
         {ring && (
           // 화면에서 몇 px 밖에 안 되는 나라(싱가포르 등)를 골랐을 때 위치를 알려 주는 고리
           <circle
@@ -517,3 +504,70 @@ export default function MapView({
     </div>
   );
 }
+
+/**
+ * 나라·시·도 path 묶음. 색·선택·지역(focus)이 바뀔 때만 다시 그린다
+ * (확대·이동·hover 말풍선으로 MapView 가 다시 그려질 때는 path 256개를 건드리지 않는다).
+ */
+const Paths = memo(function Paths({
+  map,
+  kind,
+  counts,
+  names,
+  max,
+  selected,
+  focus,
+  onSelect,
+  onHover,
+}: {
+  map: MapData;
+  kind: Kind;
+  counts: Record<string, number>;
+  names: Record<string, string>;
+  max: number;
+  selected: string | null;
+  focus: string[];
+  onSelect: (id: string) => void;
+  onHover: (id: string | null) => void;
+}) {
+  const inFocus = (id: string) => !focus.length || focus.includes(id);
+  const fill = (id: string) => {
+    if (id === selected) return MAP_SELECTED;
+    // 세계 지도의 한국은 max 보다 크므로 가장 진한 단계
+    return mapFill(mapStep(counts[id] ?? 0, max));
+  };
+  return map.locations.map(({ id, d }) => {
+    const n = counts[id] ?? 0;
+    // 지역 확대 중 밖의 나라도 누를 수 있게 두고(그 지역으로 옮겨 감) 색만 흐리게
+    const dim = n > 0 && !inFocus(id) && id !== selected;
+    return (
+      <path
+        key={id}
+        d={d}
+        fill={fill(id)}
+        fillOpacity={dim ? 0.45 : undefined}
+        stroke="var(--bg)"
+        strokeWidth={kind === 'kr' ? 1.2 : 0.4}
+        vectorEffect="non-scaling-stroke"
+        className={n ? 'cursor-pointer transition-[fill,fill-opacity] duration-150 hover:brightness-95 focus:outline-none' : ''}
+        {...(n
+          ? {
+              role: 'button',
+              tabIndex: 0,
+              'aria-label': `${names[id] ?? id} 대회 ${n}개`,
+              'aria-pressed': id === selected,
+              onClick: () => onSelect(id),
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelect(id);
+                }
+              },
+              onMouseEnter: () => onHover(id),
+              onFocus: () => onHover(id),
+            }
+          : { 'aria-hidden': true })}
+      />
+    );
+  });
+});
