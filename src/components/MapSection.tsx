@@ -94,8 +94,26 @@ export default function MapSection({
 
   const toList = () => document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
 
+  /** 한국을 고르면 세계 지도에서 확대하는 대신 국내(시·도) 지도로 — 국내 탭을 누른 것과 같은 상태 */
+  const toKorea = () => {
+    onScope('kr');
+    onRegions([]);
+    onPlace(null);
+    track('filter', { name: 'scope', value: 'kr' });
+  };
+
+  // 안전망: 다른 경로로 세계 지도에서 한국이 골라져도 국내 지도로 (사용자가 누른 게 아닐 수 있어 기록은 남기지 않는다)
+  useEffect(() => {
+    if (scope !== 'kr' && place === 'kr') {
+      onScope('kr');
+      onRegions([]);
+      onPlace(null);
+    }
+  }, [scope, place, onScope, onRegions, onPlace]);
+
   /** 나라·시·도 고르기 (다시 누르면 풀림). 목록으로 스크롤은 지도에서 고를 때 또는 지도를 접어 둔 때만 */
   const pick = (id: string, scroll: boolean) => {
+    if (scope !== 'kr' && id === 'kr') return toKorea();
     const next = place === id ? null : id;
     onPlace(next);
     if (next) {
@@ -104,8 +122,9 @@ export default function MapSection({
     }
   };
 
-  /** 지역으로 확대. 나라 하나뿐인 지역(한국·일본)은 그 나라도 같이 고른다 (두 번 누르지 않게) */
+  /** 지역으로 확대. 나라 하나뿐인 지역(일본)은 그 나라도 같이 고른다 (두 번 누르지 않게). 한국은 국내 지도로 */
   const enterZone = (r: Region) => {
+    if (r === '한국') return toKorea();
     const ids = geo.byRegion[r] ?? [];
     onRegions([r]);
     onPlace(ids.length === 1 ? ids[0] : null);
@@ -121,6 +140,7 @@ export default function MapSection({
   const onMapSelect = (id: string) => {
     // 그 시·도로 확대되는 걸 보도록 스크롤하지 않는다
     if (scope === 'kr') return pick(id, false);
+    if (id === 'kr') return toKorea();
     const r = geo.regionOf[id];
     if (!r) return pick(id, true);
     if (zone !== r) {
