@@ -662,6 +662,14 @@ function Stats({ races }: { races: Race[] }) {
             최근 {d}일
           </Button>
         ))}
+        <a
+          href="https://analytics.google.com/analytics/web/#/p485388953/reports/intelligenthome"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto inline-flex items-center gap-1 rounded-ctl px-3 py-2 text-[14px] font-semibold text-ink-2 underline-offset-4 hover:text-ink hover:underline"
+        >
+          구글 애널리틱스 열기 ↗
+        </a>
       </div>
 
       {!rows ? (
