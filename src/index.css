@@ -283,3 +283,10 @@ dialog.sheet[open]::backdrop {
 html:has(dialog[open]) {
   overflow: hidden;
 }
+
+/* 앱이 뜨기 전 잠깐 보이는 글자 목록(scripts/prerender.mjs, 대회 1,300여 줄). 화면 밖 줄은 레이아웃·그리기를 건너뛴다
+   (휴대폰 첫 로딩에서 이 목록 레이아웃만 100ms 넘게 걸렸다) */
+.seo-pre li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 1.5em;
+}
