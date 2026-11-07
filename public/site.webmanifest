@@ -1,0 +1,16 @@
+{
+  "name": "마라톤 캘린더",
+  "short_name": "마라톤 캘린더",
+  "description": "국내·해외 마라톤 대회 일정과 접수 기간",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "lang": "ko",
+  "theme_color": "#0E2A47",
+  "background_color": "#0E2A47",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "/brand/logo-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
