@@ -499,7 +499,8 @@ export default function MapView({
           </div>
         ) : null}
       </div>
-      <div className="absolute bottom-2 left-2">
+      {/* 국내 지도는 왼쪽 아래가 제주라 가리지 않게 오른쪽 아래(남해 바다) */}
+      <div className={`absolute bottom-2 ${kind === 'kr' ? 'right-2' : 'left-2'}`}>
         <MapLegend max={max} />
       </div>
       <div className="absolute top-2 right-2 flex flex-col divide-y divide-line overflow-hidden rounded-ctl border border-line shadow-[0_1px_2px_var(--shadow)]">
