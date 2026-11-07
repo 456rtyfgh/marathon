@@ -37,7 +37,7 @@ const GROUP_MORE = 24;
 const SHOW_ALL_UNDER = 30;
 
 const ENTRY_TYPES: EntryType[] = ['lottery', 'fcfs', 'qualifying', 'open', 'tour_only'];
-type Sort = 'entry' | 'race_date' | 'popular' | 'size' | 'flight';
+type Sort = 'entry' | 'race_date' | 'views' | 'saves' | 'size' | 'flight';
 type StatusFilter = EntryStatus | 'closing7' | 'opening30';
 
 const STATUS_GROUP: Record<EntryStatus, string> = {
@@ -170,11 +170,6 @@ function Main() {
     };
   }, [upcomingRaces, today]);
 
-  // 인기 점수: 최근 7일(조회 + 저장·공유·공식 홈페이지 이동 가중) 을 먼저, 같으면 누적 조회
-  const popScore = (r: Race) => {
-    const s = ratingMap.get(r.id);
-    return (s?.hot ?? 0) * 1000 + (s?.views ?? 0) + (s?.saves ?? 0) * 3;
-  };
   const hotList = useMemo(
     () =>
       upcomingRaces
@@ -242,9 +237,22 @@ function Main() {
     const sorted = [...list].sort((a, b) => {
       if (sort === 'flight') return (a.flight_hours ?? 99) - (b.flight_hours ?? 99);
       if (sort === 'size') return (b.field_size ?? -1) - (a.field_size ?? -1) || byEntry(a, b);
-      return popScore(b) - popScore(a) || byEntry(a, b);
+      // 조회·저장 수는 목록 행에 보이는 숫자(race_public_stats 의 views/saves) 그대로
+      const sa = ratingMap.get(a.id);
+      const sb = ratingMap.get(b.id);
+      const views = (sb?.views ?? 0) - (sa?.views ?? 0);
+      const saves = (sb?.saves ?? 0) - (sa?.saves ?? 0);
+      return (sort === 'saves' ? saves || views : views || saves) || byEntry(a, b);
     });
-    return [{ key: 'all', title: sort === 'flight' ? '가까운 곳부터' : sort === 'size' ? '참가자 많은 순 (규모 미공개 대회는 맨 뒤)' : '인기순 (최근 7일 조회·저장 기준)', races: sorted }];
+    const title =
+      sort === 'flight'
+        ? '가까운 곳부터'
+        : sort === 'size'
+          ? '참가자 많은 순 (규모 미공개 대회는 맨 뒤)'
+          : sort === 'saves'
+            ? '저장순 (캘린더 저장 수 많은 순)'
+            : '조회순 (조회 수 많은 순)';
+    return [{ key: 'all', title, races: sorted }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upcomingRaces, q, scope, regions, place, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, discipline]);
 
@@ -402,13 +410,13 @@ function Main() {
               <h2 className="text-[15px] font-bold">요즘 많이 보는 대회</h2>
               <button
                 onClick={() => {
-                  setSort('popular');
-                  track('filter', { name: 'sort', value: 'popular' });
+                  setSort('views');
+                  track('filter', { name: 'sort', value: 'views' });
                   document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
                 }}
                 className="text-[13px] font-semibold text-ink-3 underline underline-offset-4 hover:text-ink"
               >
-                인기순 전체 보기
+                조회순 전체 보기
               </button>
             </div>
             <ol className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
@@ -508,7 +516,8 @@ function Main() {
                 >
                   <option value="entry">접수 순서</option>
                   <option value="race_date">대회 날짜</option>
-                  <option value="popular">인기순</option>
+                  <option value="views">조회순</option>
+                  <option value="saves">저장순</option>
                   <option value="size">규모순</option>
                   <option value="flight">가까운 곳</option>
                 </select>
