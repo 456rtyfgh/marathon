@@ -20,6 +20,8 @@ import {
   dateParts,
   isSearchLink,
   safeUrl,
+  isCancelled,
+  noteText,
 } from '../lib/util';
 import CostCalculator from './CostCalculator';
 import PackageTable from './PackageTable';
@@ -96,6 +98,10 @@ export default function RaceDetail({
   const racePackages = packages.filter((x) => x.race_id === race.id);
   const domestic = isDomestic(race);
   const reviewCount = rating?.review_count ?? 0;
+  // 취소된 대회: D-day·접수 상태 대신 취소 안내, 캘린더 저장·알림 신청은 닫는다
+  const cancelled = isCancelled(race);
+  const note = noteText(race);
+  const view: Tab = cancelled && tab === 'alert' ? 'overview' : tab;
 
   return (
     <div className="flex h-full flex-col">
@@ -138,49 +144,74 @@ export default function RaceDetail({
         </h2>
         <p className="mt-0.5 text-[14px] text-ink-3">{race.name_en}</p>
 
-        <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-box bg-line">
-          <div className="bg-surface px-4 py-3">
-            <div className="text-[13px] text-ink-3">
-              대회일 <span className="num">{p.m}.{p.d}</span> {p.w}
+        {cancelled ? (
+          <div className="mt-5 rounded-box border border-line bg-surface px-4 py-3.5">
+            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+              <span className="text-[22px] leading-tight font-bold">대회 취소</span>
+              <span className="num text-[14px] text-ink-3">
+                {p.m}월 {p.d}일 ({p.w}) 예정이던 대회
+              </span>
             </div>
-            <div className="num mt-0.5 text-[26px] leading-none font-bold">
-              {raceDay.days != null ? dday(raceDay.days) : '종료'}
-            </div>
-            <div className="mt-1 text-[13px] text-ink-3">
-              {raceDay.label}
-              {race.date_confidence !== 'confirmed' && `, 날짜 ${CONFIDENCE_LABEL[race.date_confidence]}`}
-            </div>
+            <p className="mt-1.5 max-w-[60ch] text-[14px] leading-relaxed text-ink-2">
+              주최 측이 개최 취소를 알렸습니다. 환불·참가비 처리는{' '}
+              <a
+                href={safeUrl(race.official_url)}
+                onClick={() => track('official_click', { race_id: race.id, search: isSearchLink(race.official_url), cancelled: true })}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-ink underline decoration-ink-3 underline-offset-4 hover:decoration-ink"
+              >
+                공식 공지
+              </a>
+              에서 확인하세요. 캘린더 저장과 접수 알림은 받을 수 없습니다.
+            </p>
           </div>
-          {registered ? (
+        ) : (
+          <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-box bg-line">
             <div className="bg-surface px-4 py-3">
-              <div className="text-[13px] text-ink-3">접수</div>
-              <div className="mt-0.5 inline-flex items-center gap-1 text-[24px] leading-none font-bold">
-                <Check size={20} weight="bold" />
-                완료
+              <div className="text-[13px] text-ink-3">
+                대회일 <span className="num">{p.m}.{p.d}</span> {p.w}
               </div>
-              <div className="mt-1 text-[13px] text-ink-3">{ENTRY_LABEL[race.entry_type]}</div>
-            </div>
-          ) : (
-            <div className={`px-4 py-3 ${st.hot ? 'bg-accent text-on-accent' : 'bg-surface'}`}>
-              <div className={`text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>{st.label}</div>
-              <div className={`mt-0.5 text-[26px] leading-none font-bold ${soldOut ? '' : 'num'}`}>
-                {st.days != null ? dday(st.days) : soldOut ? '마감' : '-'}
+              <div className="num mt-0.5 text-[26px] leading-none font-bold">
+                {raceDay.days != null ? dday(raceDay.days) : '종료'}
               </div>
-              <div className={`mt-1 text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>
-                {soldOut ? (
-                  `${soldOut.m}월 ${soldOut.d}일 정원 마감`
-                ) : (
-                  <>
-                    {ENTRY_LABEL[race.entry_type]}
-                    {race.entry_confidence !== 'confirmed' && `, 일정 ${CONFIDENCE_LABEL[race.entry_confidence]}`}
-                  </>
-                )}
+              <div className="mt-1 text-[13px] text-ink-3">
+                {raceDay.label}
+                {race.date_confidence !== 'confirmed' && `, 날짜 ${CONFIDENCE_LABEL[race.date_confidence]}`}
               </div>
             </div>
-          )}
-        </div>
+            {registered ? (
+              <div className="bg-surface px-4 py-3">
+                <div className="text-[13px] text-ink-3">접수</div>
+                <div className="mt-0.5 inline-flex items-center gap-1 text-[24px] leading-none font-bold">
+                  <Check size={20} weight="bold" />
+                  완료
+                </div>
+                <div className="mt-1 text-[13px] text-ink-3">{ENTRY_LABEL[race.entry_type]}</div>
+              </div>
+            ) : (
+              <div className={`px-4 py-3 ${st.hot ? 'bg-accent text-on-accent' : 'bg-surface'}`}>
+                <div className={`text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>{st.label}</div>
+                <div className={`mt-0.5 text-[26px] leading-none font-bold ${soldOut ? '' : 'num'}`}>
+                  {st.days != null ? dday(st.days) : soldOut ? '마감' : '-'}
+                </div>
+                <div className={`mt-1 text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>
+                  {soldOut ? (
+                    `${soldOut.m}월 ${soldOut.d}일 정원 마감`
+                  ) : (
+                    <>
+                      {ENTRY_LABEL[race.entry_type]}
+                      {race.entry_confidence !== 'confirmed' && `, 일정 ${CONFIDENCE_LABEL[race.entry_confidence]}`}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
-        {raceDay.days != null && (
+        {/* 취소된 대회는 새로 체크하지 않게 숨기되, 이미 체크했으면 풀 수 있게 남긴다 */}
+        {(raceDay.days != null || (cancelled && registered)) && (
           <button
             onClick={() => {
               if (!registered) track('registered', { race_id: race.id });
@@ -194,14 +225,14 @@ export default function RaceDetail({
             {registered ? <CheckSquare size={18} weight="fill" /> : <Square size={18} weight="bold" />}
             {registered ? '접수 완료' : '접수했어요'}
             <span className={`text-[13px] font-normal ${registered ? 'opacity-70' : 'text-ink-3'}`}>
-              {registered ? '대회일 기준으로 표시 중' : '체크하면 대회일 기준으로 표시'}
+              {cancelled ? '눌러서 해제' : registered ? '대회일 기준으로 표시 중' : '체크하면 대회일 기준으로 표시'}
             </span>
           </button>
         )}
       </header>
 
       <Tabs<Tab>
-        value={tab}
+        value={view}
         onChange={(t) => {
           setTab(t);
           track('race_tab', { race_id: race.id, tab: t });
@@ -211,12 +242,12 @@ export default function RaceDetail({
           ['reviews', reviewCount ? `후기 ${reviewCount}` : '후기'],
           ['packages', racePackages.length ? `여행사 ${racePackages.length}` : '여행사'],
           ['cost', '비용'],
-          ['alert', '알림'],
+          ...(cancelled ? [] : ([['alert', '알림']] as [Tab, string][])),
         ]}
       />
 
       <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-7">
-        {tab === 'overview' && (
+        {view === 'overview' && (
           <div className="space-y-7">
             <section>
               <h3 className="text-[15px] font-bold">접수는 {ENTRY_LABEL[race.entry_type]}</h3>
@@ -267,9 +298,9 @@ export default function RaceDetail({
               <Fact label="정보 확인" value={race.last_verified} num />
             </dl>
 
-            {race.notes_ko && (
+            {note && (
               <p className="max-w-[60ch] border-l-2 border-ink pl-4 text-[15px] leading-relaxed text-ink-2">
-                {race.notes_ko}
+                {note}
               </p>
             )}
 
@@ -283,15 +314,17 @@ export default function RaceDetail({
               >
                 {isSearchLink(race.official_url) ? '공식 홈페이지 검색' : '공식 홈페이지'} <ArrowUpRight size={15} weight="bold" />
               </a>
-              <button
-                onClick={() => setCalOpen((v) => !v)}
-                aria-expanded={calOpen}
-                className={`inline-flex h-10 items-center gap-1.5 rounded-ctl px-3.5 text-sm font-semibold transition active:translate-y-px ${
-                  calOpen ? 'bg-ink text-bg' : 'bg-surface text-ink hover:bg-sunken'
-                }`}
-              >
-                <CalendarPlus size={16} weight="bold" /> {calDates(race).length === 1 ? '대회 날 캘린더에 저장' : '캘린더에 저장'}
-              </button>
+              {!cancelled && (
+                <button
+                  onClick={() => setCalOpen((v) => !v)}
+                  aria-expanded={calOpen}
+                  className={`inline-flex h-10 items-center gap-1.5 rounded-ctl px-3.5 text-sm font-semibold transition active:translate-y-px ${
+                    calOpen ? 'bg-ink text-bg' : 'bg-surface text-ink hover:bg-sunken'
+                  }`}
+                >
+                  <CalendarPlus size={16} weight="bold" /> {calDates(race).length === 1 ? '대회 날 캘린더에 저장' : '캘린더에 저장'}
+                </button>
+              )}
               <button
                 onClick={share}
                 className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-surface px-3.5 text-sm font-semibold text-ink transition hover:bg-sunken active:translate-y-px"
@@ -310,7 +343,7 @@ export default function RaceDetail({
                 </a>
               )}
             </div>
-            {calOpen && <CalendarPicker race={race} />}
+            {calOpen && !cancelled && <CalendarPicker race={race} />}
 
             <p className="max-w-[60ch] text-[13px] leading-relaxed text-ink-3">
               대회 일정과 접수 기간은 매년 바뀌고 예고 없이 달라지기도 합니다. 신청 전에는 공식 홈페이지에서 한 번 더
@@ -319,10 +352,10 @@ export default function RaceDetail({
           </div>
         )}
 
-        {tab === 'reviews' && <ReviewsTab race={race} onLogin={onLogin} />}
-        {tab === 'packages' && <PackageTable packages={racePackages} agencies={agencies} />}
-        {tab === 'cost' && <CostCalculator race={race} costs={costs} />}
-        {tab === 'alert' && <AlertForm race={race} />}
+        {view === 'reviews' && <ReviewsTab race={race} onLogin={onLogin} />}
+        {view === 'packages' && <PackageTable packages={racePackages} agencies={agencies} />}
+        {view === 'cost' && <CostCalculator race={race} costs={costs} />}
+        {view === 'alert' && <AlertForm race={race} />}
       </div>
     </div>
   );

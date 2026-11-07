@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Race } from '../lib/types';
 import { subscribeAlert } from '../lib/data';
 import { useAuth } from '../lib/auth';
-import { daysBetween, TODAY, fmtDate, isSoldOut } from '../lib/util';
+import { daysBetween, TODAY, fmtDate, isSoldOut, isCancelled } from '../lib/util';
 import { Button, Field, Input, Note } from './ui';
 import { track } from '../lib/analytics';
 
@@ -19,6 +19,19 @@ export default function AlertForm({ race }: { race: Race }) {
   const opensAhead = race.entry_opens && daysBetween(today, race.entry_opens) > 0;
   const target = opensAhead ? race.entry_opens : race.entry_closes ?? race.entry_opens;
   const d = target ? daysBetween(today, target) : null;
+
+  // 취소된 대회는 상세에서 알림 탭을 숨기지만, 다른 경로로 열려도 신청을 받지 않는다
+  if (isCancelled(race)) {
+    return (
+      <div className="rounded-box bg-surface px-4 py-4">
+        <div className="text-[13px] text-ink-3">대회 취소</div>
+        <div className="mt-0.5 text-[17px] font-bold">{fmtDate(race.race_date)} 대회 취소</div>
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
+          취소된 대회라 알림을 받을 수 없습니다. 환불 안내는 공식 홈페이지에서 확인하세요.
+        </p>
+      </div>
+    );
+  }
 
   // 정원이 차서 이미 끝난 대회는 접수 알림이 의미 없으니 신청을 받지 않는다
   if (isSoldOut(race, today) && !opensAhead) {
