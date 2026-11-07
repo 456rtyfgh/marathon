@@ -767,6 +767,12 @@ function Main() {
               저작권은 쓴 분에게 있습니다.
             </p>
             <p className="mt-2 max-w-[70ch]">방문 통계를 내려고 Google Analytics 를 씁니다. 이름이나 이메일처럼 누구인지 알 수 있는 정보는 보내지 않습니다.</p>
+            <p className="mt-2 max-w-[70ch]">
+              문의{' '}
+              <a href="mailto:marathon82@kakao.com" className="underline underline-offset-2 hover:no-underline">
+                marathon82@kakao.com
+              </a>
+            </p>
           </div>
         </footer>
       </main>

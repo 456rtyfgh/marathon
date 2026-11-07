@@ -93,7 +93,7 @@ ${ldJson(itemList)}
 <p class="lead">${esc(lead)}</p>
 ${body}
 </main>
-<footer><a href="/">마라톤 캘린더</a> — 국내·해외 마라톤·트레일러닝 대회 일정과 접수 기간. 날짜·접수 기간은 바뀔 수 있으니 공식 홈페이지에서 한 번 더 확인하세요.</footer>
+<footer><a href="/">마라톤 캘린더</a> — 국내·해외 마라톤·트레일러닝 대회 일정과 접수 기간. 날짜·접수 기간은 바뀔 수 있으니 공식 홈페이지에서 한 번 더 확인하세요.<br>문의 <a href="mailto:marathon82@kakao.com">marathon82@kakao.com</a></footer>
 </body>
 </html>
 `;
@@ -189,6 +189,8 @@ for (const c of countries) {
 const isKr = (r) => r.country_code === 'KR';
 const yearsText = (rs) => [...new Set(rs.map((r) => r.race_date.slice(0, 4)))].join('·');
 const crumbsOf = (path, name) => [{ name: '마라톤 캘린더', path: '/' }, { name, path }];
+/** 설명 끝 '대회 이름 3개 등.' — 이름이 하나도 없으면(접수 중 0개, 다 지난 해) 빼서 '.  등.' 이 남지 않게 */
+const etc = (rs) => (names(rs) ? ` ${names(rs)} 등.` : '');
 /** 달마다 h2(월별 페이지 링크) 아래 국내·해외 두 묶음 */
 const byMonthBody = (rs, { split = true } = {}) => {
   const byM = new Map();
@@ -221,7 +223,7 @@ for (const y of years) {
     page({
       path,
       title: `${y} 마라톤 일정 — 국내 ${kr}개·해외 ${ab}개 대회 접수 기간 | 마라톤 캘린더`,
-      description: `${y}년 국내·해외 마라톤·트레일러닝 대회 ${rs.length}개(국내 ${kr}, 해외 ${ab})의 날짜, 장소, 종목, 접수 시작·마감일을 달별로. ${names(rs.filter((r) => r.race_date >= today))} 등.`.slice(0, 160),
+      description: `${y}년 국내·해외 마라톤·트레일러닝 대회 ${rs.length}개(국내 ${kr}, 해외 ${ab})의 날짜, 장소, 종목, 접수 시작·마감일을 달별로.${etc(rs.some((r) => r.race_date >= today) ? rs.filter((r) => r.race_date >= today) : rs)}`.slice(0, 160),
       h1: `${y} 마라톤 일정`,
       lead: `${y}년에 열리는 국내 ${kr}개, 해외 ${ab}개 대회를 달별로 모았습니다${hasPast ? '(이미 열린 대회 포함)' : ''}. 대회 이름을 누르면 접수 기간·참가비·공식 홈페이지를 볼 수 있습니다.`,
       crumbs: crumbsOf(path, `${y} 마라톤 일정`),
@@ -241,7 +243,7 @@ for (const y of years) {
     page({
       path,
       title: `국내 마라톤 일정 ${ys} — 대회 접수 기간 | 마라톤 캘린더`,
-      description: `다가오는 국내 마라톤·트레일러닝 대회 ${rs.length}개의 날짜, 도시, 종목, 접수 시작·마감일과 추첨·선착순 여부. ${names(rs)} 등.`.slice(0, 160),
+      description: `다가오는 국내 마라톤·트레일러닝 대회 ${rs.length}개의 날짜, 도시, 종목, 접수 시작·마감일과 추첨·선착순 여부.${etc(rs)}`.slice(0, 160),
       h1: '국내 마라톤 대회 일정',
       lead: `앞으로 열리는 국내 대회 ${rs.length}개를 날짜순으로 모았습니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
       crumbs: crumbsOf(path, '국내 마라톤 일정'),
@@ -262,7 +264,7 @@ for (const y of years) {
     page({
       path,
       title: `해외 마라톤 일정 ${ys} — 나라별 대회 접수 | 마라톤 캘린더`,
-      description: `다가오는 해외 마라톤·트레일러닝 대회 ${rs.length}개(${n}개 나라)의 날짜, 도시, 종목, 추첨·선착순 접수 기간. ${names(rs)} 등.`.slice(0, 160),
+      description: `다가오는 해외 마라톤·트레일러닝 대회 ${rs.length}개(${n}개 나라)의 날짜, 도시, 종목, 추첨·선착순 접수 기간.${etc(rs)}`.slice(0, 160),
       h1: '해외 마라톤 대회 일정',
       lead: `앞으로 열리는 해외 대회 ${rs.length}개(${n}개 나라)를 날짜순으로 모았습니다. 대회 이름을 누르면 접수 방식·참가비·여행사 패키지를 볼 수 있습니다.`,
       crumbs: crumbsOf(path, '해외 마라톤 일정'),
@@ -283,7 +285,7 @@ for (const y of years) {
     page({
       path,
       title: `트레일러닝 대회 일정 ${ys} — 국내·해외 접수 | 마라톤 캘린더`,
-      description: `다가오는 트레일러닝 대회 ${rs.length}개(국내 ${kr}, 해외 ${rs.length - kr})의 날짜, 장소, 거리, 접수 시작·마감일. ${names(rs)} 등.`.slice(0, 160),
+      description: `다가오는 트레일러닝 대회 ${rs.length}개(국내 ${kr}, 해외 ${rs.length - kr})의 날짜, 장소, 거리, 접수 시작·마감일.${etc(rs)}`.slice(0, 160),
       h1: '트레일러닝 대회 일정',
       lead: `앞으로 열리는 트레일러닝 대회 국내 ${kr}개, 해외 ${rs.length - kr}개를 날짜순으로 모았습니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
       crumbs: crumbsOf(path, '트레일러닝 대회 일정'),
@@ -307,7 +309,7 @@ for (const y of years) {
     page({
       path,
       title: `지금 접수 중인 마라톤 대회 ${rs.length}개 — ${day} 기준 | 마라톤 캘린더`,
-      description: `${day} 기준 접수 중인 국내 ${kr.length}개·해외 ${ab.length}개 마라톤·트레일러닝 대회를 접수 마감이 가까운 순서로. ${names(rs)} 등.`.slice(0, 160),
+      description: `${day} 기준 접수 중인 국내 ${kr.length}개·해외 ${ab.length}개 마라톤·트레일러닝 대회를 접수 마감이 가까운 순서로.${etc(rs)}`.slice(0, 160),
       h1: '지금 접수 중인 마라톤 대회',
       lead: `${fmt(today)} 기준 접수 중인 대회 ${rs.length}개(국내 ${kr.length}, 해외 ${ab.length})를 마감이 가까운 순서로 모았습니다. 목록은 매일 새로 만들어집니다(만든 날 기준). 선착순 대회는 마감일 전에 일찍 끝날 수 있습니다.`,
       crumbs: crumbsOf(path, '지금 접수 중인 대회'),
