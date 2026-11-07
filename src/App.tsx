@@ -26,11 +26,14 @@ import MapSection, { type Scope } from './components/MapSection';
 import { placeOf } from './lib/places';
 import { track, pageView } from './lib/analytics';
 
-// 상세·요청·관리 패널은 열 때만 필요하므로 첫 화면 번들에서 뺀다 (상세는 목록이 뜬 뒤 미리 받아 둔다)
+// 상세·요청·관리 패널은 열 때만 필요하므로 첫 화면 번들에서 뺀다 (목록이 뜬 뒤 미리 받아 둔다 —
+// 처음 열 때 받으면, 탭을 열어 둔 채 새로 배포된 뒤에는 옛 청크가 없어 화면 전체가 깨진다)
 const loadRaceDetail = () => import('./components/RaceDetail');
+const loadAdminPanel = () => import('./components/AdminPanel');
+const loadRequestPanel = () => import('./components/RequestPanel');
 const RaceDetail = lazy(loadRaceDetail);
-const AdminPanel = lazy(() => import('./components/AdminPanel'));
-const RequestPanel = lazy(() => import('./components/RequestPanel'));
+const AdminPanel = lazy(loadAdminPanel);
+const RequestPanel = lazy(loadRequestPanel);
 
 // 지난 대회 '더 보기' 한 번에 붙이는 수
 const PAGE = 80;
@@ -105,9 +108,14 @@ function Main() {
   }, []);
   useEffect(() => {
     if (remote === 'loading') return;
-    const t = setTimeout(() => void loadRaceDetail(), 1500);
+    const t = setTimeout(() => {
+      // 미리 받기가 실패해도(오프라인 등) 열 때 다시 받으므로 여기서는 조용히 넘긴다
+      loadRaceDetail().catch(() => {});
+      loadRequestPanel().catch(() => {});
+      if (profile?.is_admin) loadAdminPanel().catch(() => {});
+    }, 1500);
     return () => clearTimeout(t);
-  }, [remote]);
+  }, [remote, profile?.is_admin]);
   // 관리자는 방금 고친 내용이 바로 보이도록 DB 에서 직접 읽는다
   useEffect(() => {
     if (profile?.is_admin) reload(true);
