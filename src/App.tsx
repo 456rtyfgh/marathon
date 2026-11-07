@@ -482,6 +482,16 @@ function Main() {
                 className="h-10 w-full rounded-ctl border border-line bg-surface pr-3 pl-9 text-[15px] outline-none transition placeholder:text-ink-3 focus:border-ink"
               />
             </label>
+            {/* 휴대폰은 헤더 버튼이 숨겨져 있어 검색창 바로 밑에 (PC 는 바로 위 헤더 버튼이 같은 역할) */}
+            <p className="order-first -mt-0.5 flex w-full items-baseline justify-end gap-1.5 text-[13px] text-ink-3 sm:hidden">
+              찾는 대회가 없나요?
+              <button
+                onClick={() => openRequest('search')}
+                className="-my-2 py-2 font-semibold text-ink-2 underline underline-offset-4 hover:text-ink"
+              >
+                추가 요청
+              </button>
+            </p>
 
             <div className="flex w-full items-center justify-end gap-2 sm:ml-0 sm:w-auto">
               <label className="relative">
@@ -647,13 +657,19 @@ function Main() {
           ) : shown === 0 ? (
             <div className="px-3 py-20 text-center">
               <p className="text-[17px] font-semibold">{q.trim() ? `‘${q.trim()}’ 대회를 찾지 못했습니다.` : '조건에 맞는 대회가 없습니다.'}</p>
-              <p className="mt-1.5 text-[15px] text-ink-2">찾는 대회가 없나요? 알려주시면 매주 월요일 일정을 확인할 때 같이 넣습니다.</p>
+              <p className="mt-1.5 text-[15px] text-ink-2">
+                찾는 대회가 없나요? 추가 요청을 남겨 주시면 매주 월요일 일정을 확인할 때 같이 넣습니다.
+              </p>
               <div className="mt-5 flex justify-center gap-3">
-                <button onClick={reset} className="h-10 rounded-ctl bg-sunken px-4 text-sm font-semibold hover:bg-line">
-                  필터 풀기
-                </button>
-                <button onClick={() => openRequest('empty')} className="h-10 rounded-ctl bg-ink px-4 text-sm font-semibold text-bg hover:opacity-85">
+                <button
+                  onClick={() => openRequest(q.trim() ? 'empty_search' : 'empty')}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-ink px-4 text-sm font-semibold text-bg hover:opacity-85"
+                >
+                  <Plus size={14} weight="bold" aria-hidden />
                   대회 추가 요청
+                </button>
+                <button onClick={reset} className="h-10 rounded-ctl bg-sunken px-4 text-sm font-semibold hover:bg-line">
+                  {q.trim() ? '검색·필터 풀기' : '필터 풀기'}
                 </button>
               </div>
             </div>
