@@ -42,7 +42,7 @@ RACE_WORDS = ['marathon', 'maraton', 'marató', 'maratón', 'maratona', 'marath�
               'マラソン', '마라톤', '马拉松', '馬拉松', 'half', 'halb', 'lauf', 'löp', 'juoksu', 'run', 'race', 'course', 'carrera',
               'corrida', 'corsa', 'loop', 'bieg', 'beh', 'ハーフ', '하프', '달리기', '러닝', '跑', 'km']
 # 공식 홈페이지 자리에 들어가면 안 되는 일정 모음·대행 사이트 (자동으로 바꾸지 않고 보고만 한다)
-NOT_OFFICIAL = ['mara1080.com', 'runnet.jp', 'checkpointspot.asia', 'raceentry.com', 'cafe.naver.com', 'cafe.daum.net']
+NOT_OFFICIAL = ['runnet.jp', 'checkpointspot.asia', 'raceentry.com', 'cafe.naver.com', 'cafe.daum.net']
 # 접수 플랫폼: 주최가 공식 사이트 없이 여기서만 운영하면 허용, 참고용으로 보고
 SIGNUP = ['runsignup.com', 'raceroster.com']
 
