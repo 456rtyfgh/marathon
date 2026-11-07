@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, MapTrifold, CheckSquare } from '@phosphor-icons/react';
+import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, MapTrifold, CheckSquare, Plus } from '@phosphor-icons/react';
 import type { Race, EntryType, Region, Discipline } from './lib/types';
 import { ENTRY_LABEL, REGIONS, DISCIPLINES, DISCIPLINE_LABEL } from './lib/types';
 import { loadDataset, emptyDataset, type Dataset } from './lib/data';
@@ -22,7 +22,7 @@ import RaceDetail from './components/RaceDetail';
 import AdminPanel from './components/AdminPanel';
 import RequestPanel from './components/RequestPanel';
 import { AuthBar, AuthForm } from './components/AuthPanel';
-import { Panel, Note } from './components/ui';
+import { Panel, Note, MoreButton } from './components/ui';
 import { PROVINCES, placeOf } from './lib/places';
 import { track, pageView } from './lib/analytics';
 
@@ -30,6 +30,9 @@ const MapView = lazy(() => import('./components/MapView'));
 
 // 목록이 길어도 처음엔 이만큼만 그리고, 아래로 내려가면 더 붙인다.
 const PAGE = 80;
+const GROUP_PAGE = 12;
+const GROUP_MORE = 24;
+const SHOW_ALL_UNDER = 30;
 
 const OVERSEAS = REGIONS.filter((r) => r !== '한국') as Region[];
 const ENTRY_TYPES: EntryType[] = ['lottery', 'fcfs', 'qualifying', 'open', 'tour_only'];
@@ -90,7 +93,6 @@ function Main() {
   const [sort, setSort] = useState<Sort>('entry');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showPast, setShowPast] = useState(false);
-  const [limit, setLimit] = useState(PAGE);
   const [pastLimit, setPastLimit] = useState(PAGE);
   const fav = useFavorites();
   const [favOnly, setFavOnly] = useState(false);
@@ -334,30 +336,30 @@ function Main() {
     return () => clearTimeout(t);
   }, [maxFlight]);
 
-  // 필터·정렬이 바뀌면 처음부터 다시 보여준다
-  useEffect(() => setLimit(PAGE), [groups]);
+  // 묶음(접수 중·곧 시작…)마다 처음 GROUP_PAGE 개만, '더 보기' 한 번에 GROUP_MORE 개씩 더.
+  // 다시 접는 건 필터·정렬 값이 바뀔 때만 — groups 는 저장·접수 표시에도 다시 만들어져서 거기에 걸면 ☆ 하나에 접혀 버린다
+  const foldKey = JSON.stringify([q.trim(), scope, regions, place, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, discipline]);
+  const [unfold, setUnfold] = useState<{ key: string; n: Record<string, number> }>({ key: '', n: {} });
+  const opened = unfold.key === foldKey ? unfold.n : null;
+  const showMore = (g: string, now: number) => setUnfold({ key: foldKey, n: { ...opened, [g]: now + GROUP_MORE } });
+  // 검색·필터로 좁혀서 결과가 적으면 접지 않고 전부
+  const narrowed = !!q.trim() || activeFilters > 0 || !!place || regions.length > 0 || favOnly || regOnly;
+  const showAll = narrowed && shown <= SHOW_ALL_UNDER;
+  const visible = useMemo(
+    () =>
+      groups.map((g) => {
+        let n = showAll ? g.races.length : opened?.[g.key] ?? GROUP_PAGE;
+        // 몇 개 안 남았으면 버튼 대신 그냥 보여 준다
+        if (g.races.length - n <= 3) n = g.races.length;
+        return { ...g, races: g.races.slice(0, n), total: g.races.length };
+      }),
+    [groups, opened, showAll],
+  );
 
-  // 목록 맨 아래가 가까워지면 다음 묶음을 붙인다
-  const sentinel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = sentinel.current;
-    if (!el || limit >= shown) return;
-    const io = new IntersectionObserver((e) => e[0].isIntersecting && setLimit((n) => n + PAGE), { rootMargin: '600px' });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [limit, shown]);
-
-  // 그룹 순서를 유지한 채 앞에서 limit 개까지만
-  const visible = useMemo(() => {
-    let left = limit;
-    return groups
-      .map((g) => {
-        const races = g.races.slice(0, Math.max(left, 0));
-        left -= races.length;
-        return { ...g, races, total: g.races.length };
-      })
-      .filter((g) => g.races.length);
-  }, [groups, limit]);
+  const openRequest = (from: string) => {
+    track('request_open', { from });
+    setShowRequest(true);
+  };
 
   const toggle = <T,>(list: T[], set: (v: T[]) => void, v: T) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
@@ -386,7 +388,7 @@ function Main() {
           </a>
           <nav className="flex items-center gap-1 sm:gap-2">
             <button
-              onClick={() => setShowRequest(true)}
+              onClick={() => openRequest('header')}
               className="hidden h-8 items-center rounded-ctl px-3 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink sm:inline-flex"
             >
               대회 추가 요청
@@ -779,32 +781,51 @@ function Main() {
             </div>
           ) : shown === 0 ? (
             <div className="px-3 py-20 text-center">
-              <p className="text-[17px] font-semibold">조건에 맞는 대회가 없습니다.</p>
-              <div className="mt-4 flex justify-center gap-3">
+              <p className="text-[17px] font-semibold">{q.trim() ? `‘${q.trim()}’ 대회를 찾지 못했습니다.` : '조건에 맞는 대회가 없습니다.'}</p>
+              <p className="mt-1.5 text-[15px] text-ink-2">찾는 대회가 없나요? 알려주시면 매주 월요일 일정을 확인할 때 같이 넣습니다.</p>
+              <div className="mt-5 flex justify-center gap-3">
                 <button onClick={reset} className="h-10 rounded-ctl bg-sunken px-4 text-sm font-semibold hover:bg-line">
                   필터 풀기
                 </button>
-                <button onClick={() => setShowRequest(true)} className="h-10 rounded-ctl bg-ink px-4 text-sm font-semibold text-bg">
+                <button onClick={() => openRequest('empty')} className="h-10 rounded-ctl bg-ink px-4 text-sm font-semibold text-bg hover:opacity-85">
                   대회 추가 요청
                 </button>
               </div>
             </div>
           ) : (
-            visible.map((g) => (
+            visible.map((g, i) => (
               <div key={g.key} className="pt-8">
-                <h2 className="flex items-baseline gap-2 px-3 pb-2 sm:px-5">
-                  <span className="text-[19px] font-extrabold tracking-tight">{g.title}</span>
-                  <span className="num text-[18px] font-semibold text-ink-3">{g.total}</span>
-                </h2>
+                <div className="flex items-baseline justify-between gap-3 px-3 pb-2 sm:px-5">
+                  <h2 className="flex items-baseline gap-2">
+                    <span className="text-[19px] font-extrabold tracking-tight">{g.title}</span>
+                    <span className="num text-[18px] font-semibold text-ink-3">{g.total}</span>
+                  </h2>
+                  {/* 하단 안내까지 내려가지 않아도 보이게 첫 묶음 제목 줄에 (헤더 버튼은 휴대폰에서 숨김) */}
+                  {i === 0 && (
+                    <button
+                      onClick={() => openRequest('list')}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-ctl px-2 py-1 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink"
+                    >
+                      <Plus size={14} weight="bold" aria-hidden />
+                      <span>
+                        <span className="hidden sm:inline">찾는 대회가 없나요? </span>추가 요청
+                      </span>
+                    </button>
+                  )}
+                </div>
                 <ul className="divide-y divide-line border-y border-line">
                   {g.races.map((r) => (
                     <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} registered={reg.has(r.id)} onOpen={openRace} />
                   ))}
                 </ul>
+                {g.races.length < g.total && (
+                  <div className="px-3 pt-3 sm:px-5">
+                    <MoreButton left={g.total - g.races.length} onClick={() => showMore(g.key, g.races.length)} />
+                  </div>
+                )}
               </div>
             ))
           )}
-          {limit < shown && <div ref={sentinel} aria-hidden className="h-px" />}
 
           {pastRaces.length > 0 && (
             <div className="px-3 pt-10 sm:px-5">
@@ -824,12 +845,7 @@ function Main() {
                 </ul>
               )}
               {showPast && pastLimit < pastRaces.length && (
-                <button
-                  onClick={() => setPastLimit((n) => n + PAGE)}
-                  className="mt-3 h-9 rounded-ctl bg-sunken px-3 text-[14px] font-semibold hover:bg-line"
-                >
-                  더 보기 ({pastRaces.length - pastLimit}개 남음)
-                </button>
+                <MoreButton className="mt-3" left={pastRaces.length - pastLimit} onClick={() => setPastLimit((n) => n + PAGE)} />
               )}
             </div>
           )}
@@ -843,7 +859,7 @@ function Main() {
               <p className="mt-1 text-[15px] text-ink-2">알려주시면 매주 월요일 일정을 확인할 때 같이 넣습니다.</p>
             </div>
             <button
-              onClick={() => setShowRequest(true)}
+              onClick={() => openRequest('bottom')}
               className="h-11 shrink-0 self-start rounded-ctl bg-accent px-5 text-[15px] font-bold text-on-accent transition hover:brightness-95 active:translate-y-px md:self-auto"
             >
               대회 추가 요청

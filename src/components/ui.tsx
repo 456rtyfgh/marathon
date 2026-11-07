@@ -88,6 +88,19 @@ export function Button({ tone = 'primary', size = 'md', className = '', ...rest 
   );
 }
 
+/** 목록 '더 보기 (N개 남음)'. 대회 목록 묶음·지난 대회가 같이 쓴다 */
+export function MoreButton({ left, onClick, className = '' }: { left: number; onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-9 rounded-ctl bg-sunken px-3 text-[14px] font-semibold transition hover:bg-line active:translate-y-px ${className}`}
+    >
+      더 보기 <span className="font-normal text-ink-2">(<span className="num">{left}</span>개 남음)</span>
+    </button>
+  );
+}
+
 /* ── 입력 ─────────────────────────────────────────────────────── */
 
 export function Field({
