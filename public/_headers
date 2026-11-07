@@ -15,3 +15,6 @@
   Cache-Control: public, max-age=300, stale-while-revalidate=86400
 /og.png
   Cache-Control: public, max-age=86400
+/rss.xml
+  Content-Type: application/rss+xml; charset=utf-8
+  Cache-Control: public, max-age=3600
