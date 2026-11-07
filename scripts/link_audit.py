@@ -8,6 +8,8 @@
   - unreachable : 시간 초과·5xx 등 (일시적일 수 있음, 보고만)
   - blocked     : 403·429 등 봇 차단 (사람이 열면 보통 정상, 보고만)
   - unrelated   : 열리긴 하는데 대회와 관련된 말이 안 보임 (보고만)
+  - not_official : 일정 모음·대행 사이트 주소 (공식 홈페이지가 아님, 보고만)
+  - signup       : 접수 플랫폼 주소 (공식 사이트가 없을 때만 허용, 보고만)
 로 분류한다. --fix 를 주면 gambling/parked/dead 는 즉시 검색 링크로 바꿔
 사이트에 이상한 링크가 남지 않게 한다. (공식 주소로 다시 바꾸는 건 주간 갱신 작업이 맡는다)
 
@@ -39,6 +41,10 @@ PARKED = [
 RACE_WORDS = ['marathon', 'maraton', 'marató', 'maratón', 'maratona', 'marathón', 'maraþon', 'maraton',
               'マラソン', '마라톤', '马拉松', '馬拉松', 'half', 'halb', 'lauf', 'löp', 'juoksu', 'run', 'race', 'course', 'carrera',
               'corrida', 'corsa', 'loop', 'bieg', 'beh', 'ハーフ', '하프', '달리기', '러닝', '跑', 'km']
+# 공식 홈페이지 자리에 들어가면 안 되는 일정 모음·대행 사이트 (자동으로 바꾸지 않고 보고만 한다)
+NOT_OFFICIAL = ['mara1080.com', 'runnet.jp', 'checkpointspot.asia', 'raceentry.com', 'cafe.naver.com', 'cafe.daum.net']
+# 접수 플랫폼: 주최가 공식 사이트 없이 여기서만 운영하면 허용, 참고용으로 보고
+SIGNUP = ['runsignup.com', 'raceroster.com']
 
 
 def search_link(r):
@@ -105,10 +111,19 @@ def host(u):
         return ''
 
 
+def on_domain(u, domains):
+    h = (urllib.parse.urlparse(u).hostname or '').lower()
+    return any(h == d or h.endswith('.' + d) for d in domains)
+
+
 def classify(r):
     u = r.get('official_url') or ''
     if not u or is_search(u):
         return dict(id=r['id'], url=u, verdict='search')
+    if on_domain(u, NOT_OFFICIAL):
+        return dict(id=r['id'], name=r['name_ko'], url=u, verdict='not_official')
+    if on_domain(u, SIGNUP):
+        return dict(id=r['id'], name=r['name_ko'], url=u, verdict='signup')
     st, final, text, err = fetch(u)
     low = text.lower()
     m = re.search(r'<title[^>]*>(.*?)</title>', text, re.S | re.I)
@@ -178,11 +193,14 @@ def main():
              f'대회 {len(results)}개 · ' + ' · '.join(f'{k} {v}' for k, v in c.most_common()) + f' · {int(time.time()-t0)}초', '']
     if fix:
         lines += [f'검색 링크로 바꾼 대회 {len(fixed)}개: ' + ', '.join(fixed), '']
-    for v in ('gambling', 'parked', 'dead', 'unrelated', 'unreachable', 'blocked'):
+    for v in ('gambling', 'parked', 'dead', 'not_official', 'signup', 'unrelated', 'unreachable', 'blocked'):
         xs = [x for x in results if x['verdict'] == v]
         if xs:
             lines.append(f'## {v} ({len(xs)})')
-            lines += [f"- {x['id']} {x.get('name','')} — {x['url']} → {x.get('final','')} [{x.get('status')}] {x.get('title','')} {','.join(x.get('hits', []))}" for x in xs]
+            if v in ('not_official', 'signup'):  # 열어 보지 않고 도메인만으로 판정한 것
+                lines += [f"- {x['id']} {x.get('name','')} — {x['url']}" for x in xs]
+            else:
+                lines += [f"- {x['id']} {x.get('name','')} — {x['url']} → {x.get('final','')} [{x.get('status')}] {x.get('title','')} {','.join(x.get('hits', []))}" for x in xs]
             lines.append('')
     open(os.path.join(out, 'link-audit.md'), 'w').write('\n'.join(lines))
     print(lines[2]); print(f'fixed {len(fixed)}' if fix else 'report only')
