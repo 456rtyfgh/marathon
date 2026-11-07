@@ -283,7 +283,9 @@ function Main() {
   // 묶음(접수 중·곧 시작…)마다 처음 GROUP_PAGE 개만, '더 보기' 한 번에 GROUP_MORE 개씩 더.
   // 다시 접는 건 필터·정렬 값이 바뀔 때만 — groups 는 저장·접수 표시에도 다시 만들어져서 거기에 걸면 ☆ 하나에 접혀 버린다
   const foldKey = JSON.stringify([q.trim(), scope, regions, place, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, discipline]);
-  const [unfold, setUnfold] = useState<{ key: string; n: Record<string, number> }>({ key: '', n: {} });
+  const [unfold, setUnfold] = useState<{ key: string; n: Record<string, number> }>({ key: foldKey, n: {} });
+  // 키가 바뀌는 순간 비운다 (렌더 중 갱신). 비교만 하면 검색어를 지워 원래 키로 돌아올 때 예전 펼침이 되살아난다
+  if (unfold.key !== foldKey) setUnfold({ key: foldKey, n: {} });
   const opened = unfold.key === foldKey ? unfold.n : null;
   const showMore = (g: string, now: number) => setUnfold({ key: foldKey, n: { ...opened, [g]: now + GROUP_MORE } });
   // 검색·필터로 좁혀서 결과가 적으면 접지 않고 전부
