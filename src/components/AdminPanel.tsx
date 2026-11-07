@@ -670,6 +670,14 @@ function Stats({ races }: { races: Race[] }) {
         >
           구글 애널리틱스 열기 ↗
         </a>
+        <a
+          href="https://mail.kakao.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-ctl px-3 py-2 text-[14px] font-semibold text-ink-2 underline-offset-4 hover:text-ink hover:underline"
+        >
+          문의 메일함(카카오메일) 열기 ↗
+        </a>
       </div>
 
       {!rows ? (
