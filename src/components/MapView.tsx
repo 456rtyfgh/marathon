@@ -20,6 +20,8 @@ const TAP_SLOP = 6;
 const MIN_FIT_W = 100;
 /** 나라 하나를 고를 때 최소 폭. 싱가포르·홍콩처럼 아주 작은 나라도 눈에 띄게 더 들어간다 */
 const MIN_PICK_W = 60;
+/** 국내 지도에서 시·도 하나를 고를 때 최소 폭 (지도 단위, 전체 524). 세종·대전·광주도 둘레가 보이게 */
+const MIN_PROVINCE_W = 120;
 /** 이보다 넓은 나라(러시아·캐나다 등)는 대회가 가장 많은 나라가 아니면 맞춤에서 뺀다 */
 const HUGE_W = 180;
 /** 대회 비중이 이보다 작은 나라가 화면을 25% 넘게 넓히면 맞춤에서 뺀다 (그린란드·북마리아나 등) */
@@ -52,7 +54,7 @@ const toRatio = (b: Box, ratio: number): Box => {
 /**
  * 시·도(국내) 또는 나라(해외) 별 대회 수를 색으로 보여 주는 지도.
  * 색이 칠해진 곳을 누르면 onSelect(id) — 지역 확대인지 나라 선택인지는 부모(MapSection)가 정한다.
- * focus(지역 나라들) → selected(고른 나라, 세계 지도만) 순으로 그곳이 꽉 차게 확대한다.
+ * selected(고른 나라·시·도) → focus(지역 나라들) 순으로 그곳이 꽉 차게 확대한다.
  * 두 손가락·휠로 더 확대하고, 확대한 뒤에는 끌어서 옮긴다.
  */
 export default function MapView({
@@ -71,7 +73,7 @@ export default function MapView({
   /** 이 지역들이 꽉 차게 확대 (예: 유럽 나라들). 밖의 나라는 흐리게 */
   focus: string[];
   onSelect: (id: string) => void;
-  /** 지역 확대 중일 때 '전체 지도' 버튼 */
+  /** 지역·시·도 확대 중일 때 '전체 지도' 버튼 */
   onBack?: () => void;
 }) {
   const [map, setMap] = useState<MapData | undefined>(cache[kind]);
@@ -206,15 +208,16 @@ export default function MapView({
   );
   useEffect(() => () => cancelAnimationFrame(anim.current), []);
 
-  // 맞춤 대상: 세계 지도에서 고른 나라 → 지역 나라들 → 지도 전체
-  const picked = kind === 'world' && !!selected && boxes.has(selected);
+  // 맞춤 대상: 고른 나라·시·도 → 지역 나라들 → 지도 전체
+  const picked = !!selected && boxes.has(selected);
   const target = picked ? [selected!] : focus;
   const targetKey = `${kind}|${target.join(',')}|${ratio}`;
   const lastKey = useRef('');
   useLayoutEffect(() => {
     if (!map || !ratio) return;
     const full = parseBox(map.viewBox);
-    const b = toRatio(fitIds(target, picked && focus.length > 1 ? MIN_PICK_W : MIN_FIT_W) ?? full, ratio);
+    const minW = kind === 'kr' ? MIN_PROVINCE_W : picked && focus.length > 1 ? MIN_PICK_W : MIN_FIT_W;
+    const b = toRatio(fitIds(target, minW) ?? full, ratio);
     const prev = lastKey.current;
     lastKey.current = targetKey;
     baseRef.current = b;
