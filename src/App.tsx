@@ -1,7 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, MapTrifold, CheckSquare, Plus } from '@phosphor-icons/react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, CheckSquare, Plus } from '@phosphor-icons/react';
 import type { Race, EntryType, Region, Discipline } from './lib/types';
-import { ENTRY_LABEL, REGIONS, DISCIPLINES, DISCIPLINE_LABEL } from './lib/types';
+import { ENTRY_LABEL, DISCIPLINES, DISCIPLINE_LABEL } from './lib/types';
 import { loadDataset, emptyDataset, type Dataset } from './lib/data';
 import {
   entryStatus,
@@ -23,20 +23,18 @@ import AdminPanel from './components/AdminPanel';
 import RequestPanel from './components/RequestPanel';
 import { AuthBar, AuthForm } from './components/AuthPanel';
 import { Panel, Note, MoreButton } from './components/ui';
-import { PROVINCES, placeOf } from './lib/places';
+import MapSection, { type Scope } from './components/MapSection';
+import { placeOf } from './lib/places';
 import { track, pageView } from './lib/analytics';
 
-const MapView = lazy(() => import('./components/MapView'));
-
-// 목록이 길어도 처음엔 이만큼만 그리고, 아래로 내려가면 더 붙인다.
+// 지난 대회 '더 보기' 한 번에 붙이는 수
 const PAGE = 80;
+// 다가오는 대회: 묶음마다 처음 GROUP_PAGE 개, '더 보기' 한 번에 GROUP_MORE 개. 검색·필터로 SHOW_ALL_UNDER 개 이하면 전부
 const GROUP_PAGE = 12;
 const GROUP_MORE = 24;
 const SHOW_ALL_UNDER = 30;
 
-const OVERSEAS = REGIONS.filter((r) => r !== '한국') as Region[];
 const ENTRY_TYPES: EntryType[] = ['lottery', 'fcfs', 'qualifying', 'open', 'tour_only'];
-type Scope = 'all' | 'kr' | 'abroad';
 type Sort = 'entry' | 'race_date' | 'popular' | 'size' | 'flight';
 type StatusFilter = EntryStatus | 'closing7' | 'opening30';
 
@@ -68,24 +66,6 @@ function Main() {
   const [regions, setRegions] = useState<Region[]>([]);
   // 지도·칩에서 고른 곳: 국내는 시·도 id, 해외는 나라 코드(소문자), 'kr' 은 국내 전체
   const [place, setPlace] = useState<string | null>(null);
-  // 지도는 기본으로 펼쳐 둔다 (접어 두면 다음 방문에도 접힌 채로)
-  const [mapOpen, setMapOpenState] = useState(() => {
-    try {
-      return localStorage.getItem('marathon-cal:map') !== 'closed';
-    } catch {
-      return true;
-    }
-  });
-  const setMapOpen = (fn: (v: boolean) => boolean) =>
-    setMapOpenState((v) => {
-      const next = fn(v);
-      try {
-        localStorage.setItem('marathon-cal:map', next ? 'open' : 'closed');
-      } catch {
-        /* 저장 못 해도 동작에는 지장 없음 */
-      }
-      return next;
-    });
   const [types, setTypes] = useState<EntryType[]>([]);
   const [status, setStatus] = useState<StatusFilter | null>(null);
   const [majorOnly, setMajorOnly] = useState(false);
@@ -186,42 +166,6 @@ function Main() {
       abroad: upcomingRaces.filter((r) => !isDomestic(r)).length,
     };
   }, [upcomingRaces, today]);
-
-  // 지역 막대·지도에 쓰는 숫자 (국내/해외 선택만 반영해서 다른 필터를 바꿔도 지도가 흔들리지 않게)
-  const geo = useMemo(() => {
-    const base = upcomingRaces.filter((r) => (scope === 'kr' ? isDomestic(r) : scope === 'abroad' ? !isDomestic(r) : true));
-    const region: Partial<Record<Region, number>> = {};
-    const province: Record<string, number> = {};
-    const country: Record<string, number> = {};
-    const names: Record<string, string> = { kr: '한국' };
-    const inRegion: Record<string, number> = {};
-    for (const r of base) {
-      region[r.region] = (region[r.region] ?? 0) + 1;
-      if (isDomestic(r)) {
-        const pv = placeOf(r, true);
-        if (pv) province[pv] = (province[pv] ?? 0) + 1;
-        country.kr = (country.kr ?? 0) + 1;
-      } else {
-        const c = r.country_code.toLowerCase();
-        country[c] = (country[c] ?? 0) + 1;
-        names[c] = r.country_ko;
-        if (regions.includes(r.region)) inRegion[c] = (inRegion[c] ?? 0) + 1;
-      }
-    }
-    for (const p of PROVINCES) names[p.id] = p.name;
-    const regionCountries = Object.entries(inRegion).sort((a, b) => b[1] - a[1]);
-    return { region, province, country, names, regionCountries };
-  }, [upcomingRaces, scope, regions]);
-
-  const pickPlace = (id: string | null) => {
-    if (id === 'kr' && scope !== 'kr') {
-      setScope('kr');
-      setRegions([]);
-      setPlace(null);
-    } else setPlace(id);
-    if (id) track('map_select', { place: id });
-    document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  };
 
   // 인기 점수: 최근 7일(조회 + 저장·공유·공식 홈페이지 이동 가중) 을 먼저, 같으면 누적 조회
   const popScore = (r: Race) => {
@@ -680,96 +624,15 @@ function Main() {
         </div>
 
         {/* 지역 막대 + 지도 */}
-        <section className="mx-auto max-w-6xl px-4 pt-4 sm:px-6" aria-label="지역별로 보기">
-          <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
-            <button
-              onClick={() => {
-                setMapOpen((v) => !v);
-                if (!mapOpen) track('map_open', { scope });
-              }}
-              aria-expanded={mapOpen}
-              className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-ctl border px-3 text-[14px] font-semibold transition sm:h-8 ${
-                mapOpen ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
-              }`}
-            >
-              <MapTrifold size={16} weight="bold" />
-              {mapOpen ? '지도 접기' : '지도로 보기'}
-            </button>
-            {scope === 'kr'
-              ? PROVINCES.filter((p) => geo.province[p.id])
-                  .sort((a, b) => (geo.province[b.id] ?? 0) - (geo.province[a.id] ?? 0))
-                  .map((p) => (
-                    <Chip key={p.id} on={place === p.id} onClick={() => pickPlace(place === p.id ? null : p.id)}>
-                      {p.name}
-                      <span className="num ml-0.5 text-[14px] opacity-80">{geo.province[p.id]}</span>
-                    </Chip>
-                  ))
-              : (scope === 'abroad' ? OVERSEAS : REGIONS)
-                  .filter((r) => geo.region[r])
-                  .map((r) => (
-                    <Chip
-                      key={r}
-                      on={regions.includes(r)}
-                      onClick={() => {
-                        if (!regions.includes(r)) track('filter', { name: 'region', value: r });
-                        setRegions(regions.includes(r) ? regions.filter((x) => x !== r) : [r]);
-                        setPlace(null);
-                      }}
-                    >
-                      {r}
-                      <span className="num ml-0.5 text-[14px] opacity-80">{geo.region[r]}</span>
-                    </Chip>
-                  ))}
-          </div>
-
-          {scope !== 'kr' && regions.length > 0 && geo.regionCountries.length > 1 && (
-            <div className="-mx-4 mt-2 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
-              <span className="shrink-0 text-[13px] font-semibold text-ink-3">나라</span>
-              {geo.regionCountries.map(([c, n]) => (
-                <Chip key={c} on={place === c} onClick={() => pickPlace(place === c ? null : c)}>
-                  {geo.names[c]}
-                  <span className="num ml-0.5 text-[14px] opacity-80">{n}</span>
-                </Chip>
-              ))}
-            </div>
-          )}
-
-          {place && !(scope === 'kr' || regions.length) && (
-            <div className="mt-2">
-              <Chip on onClick={() => setPlace(null)}>
-                {geo.names[place] ?? place}
-              </Chip>
-            </div>
-          )}
-
-          {mapOpen && (
-            <div className="mt-3 rounded-box border border-line bg-surface p-3 sm:p-4">
-              <Suspense fallback={<div className="aspect-[1010/666] animate-pulse rounded-box bg-sunken" />}>
-                <MapView
-                  kind={scope === 'kr' ? 'kr' : 'world'}
-                  counts={scope === 'kr' ? geo.province : geo.country}
-                  names={geo.names}
-                  selected={place}
-                  focus={scope === 'kr' ? [] : regions.length ? geo.regionCountries.map(([c]) => c) : []}
-                  onSelect={pickPlace}
-                />
-              </Suspense>
-              <p className="mt-2 flex flex-wrap justify-between gap-2 text-[12px] text-ink-3">
-                <span>
-                  {scope === 'kr' ? '시·도' : '나라'}를 누르면 그곳 대회만 보입니다. 색이 진할수록 대회가 많습니다. 두 손가락이나
-                  휠로 확대하고 끌어서 옮깁니다.
-                </span>
-                <span>
-                  지도{' '}
-                  <a href="https://github.com/VictorCazanave/svg-maps" target="_blank" rel="noreferrer" className="underline underline-offset-2">
-                    svg-maps
-                  </a>{' '}
-                  (CC BY 4.0)
-                </span>
-              </p>
-            </div>
-          )}
-        </section>
+        <MapSection
+          scope={scope}
+          races={upcomingRaces}
+          regions={regions}
+          onRegions={setRegions}
+          place={place}
+          onPlace={setPlace}
+          onScope={setScope}
+        />
 
         {/* 목록 */}
         <section id="list" className="mx-auto max-w-6xl scroll-mt-32 px-1 pb-16 sm:px-2">
