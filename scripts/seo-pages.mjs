@@ -1,12 +1,14 @@
 /**
- * 빌드 뒤 크롤링용 정적 목록 페이지를 만든다: dist/m/YYYY-MM/index.html (월별), dist/c/<나라>/index.html (나라별).
+ * 빌드 뒤 크롤링용 정적 목록 페이지를 만든다: dist/m/YYYY-MM/index.html (월별), dist/c/<나라>/index.html (나라별),
+ * 검색어 랜딩 dist/YYYY/, dist/kr/, dist/abroad/, dist/trail/, dist/entry-open/ (목록은 seo-lib.mjs 의 LANDINGS·landingPages).
  * 첫 화면은 React 앱이라 검색엔진이 대회 페이지(/r/id)로 가는 링크를 다 못 따라갈 수 있어, 자바스크립트 없이
  * 읽히는 가벼운 HTML 로 모든 대회 링크를 깔아 둔다. _routes.json 밖이라 함수를 안 쓴다(정적 파일).
  * SPA 껍데기를 쓰지 않는 이유: React 가 뜨면 /m/… 에서도 홈 목록으로 바뀌어 canonical 과 본문이 어긋난다.
  */
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import {
-  ORIGIN, ENTRY, countries, countryPath, esc, fmt, isCancelled, ldJson, monthLabel, monthPath, months, races, svgSize, today, whereOf,
+  ORIGIN, ENTRY, LANDINGS, countries, countryPath, esc, fmt, headLinks, isCancelled, isEntryOpen, ldJson, monthLabel, monthPath, months, races, svgSize, today,
+  upcoming, whereOf, yearPath, years,
 } from './seo-lib.mjs';
 
 const DIST_LABEL = { 풀: '풀코스', 하프: '하프' };
@@ -65,6 +67,7 @@ function page({ path, title, description, h1, lead, crumbs, body, list }) {
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${url}">
+${headLinks(url)}
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 ${hasPublic('/apple-touch-icon.png') ? '<link rel="apple-touch-icon" href="/apple-touch-icon.png">\n' : ''}<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1f2f4">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e0f11">
@@ -104,6 +107,10 @@ const countryNav = (current) =>
   `<h2>나라별 마라톤 일정</h2><nav class="links" aria-label="나라별">${countries
     .map((c) => (c.code === current ? `<strong>${esc(c.name)}</strong>` : `<a href="${countryPath(c.code)}">${esc(c.name)} (${c.races.length})</a>`))
     .join('')}</nav>`;
+const topicNav = (current) =>
+  `<h2>주제별 마라톤 일정</h2><nav class="links" aria-label="주제별">${LANDINGS.map((l) =>
+    l.path === current ? `<strong>${esc(l.name)}</strong>` : `<a href="${l.path}">${esc(l.name)}</a>`,
+  ).join('')}</nav>`;
 const names = (rs, n = 3) => rs.filter((r) => !isCancelled(r)).slice(0, n).map((r) => r.name_ko).join(', ');
 
 const out = (path, html) => {
@@ -127,6 +134,7 @@ for (const [i, ym] of months.entries()) {
     abroad.length ? `<h2>${label} 해외 마라톤 (${abroad.length}개)</h2><ul class="races">${abroad.map((r) => item(r)).join('')}</ul>` : '',
     monthNav(ym),
     countryNav(null),
+    topicNav(null),
   ].join('\n');
   out(
     monthPath(ym),
@@ -160,6 +168,7 @@ for (const c of countries) {
     past.length ? `<h2>지난 대회 (${past.length}개)</h2><ul class="races">${past.reverse().map((r) => item(r)).join('')}</ul>` : '',
     countryNav(c.code),
     monthNav(null),
+    topicNav(null),
   ].join('\n');
   out(
     countryPath(c.code),
@@ -176,4 +185,141 @@ for (const c of countries) {
   );
 }
 
-console.log(`seo-pages: 월별 ${months.length}개, 나라별 ${countries.length}개 목록 페이지`);
+// 검색어 랜딩 (연도별·국내·해외·트레일·접수 중)
+const isKr = (r) => r.country_code === 'KR';
+const yearsText = (rs) => [...new Set(rs.map((r) => r.race_date.slice(0, 4)))].join('·');
+const crumbsOf = (path, name) => [{ name: '마라톤 캘린더', path: '/' }, { name, path }];
+/** 달마다 h2(월별 페이지 링크) 아래 국내·해외 두 묶음 */
+const byMonthBody = (rs, { split = true } = {}) => {
+  const byM = new Map();
+  for (const r of rs) byM.set(r.race_date.slice(0, 7), [...(byM.get(r.race_date.slice(0, 7)) ?? []), r]);
+  return [...byM.entries()]
+    .map(([ym, ms]) => {
+      const head = `<h2><a href="${monthPath(ym)}">${monthLabel(ym)}</a> 마라톤 일정 (${ms.length}개)</h2>`;
+      if (!split) return `${head}<ul class="races">${ms.map((r) => item(r)).join('')}</ul>`;
+      const kr = ms.filter(isKr);
+      const ab = ms.filter((r) => !isKr(r));
+      return [
+        head,
+        kr.length ? `<h3>국내 (${kr.length}개)</h3><ul class="races">${kr.map((r) => item(r)).join('')}</ul>` : '',
+        ab.length ? `<h3>해외 (${ab.length}개)</h3><ul class="races">${ab.map((r) => item(r)).join('')}</ul>` : '',
+      ].join('');
+    })
+    .join('\n');
+};
+const footNav = (path) => [monthNav(null), countryNav(null), topicNav(path)].join('\n');
+
+// 연도별
+for (const y of years) {
+  const path = yearPath(y);
+  const rs = races.filter((r) => r.race_date.startsWith(y));
+  const kr = rs.filter(isKr).length;
+  const ab = rs.length - kr;
+  const hasPast = rs.some((r) => r.race_date < today);
+  out(
+    path,
+    page({
+      path,
+      title: `${y} 마라톤 일정 — 국내 ${kr}개·해외 ${ab}개 대회 접수 기간 | 마라톤 캘린더`,
+      description: `${y}년 국내·해외 마라톤·트레일러닝 대회 ${rs.length}개(국내 ${kr}, 해외 ${ab})의 날짜, 장소, 종목, 접수 시작·마감일을 달별로. ${names(rs.filter((r) => r.race_date >= today))} 등.`.slice(0, 160),
+      h1: `${y} 마라톤 일정`,
+      lead: `${y}년에 열리는 국내 ${kr}개, 해외 ${ab}개 대회를 달별로 모았습니다${hasPast ? '(이미 열린 대회 포함)' : ''}. 대회 이름을 누르면 접수 기간·참가비·공식 홈페이지를 볼 수 있습니다.`,
+      crumbs: crumbsOf(path, `${y} 마라톤 일정`),
+      body: [byMonthBody(rs), footNav(path)].join('\n'),
+      list: rs,
+    }),
+  );
+}
+
+// 국내
+{
+  const path = '/kr/';
+  const rs = upcoming.filter(isKr);
+  const ys = yearsText(rs);
+  out(
+    path,
+    page({
+      path,
+      title: `국내 마라톤 일정 ${ys} — 대회 접수 기간 | 마라톤 캘린더`,
+      description: `다가오는 국내 마라톤·트레일러닝 대회 ${rs.length}개의 날짜, 도시, 종목, 접수 시작·마감일과 추첨·선착순 여부. ${names(rs)} 등.`.slice(0, 160),
+      h1: '국내 마라톤 대회 일정',
+      lead: `앞으로 열리는 국내 대회 ${rs.length}개를 날짜순으로 모았습니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
+      crumbs: crumbsOf(path, '국내 마라톤 일정'),
+      body: [`<p><a href="${countryPath('kr')}">지난 대회까지 보기 (국내 마라톤 전체)</a></p>`, byMonthBody(rs, { split: false }), footNav(path)].join('\n'),
+      list: rs,
+    }),
+  );
+}
+
+// 해외
+{
+  const path = '/abroad/';
+  const rs = upcoming.filter((r) => !isKr(r));
+  const ys = yearsText(rs);
+  const n = new Set(rs.map((r) => r.country_code)).size;
+  out(
+    path,
+    page({
+      path,
+      title: `해외 마라톤 일정 ${ys} — 나라별 대회 접수 | 마라톤 캘린더`,
+      description: `다가오는 해외 마라톤·트레일러닝 대회 ${rs.length}개(${n}개 나라)의 날짜, 도시, 종목, 추첨·선착순 접수 기간. ${names(rs)} 등.`.slice(0, 160),
+      h1: '해외 마라톤 대회 일정',
+      lead: `앞으로 열리는 해외 대회 ${rs.length}개(${n}개 나라)를 날짜순으로 모았습니다. 대회 이름을 누르면 접수 방식·참가비·여행사 패키지를 볼 수 있습니다.`,
+      crumbs: crumbsOf(path, '해외 마라톤 일정'),
+      body: [byMonthBody(rs, { split: false }), footNav(path)].join('\n'),
+      list: rs,
+    }),
+  );
+}
+
+// 트레일러닝
+{
+  const path = '/trail/';
+  const rs = upcoming.filter((r) => r.discipline === 'trail');
+  const kr = rs.filter(isKr).length;
+  const ys = yearsText(rs);
+  out(
+    path,
+    page({
+      path,
+      title: `트레일러닝 대회 일정 ${ys} — 국내·해외 접수 | 마라톤 캘린더`,
+      description: `다가오는 트레일러닝 대회 ${rs.length}개(국내 ${kr}, 해외 ${rs.length - kr})의 날짜, 장소, 거리, 접수 시작·마감일. ${names(rs)} 등.`.slice(0, 160),
+      h1: '트레일러닝 대회 일정',
+      lead: `앞으로 열리는 트레일러닝 대회 국내 ${kr}개, 해외 ${rs.length - kr}개를 날짜순으로 모았습니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
+      crumbs: crumbsOf(path, '트레일러닝 대회 일정'),
+      body: [byMonthBody(rs), footNav(path)].join('\n'),
+      list: rs,
+    }),
+  );
+}
+
+// 지금 접수 중 (홈 '지금 접수 중' 과 같은 규칙·같은 범위: 다가오는 대회 중 isEntryOpen)
+{
+  const path = '/entry-open/';
+  const rs = upcoming
+    .filter((r) => isEntryOpen(r))
+    .sort((a, b) => (a.entry_closes ?? '9999').localeCompare(b.entry_closes ?? '9999') || a.race_date.localeCompare(b.race_date));
+  const kr = rs.filter(isKr);
+  const ab = rs.filter((r) => !isKr(r));
+  const day = `${Number(today.slice(5, 7))}월 ${Number(today.slice(8, 10))}일`;
+  out(
+    path,
+    page({
+      path,
+      title: `지금 접수 중인 마라톤 대회 ${rs.length}개 — ${day} 기준 | 마라톤 캘린더`,
+      description: `${day} 기준 접수 중인 국내 ${kr.length}개·해외 ${ab.length}개 마라톤·트레일러닝 대회를 접수 마감이 가까운 순서로. ${names(rs)} 등.`.slice(0, 160),
+      h1: '지금 접수 중인 마라톤 대회',
+      lead: `${fmt(today)} 기준 접수 중인 대회 ${rs.length}개(국내 ${kr.length}, 해외 ${ab.length})를 마감이 가까운 순서로 모았습니다. 목록은 매일 새로 만들어집니다(만든 날 기준). 선착순 대회는 마감일 전에 일찍 끝날 수 있습니다.`,
+      crumbs: crumbsOf(path, '지금 접수 중인 대회'),
+      body: [
+        rs.length ? '' : '<p>지금 접수 중인 대회가 없습니다.</p>',
+        kr.length ? `<h2>국내 접수 중 (${kr.length}개)</h2><ul class="races">${kr.map((r) => item(r)).join('')}</ul>` : '',
+        ab.length ? `<h2>해외 접수 중 (${ab.length}개)</h2><ul class="races">${ab.map((r) => item(r)).join('')}</ul>` : '',
+        footNav(path),
+      ].join('\n'),
+      list: rs,
+    }),
+  );
+}
+
+console.log(`seo-pages: 월별 ${months.length}개, 나라별 ${countries.length}개, 검색어 랜딩 ${LANDINGS.length}개 목록 페이지`);
