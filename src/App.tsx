@@ -24,6 +24,7 @@ import AdminPanel from './components/AdminPanel';
 import RequestPanel from './components/RequestPanel';
 import { AuthBar, AuthForm } from './components/AuthPanel';
 import { Panel, Note, MoreButton } from './components/ui';
+import { Logo } from './components/Logo';
 import MapSection, { type Scope } from './components/MapSection';
 import { placeOf } from './lib/places';
 import { track, pageView } from './lib/analytics';
@@ -330,9 +331,8 @@ function Main() {
 
       <header className="sticky top-0 z-30 border-b border-line bg-bg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <a href="/" className="flex items-center gap-2.5">
-            <span className="num grid size-8 place-items-center rounded-tag bg-accent text-[17px] font-bold text-on-accent">42</span>
-            <span className="text-[17px] font-extrabold tracking-tight">마라톤 캘린더</span>
+          <a href="/" className="flex items-center">
+            <Logo />
           </a>
           <nav className="flex items-center gap-1 sm:gap-2">
             <button
