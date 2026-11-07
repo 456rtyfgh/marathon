@@ -663,7 +663,7 @@ function Stats({ races }: { races: Race[] }) {
           </Button>
         ))}
         <a
-          href="https://analytics.google.com/analytics/web/#/p485388953/reports/intelligenthome"
+          href="https://analytics.google.com/analytics/web/#/p562569875/reports/intelligenthome"
           target="_blank"
           rel="noopener noreferrer"
           className="ml-auto inline-flex items-center gap-1 rounded-ctl px-3 py-2 text-[14px] font-semibold text-ink-2 underline-offset-4 hover:text-ink hover:underline"
