@@ -12,7 +12,21 @@ export function daysBetween(from: Date, isoDate: string): number {
 /** 오늘 날짜 'YYYY-MM-DD' (한국 시간). new Date().toISOString() 은 UTC 라 0~9시에 하루 밀린다 */
 export const todayISO = () => TODAY().toISOString().slice(0, 10);
 
-export type EntryStatus = 'open' | 'upcoming' | 'soldout' | 'closed' | 'unknown';
+export type EntryStatus = 'open' | 'upcoming' | 'soldout' | 'closed' | 'unknown' | 'cancelled';
+
+/** notes_ko 가 '[취소]' 또는 '[중단]' 으로 시작 (앞 공백 무시) */
+export const CANCEL_TAG_RE = /^\s*\[(취소|중단)\]\s*/;
+
+/** 주최 측이 취소·중단을 알린 대회. 취소 판단은 이 함수 하나로만 한다 */
+export function isCancelled(race: Pick<Race, 'notes_ko'>): boolean {
+  return !!race.notes_ko && CANCEL_TAG_RE.test(race.notes_ko);
+}
+
+/** 화면에 보일 메모: 취소 태그를 뗀 notes_ko (없으면 null) */
+export function noteText(race: Pick<Race, 'notes_ko'>): string | null {
+  const t = race.notes_ko?.replace(CANCEL_TAG_RE, '').trim();
+  return t || null;
+}
 
 /** 조기 마감일이 들어 있고 오늘이거나 지났으면 true */
 export function isSoldOut(race: Race, today = TODAY()): boolean {
@@ -24,6 +38,7 @@ export function isSoldOut(race: Race, today = TODAY()): boolean {
  * 접수 시작 전인데 조기 마감일이 있으면 데이터 오류로 보고 'upcoming' 을 둔다.
  */
 export function entryStatus(race: Race, today = TODAY()): EntryStatus {
+  if (isCancelled(race)) return 'cancelled';
   const { entry_opens, entry_closes } = race;
   if (!entry_opens && !entry_closes) return isSoldOut(race, today) ? 'soldout' : 'unknown';
   const o = entry_opens ? daysBetween(today, entry_opens) : -Infinity;
@@ -45,10 +60,12 @@ export const STATUS_LABEL: Record<EntryStatus, string> = {
   soldout: '조기 마감',
   closed: '접수 마감',
   unknown: '일정 미공개',
+  cancelled: '대회 취소',
 };
 
 /** 대회일까지 남은 날 */
 export function raceDayLine(race: Race, today = TODAY()): { label: string; days: number | null } {
+  if (isCancelled(race)) return { label: '대회 취소', days: null };
   const d = daysBetween(today, race.race_date);
   if (d < 0) return { label: '대회 종료', days: null };
   return { label: d === 0 ? '오늘 대회' : '대회까지', days: d };
@@ -60,6 +77,7 @@ export function statusLine(
   today = TODAY(),
   registered = false,
 ): { label: string; days: number | null; hot: boolean } {
+  if (isCancelled(race)) return { label: '대회 취소', days: null, hot: false };
   if (registered) return { ...raceDayLine(race, today), hot: false };
   const st = entryStatus(race, today);
   if (st === 'open') {
@@ -125,10 +143,12 @@ export function costFor(race: Race, costs: CostBaseline[]): CostBaseline | undef
  * 2) 곧 오픈 → 오픈이 가까운 순
  * 3) 일정 미공개
  * 4) 이미 마감(조기 마감 포함) → 대회일 가까운 순
+ * 5) 취소된 대회 → 맨 뒤
  */
 export function entrySortKey(race: Race, today = TODAY()): number {
   const st = entryStatus(race, today);
   const clamp = (n: number) => Math.min(Math.max(n, 0), 3650) / 10000;
+  if (st === 'cancelled') return 4 + clamp(daysBetween(today, race.race_date));
   if (st === 'open') return 0 + clamp(race.entry_closes ? daysBetween(today, race.entry_closes) : 3650);
   if (st === 'upcoming') return 1 + clamp(race.entry_opens ? daysBetween(today, race.entry_opens) : 3650);
   if (st === 'unknown') return 2 + clamp(daysBetween(today, race.race_date));
