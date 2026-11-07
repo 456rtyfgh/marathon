@@ -117,9 +117,10 @@ export default function MapSection({
     onPlace(null);
   };
 
-  /** 지도 클릭: 세계 지도는 처음엔 지역 확대, 그 지역 안에서는 나라 선택 */
+  /** 지도 클릭: 국내는 시·도 확대+선택, 세계 지도는 처음엔 지역 확대, 그 지역 안에서는 나라 선택 */
   const onMapSelect = (id: string) => {
-    if (scope === 'kr') return pick(id, true);
+    // 그 시·도로 확대되는 걸 보도록 스크롤하지 않는다
+    if (scope === 'kr') return pick(id, false);
     const r = geo.regionOf[id];
     if (!r) return pick(id, true);
     if (zone !== r) {
@@ -149,7 +150,7 @@ export default function MapSection({
           ? PROVINCES.filter((p) => geo.province[p.id])
               .sort((a, b) => (geo.province[b.id] ?? 0) - (geo.province[a.id] ?? 0))
               .map((p) => (
-                <Chip key={p.id} on={place === p.id} onClick={() => pick(p.id, true)}>
+                <Chip key={p.id} on={place === p.id} onClick={() => pick(p.id, !mapOpen)}>
                   {p.name}
                   <span className="num ml-0.5 text-[14px] opacity-80">{geo.province[p.id]}</span>
                 </Chip>
@@ -216,7 +217,7 @@ export default function MapSection({
               selected={place}
               focus={zoneIds}
               onSelect={onMapSelect}
-              onBack={zone ? leaveZone : undefined}
+              onBack={zone ? leaveZone : scope === 'kr' && place ? () => onPlace(null) : undefined}
             />
           </Suspense>
           {scope !== 'kr' && place === 'kr' && (
