@@ -6,6 +6,7 @@ import { loadDataset, emptyDataset, type Dataset } from './lib/data';
 import {
   entryStatus,
   entrySortKey,
+  isCancelled,
   daysBetween,
   TODAY,
   isDomestic,
@@ -44,6 +45,7 @@ const STATUS_GROUP: Record<EntryStatus, string> = {
   unknown: '접수 일정 미공개',
   soldout: '조기 마감',
   closed: '이번 회차 접수 끝',
+  cancelled: '취소된 대회',
 };
 
 export default function App() {
@@ -175,7 +177,7 @@ function Main() {
   const hotList = useMemo(
     () =>
       upcomingRaces
-        .filter((r) => (ratingMap.get(r.id)?.hot ?? 0) > 0)
+        .filter((r) => (ratingMap.get(r.id)?.hot ?? 0) > 0 && !isCancelled(r))
         .sort((a, b) => (ratingMap.get(b.id)?.hot ?? 0) - (ratingMap.get(a.id)?.hot ?? 0))
         .slice(0, 6),
     [upcomingRaces, ratingMap],
@@ -217,7 +219,7 @@ function Main() {
       return [{ key: 'registered', title: '접수한 대회', races: sorted }];
     }
     if (sort === 'entry') {
-      const order: EntryStatus[] = ['open', 'upcoming', 'unknown', 'soldout', 'closed'];
+      const order: EntryStatus[] = ['open', 'upcoming', 'unknown', 'soldout', 'closed', 'cancelled'];
       return order
         .map((st) => ({
           key: st,
