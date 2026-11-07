@@ -117,13 +117,20 @@ def on_domain(u, domains):
 
 
 def classify(r):
+    # 먼저 열어 보고(죽은·도박 페이지는 --fix 대상), 멀쩡히 열릴 때만 일정 모음·접수 플랫폼 표시를 붙인다
+    x = classify_page(r)
+    if x['verdict'] in ('ok', 'unrelated', 'blocked'):
+        if on_domain(x['url'], NOT_OFFICIAL):
+            x['verdict'] = 'not_official'
+        elif on_domain(x['url'], SIGNUP):
+            x['verdict'] = 'signup'
+    return x
+
+
+def classify_page(r):
     u = r.get('official_url') or ''
     if not u or is_search(u):
         return dict(id=r['id'], url=u, verdict='search')
-    if on_domain(u, NOT_OFFICIAL):
-        return dict(id=r['id'], name=r['name_ko'], url=u, verdict='not_official')
-    if on_domain(u, SIGNUP):
-        return dict(id=r['id'], name=r['name_ko'], url=u, verdict='signup')
     st, final, text, err = fetch(u)
     low = text.lower()
     m = re.search(r'<title[^>]*>(.*?)</title>', text, re.S | re.I)
@@ -197,10 +204,7 @@ def main():
         xs = [x for x in results if x['verdict'] == v]
         if xs:
             lines.append(f'## {v} ({len(xs)})')
-            if v in ('not_official', 'signup'):  # 열어 보지 않고 도메인만으로 판정한 것
-                lines += [f"- {x['id']} {x.get('name','')} — {x['url']}" for x in xs]
-            else:
-                lines += [f"- {x['id']} {x.get('name','')} — {x['url']} → {x.get('final','')} [{x.get('status')}] {x.get('title','')} {','.join(x.get('hits', []))}" for x in xs]
+            lines += [f"- {x['id']} {x.get('name','')} — {x['url']} → {x.get('final','')} [{x.get('status')}] {x.get('title','')} {','.join(x.get('hits', []))}" for x in xs]
             lines.append('')
     open(os.path.join(out, 'link-audit.md'), 'w').write('\n'.join(lines))
     print(lines[2]); print(f'fixed {len(fixed)}' if fix else 'report only')
