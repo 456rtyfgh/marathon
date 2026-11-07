@@ -159,7 +159,7 @@ export default function RaceDetail({
                 onClick={() => track('official_click', { race_id: race.id, search: isSearchLink(race.official_url), cancelled: true })}
                 target="_blank"
                 rel="noreferrer"
-                className="font-semibold text-ink underline decoration-ink-3 underline-offset-4 hover:decoration-ink"
+                className="font-semibold whitespace-nowrap text-ink underline decoration-ink-3 underline-offset-4 hover:decoration-ink"
               >
                 공식 공지
               </a>
