@@ -52,6 +52,7 @@ interface RaceMeta {
   entry_type: string;
   entry_opens: string | null;
   entry_closes: string | null;
+  discipline?: string | null;
 }
 
 const ENTRY: Record<string, string> = {
@@ -70,14 +71,38 @@ const fmt = (iso: string) => {
   return `${y}년 ${m}월 ${d}일`;
 };
 
+/** 한국 시간 오늘 'YYYY-MM-DD' */
+const todayKst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+/** src/lib/util.ts 의 CANCEL_TAG_RE 와 같은 규칙 (워커 묶음에 화면 코드를 끌어오지 않으려고 따로 둔다) */
+const CANCEL_TAG_RE = /^\s*\[(취소|중단)\]\s*/;
+const isCancelled = (r: RaceMeta) => !!r.notes_ko && CANCEL_TAG_RE.test(r.notes_ko);
+const whereOf = (r: RaceMeta) => (r.country_code === 'KR' ? r.city_ko : `${r.country_ko} ${r.city_ko}`);
+const DIST: Record<string, string> = { 풀: '풀코스', 하프: '하프' };
+const distText = (r: RaceMeta) => (r.distances ?? []).map((d) => DIST[d] ?? d).join('·');
+/** 받침 있으면 '은', 없으면 '는' (한글이 아니면 '은') */
+const eun = (w: string) => {
+  const c = w.trim().slice(-1).charCodeAt(0) - 0xac00;
+  return c >= 0 && c <= 11171 && c % 28 === 0 ? '는' : '은';
+};
+const kindText = (r: RaceMeta) => (r.discipline === 'trail' ? '트레일러닝 대회' : '마라톤 대회');
+
+function entryText(r: RaceMeta): string {
+  const how = ENTRY[r.entry_type] ? `${ENTRY[r.entry_type]} 접수` : '접수';
+  if (r.entry_opens && r.entry_closes && r.entry_opens === r.entry_closes) return `${how} ${fmt(r.entry_opens)} 하루`;
+  if (r.entry_opens && r.entry_closes) return `${how} ${fmt(r.entry_opens)}부터 ${fmt(r.entry_closes)}까지`;
+  if (r.entry_closes) return `${how} ${fmt(r.entry_closes)} 마감`;
+  if (r.entry_opens) return `${how} ${fmt(r.entry_opens)} 시작`;
+  return `${how} 기간 미공개`;
+}
+
+/** 검색 결과 설명: 날짜·도시·거리·접수 시작/마감을 문장으로, 160자 안쪽 (넘치면 꼬리부터 뺀다) */
 function describe(r: RaceMeta): string {
-  const parts = [`${fmt(r.race_date)} ${r.country_ko === '대한민국' ? r.city_ko : `${r.country_ko} ${r.city_ko}`}`];
-  parts.push(`접수 ${ENTRY[r.entry_type] ?? ''}`.trim());
-  if (r.entry_opens && r.entry_closes && r.entry_opens === r.entry_closes) parts.push(`${fmt(r.entry_opens)} 하루`);
-  else if (r.entry_opens && r.entry_closes) parts.push(`${fmt(r.entry_opens)}부터 ${fmt(r.entry_closes)}까지`);
-  else if (r.entry_closes) parts.push(`${fmt(r.entry_closes)} 마감`);
-  else if (r.entry_opens) parts.push(`${fmt(r.entry_opens)} 시작`);
-  return parts.join(', ') + '. 일정, 비용, 후기를 확인하세요.';
+  const head = `${isCancelled(r) ? '[대회 취소] ' : ''}${r.name_ko}${eun(r.name_ko)} ${fmt(r.race_date)} ${whereOf(r)}에서 열리는 ${kindText(r)}입니다.`;
+  const dist = distText(r) ? ` 종목 ${distText(r)}.` : '';
+  const entry = ` ${entryText(r)}.`;
+  const tail = ' 일정, 비용, 후기를 확인하세요.';
+  for (const s of [head + dist + entry + tail, head + dist + entry, head + entry]) if (s.length <= 160) return s;
+  return (head + entry).slice(0, 159) + '…';
 }
 
 /** <script> 안에 넣는 JSON: '</script>' 같은 글자로 태그를 빠져나가지 못하게 < > & 를 이스케이프 */
@@ -98,49 +123,94 @@ export const SECURITY_HEADERS: Record<string, string> = {
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
+// 정적 목록 페이지(scripts/seo-pages.mjs) 와 같은 주소·이름
+const COUNTRY_PATH = (r: RaceMeta) => (r.country_code ? `/c/${r.country_code.toLowerCase()}/` : '');
+const countryCrumb = (r: RaceMeta) => `${r.country_code === 'KR' ? '국내' : r.country_ko} 마라톤 일정`;
+
 function raceHtml(r: RaceMeta, desc: string): string {
-  const where = r.country_ko === '대한민국' ? r.city_ko : `${r.country_ko} ${r.city_ko}`;
+  const cancelled = isCancelled(r);
+  const note = r.notes_ko?.replace(CANCEL_TAG_RE, '').trim();
+  const cpath = COUNTRY_PATH(r);
   const rows: [string, string][] = [
     ['대회 날짜', fmt(r.race_date)],
-    ['장소', where],
+    ['장소', whereOf(r)],
     ['접수 방식', ENTRY[r.entry_type] ?? ''],
     ['접수 기간', [r.entry_opens && `${fmt(r.entry_opens)}부터`, r.entry_closes && `${fmt(r.entry_closes)}까지`].filter(Boolean).join(' ') || '미공개'],
-    ['종목', (r.distances ?? []).join(', ')],
+    ['종목', distText(r)],
     ['참가비', r.entry_fee != null ? `${r.entry_fee.toLocaleString()} ${r.entry_fee_currency ?? ''}` : '미공개'],
   ];
   return `<main style="max-width:48rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
-<p><a href="/">마라톤 캘린더</a></p>
+<nav aria-label="위치"><a href="/">마라톤 캘린더</a>${cpath ? ` › <a href="${cpath}">${esc(countryCrumb(r))}</a>` : ''} › <a href="/m/${r.race_date.slice(0, 7)}/">${Number(r.race_date.slice(0, 4))}년 ${Number(r.race_date.slice(5, 7))}월</a></nav>
 <h1>${esc(r.name_ko)} ${r.race_date.slice(0, 4)} 일정·접수 기간</h1>
+${cancelled ? '<p><strong>대회 취소</strong> — 주최 측이 이 대회를 취소(중단)했습니다.</p>' : ''}
 ${r.name_en ? `<p>${esc(r.name_en)}</p>` : ''}
 <p>${esc(desc)}</p>
 <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
-${r.notes_ko ? `<p>${esc(r.notes_ko)}</p>` : ''}
+${note ? `<p>${esc(note)}</p>` : ''}
 ${httpUrl(r.official_url) ? `<p><a href="${esc(httpUrl(r.official_url))}" rel="nofollow noopener">공식 홈페이지</a></p>` : ''}
 </main>`;
 }
 
+/** 주최 측 페이지로 쓸 수 있는 공식 주소 (네이버 검색 링크 같은 대체 링크는 빼고) */
+const organizerUrl = (r: RaceMeta) => {
+  const u = httpUrl(r.official_url);
+  return u && !/search\.naver\.com|google\.[a-z.]+\/search/i.test(u) ? u : '';
+};
+
+/** 접수 상태 → schema.org availability (날짜를 모르면 넣지 않는다) */
+function availability(r: RaceMeta, today: string): string | undefined {
+  if (isCancelled(r)) return undefined;
+  if (r.entry_opens && today < r.entry_opens) return 'https://schema.org/PreOrder';
+  if (r.entry_closes && today > r.entry_closes) return 'https://schema.org/SoldOut';
+  if (r.entry_opens && r.entry_closes) return 'https://schema.org/InStock';
+  return undefined;
+}
+
+const ORG = { '@type': 'Organization', name: '마라톤 캘린더', url: SITE, logo: `${SITE}/brand/logo-512.png` };
+
 function eventLd(r: RaceMeta, url: string, desc: string) {
-  return {
+  const org = organizerUrl(r);
+  const avail = availability(r, todayKst());
+  const ev = {
     '@context': 'https://schema.org',
     '@type': 'SportsEvent',
     name: `${r.name_ko} ${r.race_date.slice(0, 4)}`,
     alternateName: r.name_en || undefined,
     startDate: r.race_date,
     endDate: r.race_date,
-    eventStatus: 'https://schema.org/EventScheduled',
+    eventStatus: isCancelled(r) ? 'https://schema.org/EventCancelled' : 'https://schema.org/EventScheduled',
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-    sport: 'Marathon',
+    sport: r.discipline === 'trail' ? 'Trail running' : 'Marathon',
     description: desc,
     url,
+    image: [`${SITE}/og.png`],
     location: {
       '@type': 'Place',
-      name: `${r.city_ko}, ${r.country_ko}`,
+      name: whereOf(r),
       address: { '@type': 'PostalAddress', addressLocality: r.city_ko, addressCountry: r.country_code || r.country_ko },
     },
-    ...(r.entry_fee != null
-      ? { offers: { '@type': 'Offer', price: r.entry_fee, priceCurrency: r.entry_fee_currency, url: httpUrl(r.official_url) || url, ...(r.entry_opens ? { validFrom: r.entry_opens } : {}) } }
-      : {}),
+    organizer: { '@type': 'Organization', name: r.name_ko, ...(org ? { url: org } : {}) },
+    offers: {
+      '@type': 'Offer',
+      url: org || url,
+      ...(r.entry_fee != null ? { price: r.entry_fee, priceCurrency: r.entry_fee_currency } : {}),
+      ...(avail ? { availability: avail } : {}),
+      ...(r.entry_opens ? { validFrom: r.entry_opens } : {}),
+    },
+    publisher: ORG,
   };
+  const cpath = COUNTRY_PATH(r);
+  const crumbs = [
+    { name: '마라톤 캘린더', item: `${SITE}/` },
+    ...(cpath ? [{ name: countryCrumb(r), item: `${SITE}${cpath}` }] : []),
+    { name: ev.name, item: url },
+  ];
+  const bc = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, ...c })),
+  };
+  return [ev, bc];
 }
 
 // 워커 인스턴스마다 data.json 을 10분 동안 기억해 둔다
@@ -148,7 +218,7 @@ let cache: { at: number; byId: Map<string, RaceMeta> } | null = null;
 async function raceById(req: Request, env: Env, id: string): Promise<RaceMeta | undefined> {
   if (!cache || Date.now() - cache.at > 600_000) {
     const r = await env.ASSETS.fetch(new URL('/data.json', req.url).toString());
-    if (!r.ok) return undefined;
+    if (!r.ok) throw new Error(`data.json ${r.status}`);
     const j = (await r.json()) as { races: RaceMeta[] };
     cache = { at: Date.now(), byId: new Map(j.races.map((x) => [x.id, x])) };
   }
@@ -161,9 +231,20 @@ async function withRaceMeta(req: Request, env: Env, id: string): Promise<Respons
   try {
     race = await raceById(req, env, id);
   } catch {
-    /* 실패하면 기본 태그 그대로 */
+    // 목록을 못 읽었으면 기본 태그 그대로 (없는 대회로 단정하지 않는다)
+    return new Response(page.body, page);
   }
-  if (!race) return new Response(page.body, page);
+  if (!race) {
+    // 없는 대회 주소: 홈을 200 으로 주면 구글이 '가짜 정상 페이지(soft 404)'로 본다
+    const out = new HTMLRewriter()
+      .on('head', { element: (el) => el.append('<meta name="robots" content="noindex">', { html: true }) })
+      .on('script#ld-itemlist', { element: (el) => el.remove() })
+      .transform(page);
+    const res = new Response(out.body, { status: 404, headers: out.headers });
+    res.headers.set('Cache-Control', 'public, max-age=600');
+    for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.headers.set(k, v);
+    return res;
+  }
 
   const title = `${race.name_ko} ${race.race_date.slice(0, 4)} 일정·접수 기간 | 마라톤 캘린더`;
   const desc = describe(race);
@@ -179,9 +260,11 @@ async function withRaceMeta(req: Request, env: Env, id: string): Promise<Respons
     .on('meta[name="twitter:title"]', set(title))
     .on('meta[name="twitter:description"]', set(desc))
     .on('link[rel="canonical"]', { element: (el) => el.setAttribute('href', canonical) })
+    // 홈 대회 목록(ItemList)은 홈에만 — 대회 페이지에 실리면 구조화 데이터가 겹친다
+    .on('script#ld-itemlist', { element: (el) => el.remove() })
     // 검색엔진이 읽을 대회 본문과 구조화 데이터 (화면이 뜨면 React 가 갈아 끼운다)
     .on('div#root', { element: (el) => el.setInnerContent(raceHtml(race!, desc), { html: true }) })
-    .on('head', { element: (el) => el.append(`<script type="application/ld+json">${jsonForScript(eventLd(race!, canonical, desc))}</script>`, { html: true }) })
+    .on('head', { element: (el) => el.append(`${eventLd(race!, canonical, desc).map((ld) => `<script type="application/ld+json">${jsonForScript(ld)}</script>`).join('')}`, { html: true }) })
     .transform(page);
 
   const res = new Response(out.body, out);
