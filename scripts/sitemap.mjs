@@ -1,17 +1,18 @@
-/** 빌드 뒤 dist/sitemap.xml 을 만든다. 대회마다 공유 링크(/r/id) 하나씩. */
-import { readFileSync, writeFileSync } from 'node:fs';
+/**
+ * 빌드 뒤 dist/sitemap.xml 을 만든다: 홈, 월별·나라별 목록 페이지(scripts/seo-pages.mjs), 대회마다 /r/id.
+ * lastmod 는 그 페이지 내용이 마지막으로 확인된 날(대회 last_verified). 모르면 오늘.
+ */
+import { writeFileSync } from 'node:fs';
+import { ORIGIN, esc, lastmodOf, listPages, races, today } from './seo-lib.mjs';
 
-const ORIGIN = process.env.SITE_ORIGIN || 'https://marathon82.com';
-const snap = JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'));
-const today = new Date().toISOString().slice(0, 10);
+const url = (loc, lastmod) => `<url><loc>${esc(loc)}</loc><lastmod>${lastmod}</lastmod></url>`;
 const urls = [
-  `<url><loc>${ORIGIN}/</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq></url>`,
-  ...snap.races.map(
-    (r) => `<url><loc>${ORIGIN}/r/${encodeURIComponent(r.id)}</loc><lastmod>${r.last_verified ?? today}</lastmod></url>`,
-  ),
+  url(`${ORIGIN}/`, lastmodOf(races)),
+  ...listPages.map((p) => url(`${ORIGIN}${p.path}`, lastmodOf(p.races))),
+  ...races.map((r) => url(`${ORIGIN}/r/${encodeURIComponent(r.id)}`, r.last_verified ?? today)),
 ];
 writeFileSync(
   new URL('../dist/sitemap.xml', import.meta.url),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`,
 );
-console.log(`sitemap: ${urls.length} urls`);
+console.log(`sitemap: ${urls.length} urls (목록 페이지 ${listPages.length}개)`);
