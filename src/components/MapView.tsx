@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Minus, ArrowsIn } from '@phosphor-icons/react';
+import { Plus, Minus, ArrowsIn, ArrowLeft } from '@phosphor-icons/react';
+import { mainBox, union, type Box } from '../lib/geo';
+import { MAP_SELECTED, mapFill, mapStep } from '../lib/mapColor';
+import MapLegend from './MapLegend';
 
 type MapData = { viewBox: string; locations: { id: string; d: string }[] };
-type Box = { x: number; y: number; w: number; h: number };
 type Pt = { x: number; y: number };
 
 const cache: Partial<Record<'kr' | 'world', MapData>> = {};
@@ -14,6 +16,14 @@ const loaders = {
 const MAX_ZOOM = 8;
 /** 이만큼 움직이기 전까지는 탭(지역 선택)으로 본다 */
 const TAP_SLOP = 6;
+/** 세계 지도에서 지역으로 확대할 때 최소 폭 (지도 단위, 전체 1010). 한국·일본도 주변이 보이게 */
+const MIN_FIT_W = 100;
+/** 나라 하나를 고를 때 최소 폭. 싱가포르·홍콩처럼 아주 작은 나라도 눈에 띄게 더 들어간다 */
+const MIN_PICK_W = 60;
+/** 이보다 넓은 나라(러시아·캐나다 등)는 대회가 가장 많은 나라가 아니면 맞춤에서 뺀다 */
+const HUGE_W = 180;
+/** 대회 비중이 이보다 작은 나라가 화면을 25% 넘게 넓히면 맞춤에서 뺀다 (그린란드·북마리아나 등) */
+const MINOR_SHARE = 0.03;
 
 const parseBox = (s: string): Box => {
   const [x, y, w, h] = s.split(' ').map(Number);
@@ -22,11 +32,28 @@ const parseBox = (s: string): Box => {
 const fmtBox = (b: Box) => `${b.x.toFixed(2)} ${b.y.toFixed(2)} ${b.w.toFixed(2)} ${b.h.toFixed(2)}`;
 const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
+const area = (b: Box) => b.w * b.h;
+const grow = (b: Box, f: number): Box => ({ x: b.x - b.w * f, y: b.y - b.h * f, w: b.w * (1 + 2 * f), h: b.h * (1 + 2 * f) });
+/** 두 상자가 겹치는 부분 (안 겹치면 null) */
+const clip = (a: Box, b: Box): Box | null => {
+  const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
+  const w = Math.min(a.x + a.w, b.x + b.w) - x, h = Math.min(a.y + a.h, b.y + b.h) - y;
+  return w > 0 && h > 0 ? { x, y, w, h } : null;
+};
+
+/** b 를 가운데 그대로 두고 화면 비율(ratio = 가로/세로)에 맞게 넓힌다 */
+const toRatio = (b: Box, ratio: number): Box => {
+  let { w, h } = b;
+  if (w / h > ratio) h = w / ratio;
+  else w = h * ratio;
+  return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
+};
 
 /**
  * 시·도(국내) 또는 나라(해외) 별 대회 수를 색으로 보여 주는 지도.
- * 색이 칠해진 곳을 누르면 그 지역 대회만 목록에 남는다.
- * 두 손가락·휠로 확대하고, 확대한 뒤에는 끌어서 옮긴다.
+ * 색이 칠해진 곳을 누르면 onSelect(id) — 지역 확대인지 나라 선택인지는 부모(MapSection)가 정한다.
+ * focus(지역 나라들) → selected(고른 나라, 세계 지도만) 순으로 그곳이 꽉 차게 확대한다.
+ * 두 손가락·휠로 더 확대하고, 확대한 뒤에는 끌어서 옮긴다.
  */
 export default function MapView({
   kind,
@@ -35,24 +62,29 @@ export default function MapView({
   selected,
   focus,
   onSelect,
+  onBack,
 }: {
   kind: 'kr' | 'world';
   counts: Record<string, number>;
   names: Record<string, string>;
   selected: string | null;
-  /** 이 지역들이 꽉 차게 확대 (예: 유럽 나라들) */
+  /** 이 지역들이 꽉 차게 확대 (예: 유럽 나라들). 밖의 나라는 흐리게 */
   focus: string[];
-  onSelect: (id: string | null) => void;
+  onSelect: (id: string) => void;
+  /** 지역 확대 중일 때 '전체 지도' 버튼 */
+  onBack?: () => void;
 }) {
   const [map, setMap] = useState<MapData | undefined>(cache[kind]);
-  // 처음 화면: focus 가 있으면 그 지역, 없으면 지도 전체
+  // 처음 화면(지금 맞춤 영역). 제스처 계산은 ref 로, 그리기 판단은 state 로
   const [base, setBase] = useState<Box | null>(null);
+  const baseRef = useRef<Box | null>(null);
+  const boundsRef = useRef<Box | null>(null);
   // 지금 보이는 영역. 제스처 중에는 ref 로 바로 그리고 배율만 state 로 둔다
   const view = useRef<Box | null>(null);
   const [zoom, setZoom] = useState(1);
   const [panned, setPanned] = useState(false);
   const [hover, setHover] = useState<string | null>(null);
-  const refs = useRef(new Map<string, SVGPathElement>());
+  const [ratio, setRatio] = useState(0);
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
@@ -68,52 +100,67 @@ export default function MapView({
     };
   }, [kind]);
 
-  const focusKey = focus.join(',');
+  // 그려지는 상자 비율. CSS 로 크기를 정하므로 viewBox 를 바꿔도 크기는 안 바뀐다 (되먹임 없음)
   useLayoutEffect(() => {
-    if (!map) return;
-    const full = parseBox(map.viewBox);
-    const fit = () => {
-      const ids = focus.filter((id) => refs.current.has(id));
-      if (!ids.length) return full;
-      let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-      for (const id of ids) {
-        const b = refs.current.get(id)!.getBBox();
-        // 러시아·미국처럼 큰 나라가 끼면 화면이 다시 넓어지므로 아주 넓은 나라는 빼고 본다
-        if (kind === 'world' && b.width > 180 && ids.length > 1) continue;
-        x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
-        x2 = Math.max(x2, b.x + b.width); y2 = Math.max(y2, b.y + b.height);
-      }
-      if (!isFinite(x1)) return full;
-      const ratio = full.w / full.h;
-      let w = x2 - x1, h = y2 - y1;
-      const pad = Math.max(w, h) * 0.06 + 4;
-      w += pad * 2; h += pad * 2;
-      if (w / h > ratio) h = w / ratio; else w = h * ratio;
-      const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
-      return { x: cx - w / 2, y: cy - h / 2, w, h };
+    const svg = svgRef.current;
+    if (!svg) return;
+    const measure = () => {
+      const r = svg.getBoundingClientRect();
+      if (r.width && r.height) setRatio(Math.round((r.width / r.height) * 100) / 100);
     };
-    const b = fit();
-    setBase(b);
-    // 지역(국내/해외, 유럽 등)이 바뀌면 처음 화면으로
-    view.current = b;
-    setZoom(1);
-    setPanned(false);
-    svgRef.current?.setAttribute('viewBox', fmtBox(b));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, focusKey, kind]);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(svg);
+    return () => ro.disconnect();
+  }, [map]);
 
-  /** 옮길 수 있는 범위: 지도 전체 (focus 영역이 지도보다 크면 그만큼 넓힘) */
-  const bounds = useMemo(() => {
-    if (!map || !base) return null;
-    const f = parseBox(map.viewBox);
-    const x1 = Math.min(f.x, base.x), y1 = Math.min(f.y, base.y);
-    const x2 = Math.max(f.x + f.w, base.x + base.w), y2 = Math.max(f.y + f.h, base.y + base.h);
-    return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
-  }, [map, base]);
+  /** 조각별 경계 상자 중 가장 큰 것 (미국은 본토, 프랑스는 본토) */
+  const boxes = useMemo(() => {
+    const out = new Map<string, Box>();
+    for (const l of map?.locations ?? []) {
+      const b = mainBox(l.d);
+      if (b) out.set(l.id, b);
+    }
+    return out;
+  }, [map]);
 
-  const apply = useCallback(
-    (v: Box) => {
-      if (!base || !bounds) return;
+  /** ids 가 꽉 차게. 큰 나라·대회 적은 먼 나라는 화면을 넓히지 않게 뺀다 */
+  const fitIds = useCallback(
+    (ids: string[], minW = MIN_FIT_W): Box | null => {
+      const list = ids.filter((id) => boxes.has(id)).sort((a, b) => (counts[b] ?? 0) - (counts[a] ?? 0));
+      const total = list.reduce((s, id) => s + (counts[id] ?? 0), 0) || 1;
+      let acc: Box | null = null;
+      for (const id of list) {
+        const b = boxes.get(id)!;
+        if (!acc) {
+          acc = b;
+          continue;
+        }
+        // 큰 나라는 지금 영역 둘레 25% 안쪽만 넣는다 (캐나다는 남쪽 도시 쪽만, 북극 쪽까지 넓히지 않게)
+        const c = b.w > HUGE_W ? clip(b, grow(acc, 0.25)) : b;
+        if (!c) continue;
+        const next = union(acc, c);
+        if ((counts[id] ?? 0) / total < MINOR_SHARE && area(next) > area(acc) * 1.25) continue;
+        acc = next;
+      }
+      if (!acc) return null;
+      let { x, y, w, h } = acc;
+      if (w < minW) (x -= (minW - w) / 2), (w = minW);
+      const minH = minW / 1.6;
+      if (h < minH) (y -= (minH - h) / 2), (h = minH);
+      const pad = Math.max(w, h) * 0.04 + 2;
+      return { x: x - pad, y: y - pad, w: w + pad * 2, h: h + pad * 2 };
+    },
+    [boxes, counts],
+  );
+
+  /** 확대·이동 (clamp=false 는 애니메이션 중간 프레임: 배율 제한 없이 그대로 그림) */
+  const apply = useCallback((v: Box, clamp = true) => {
+    const base = baseRef.current;
+    const bounds = boundsRef.current;
+    if (!base || !bounds) return;
+    let next = v;
+    if (clamp) {
       const w = Math.min(Math.max(v.w, base.w / MAX_ZOOM), base.w);
       const h = (w * base.h) / base.w;
       // 확대 배율이 바뀌었으면 가운데를 기준으로 맞춘다 (밖으로 못 나가게 아래에서 다시 자름)
@@ -121,14 +168,66 @@ export default function MapView({
       let y = v.y + (v.h - h) / 2;
       x = w >= bounds.w ? bounds.x + (bounds.w - w) / 2 : Math.min(Math.max(x, bounds.x), bounds.x + bounds.w - w);
       y = h >= bounds.h ? bounds.y + (bounds.h - h) / 2 : Math.min(Math.max(y, bounds.y), bounds.y + bounds.h - h);
-      const next = { x, y, w, h };
-      view.current = next;
-      svgRef.current?.setAttribute('viewBox', fmtBox(next));
-      setZoom(Math.round((base.w / w) * 100) / 100);
-      setPanned(Math.abs(x - base.x) > base.w * 0.005 || Math.abs(y - base.y) > base.h * 0.005);
+      next = { x, y, w, h };
+    }
+    view.current = next;
+    svgRef.current?.setAttribute('viewBox', fmtBox(next));
+    setZoom(Math.round((base.w / next.w) * 100) / 100);
+    setPanned(Math.abs(next.x - base.x) > base.w * 0.005 || Math.abs(next.y - base.y) > base.h * 0.005);
+  }, []);
+
+  // 버튼·지역 전환 때만 짧게 움직임을 준다 (손가락·휠은 바로 따라가야 하므로 애니메이션 없음)
+  const anim = useRef(0);
+  const animateTo = useCallback(
+    (target: Box, ms = 200) => {
+      const from = view.current;
+      cancelAnimationFrame(anim.current);
+      if (!from || matchMedia('(prefers-reduced-motion: reduce)').matches) return apply(target);
+      const t0 = performance.now();
+      const step = (t: number) => {
+        const p = Math.min((t - t0) / ms, 1);
+        const e = 1 - Math.pow(1 - p, 3);
+        if (p < 1) {
+          apply(
+            {
+              x: from.x + (target.x - from.x) * e,
+              y: from.y + (target.y - from.y) * e,
+              w: from.w + (target.w - from.w) * e,
+              h: from.h + (target.h - from.h) * e,
+            },
+            false,
+          );
+          anim.current = requestAnimationFrame(step);
+        } else apply(target);
+      };
+      anim.current = requestAnimationFrame(step);
     },
-    [base, bounds],
+    [apply],
   );
+  useEffect(() => () => cancelAnimationFrame(anim.current), []);
+
+  // 맞춤 대상: 세계 지도에서 고른 나라 → 지역 나라들 → 지도 전체
+  const picked = kind === 'world' && !!selected && boxes.has(selected);
+  const target = picked ? [selected!] : focus;
+  const targetKey = `${kind}|${target.join(',')}|${ratio}`;
+  const lastKey = useRef('');
+  useLayoutEffect(() => {
+    if (!map || !ratio) return;
+    const full = parseBox(map.viewBox);
+    const b = toRatio(fitIds(target, picked && focus.length > 1 ? MIN_PICK_W : MIN_FIT_W) ?? full, ratio);
+    const prev = lastKey.current;
+    lastKey.current = targetKey;
+    baseRef.current = b;
+    const f = toRatio(full, ratio);
+    const x1 = Math.min(f.x, b.x), y1 = Math.min(f.y, b.y);
+    boundsRef.current = { x: x1, y: y1, w: Math.max(f.x + f.w, b.x + b.w) - x1, h: Math.max(f.y + f.h, b.y + b.h) - y1 };
+    setBase(b);
+    // 같은 지도에서 지역·나라만 바뀌었으면 부드럽게 옮겨 가고, 처음·크기 변경은 바로
+    const sameMap = prev.split('|')[0] === kind && prev.split('|')[2] === String(ratio);
+    if (sameMap && prev !== targetKey) animateTo(b, 320);
+    else apply(b);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, targetKey]);
 
   /**
    * 화면 좌표 prev 아래에 있던 지도 지점이 cur 로 오도록, f 배 확대하면서 옮긴다.
@@ -138,6 +237,7 @@ export default function MapView({
     (prev: Pt, cur: Pt, f: number) => {
       const svg = svgRef.current;
       const v = view.current;
+      const base = baseRef.current;
       if (!svg || !v || !base) return;
       const r = svg.getBoundingClientRect();
       if (!r.width || !r.height) return;
@@ -152,37 +252,12 @@ export default function MapView({
       const h = (w * v.h) / v.w;
       apply({ x: qx - (cur.x - ox) / a2, y: qy - (cur.y - oy) / a2, w, h });
     },
-    [apply, base],
-  );
-
-  // 버튼으로 확대·축소할 때만 짧게 움직임을 준다 (손가락·휠은 바로 따라가야 하므로 애니메이션 없음)
-  const anim = useRef(0);
-  const animateTo = useCallback(
-    (target: Box) => {
-      const from = view.current;
-      if (!from) return apply(target);
-      cancelAnimationFrame(anim.current);
-      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return apply(target);
-      const t0 = performance.now();
-      const step = (t: number) => {
-        const p = Math.min((t - t0) / 200, 1);
-        const e = 1 - Math.pow(1 - p, 3);
-        apply({
-          x: from.x + (target.x - from.x) * e,
-          y: from.y + (target.y - from.y) * e,
-          w: from.w + (target.w - from.w) * e,
-          h: from.h + (target.h - from.h) * e,
-        });
-        if (p < 1) anim.current = requestAnimationFrame(step);
-      };
-      anim.current = requestAnimationFrame(step);
-    },
     [apply],
   );
-  useEffect(() => () => cancelAnimationFrame(anim.current), []);
 
   const zoomBy = (f: number) => {
     const v = view.current;
+    const base = baseRef.current;
     if (!v || !base) return;
     const w = Math.min(Math.max(v.w / f, base.w / MAX_ZOOM), base.w);
     const h = (w * v.h) / v.w;
@@ -297,21 +372,34 @@ export default function MapView({
     };
   }, [move, map]);
 
-  const max = useMemo(() => Math.max(1, ...Object.values(counts)), [counts]);
+  // 세계 지도의 한국은 국내 대회 전체라 다른 나라보다 훨씬 많다 → 단계 기준에서 빼야 다른 나라 색이 다 연해지지 않는다
+  const max = useMemo(
+    () => Math.max(1, ...Object.entries(counts).filter(([id]) => kind === 'kr' || id !== 'kr').map(([, n]) => n)),
+    [counts, kind],
+  );
+
+  // CSS 로 크기를 정한다 (viewBox 와 상관없이 → 비율 측정과 되먹임 없음). PC 에서 더 크게
+  const size =
+    kind === 'kr'
+      ? 'aspect-[524/631] max-h-[340px] sm:max-h-[520px]'
+      : 'aspect-[5/4] max-h-[420px] sm:aspect-auto sm:h-[min(62vh,560px)] sm:max-h-none';
 
   if (!map) {
-    return <div className={`animate-pulse rounded-box bg-sunken ${kind === 'kr' ? 'aspect-[524/631] max-h-[420px]' : 'aspect-[1010/666]'}`} />;
+    return <div className={`w-full animate-pulse rounded-box bg-sunken ${size}`} />;
   }
 
   const inFocus = (id: string) => !focus.length || focus.includes(id);
   const fill = (id: string) => {
-    if (id === selected) return 'var(--ink)';
-    const n = inFocus(id) ? counts[id] ?? 0 : 0;
-    if (!n) return 'var(--sunken)';
-    // 1개도 눈에 띄게 35% 에서 시작해 많을수록 진하게
-    const pct = Math.round(35 + 65 * Math.sqrt(n / max));
-    return `color-mix(in oklab, var(--accent) ${pct}%, var(--sunken))`;
+    if (id === selected) return MAP_SELECTED;
+    // 세계 지도의 한국은 max 보다 크므로 가장 진한 단계
+    return mapFill(mapStep(counts[id] ?? 0, max));
   };
+
+  const sel = kind === 'world' && selected ? boxes.get(selected) : undefined;
+  const ring =
+    sel && base && Math.max(sel.w, sel.h) < base.w * 0.03
+      ? { x: sel.x + sel.w / 2, y: sel.y + sel.h / 2, r: Math.max(base.w * 0.035, Math.max(sel.w, sel.h)) }
+      : null;
 
   const tip = hover ?? selected;
   const zoomed = zoom > 1.001;
@@ -324,9 +412,7 @@ export default function MapView({
       <svg
         ref={svgRef}
         viewBox={view.current ? fmtBox(view.current) : map.viewBox}
-        className={`block w-full select-none ${kind === 'kr' ? 'mx-auto max-h-[320px] sm:max-h-[440px]' : 'max-h-[460px]'} ${
-          zoomed ? 'cursor-grab active:cursor-grabbing' : ''
-        }`}
+        className={`block w-full select-none ${size} ${zoomed ? 'cursor-grab active:cursor-grabbing' : ''}`}
         // 처음 화면에서는 한 손가락 세로 스와이프를 페이지 스크롤로 넘기고, 확대한 뒤에는 지도를 옮긴다
         style={{ touchAction: zoomed ? 'none' : 'pan-y', WebkitTapHighlightColor: 'transparent' }}
         role="group"
@@ -344,31 +430,30 @@ export default function MapView({
         }}
       >
         {map.locations.map(({ id, d }) => {
-          const n = inFocus(id) ? counts[id] ?? 0 : 0;
+          const n = counts[id] ?? 0;
+          // 지역 확대 중 밖의 나라도 누를 수 있게 두고(그 지역으로 옮겨 감) 색만 흐리게
+          const dim = n > 0 && !inFocus(id) && id !== selected;
           return (
             <path
               key={id}
-              ref={(el) => {
-                if (el) refs.current.set(id, el);
-                else refs.current.delete(id);
-              }}
               d={d}
               fill={fill(id)}
+              fillOpacity={dim ? 0.45 : undefined}
               stroke="var(--bg)"
               strokeWidth={kind === 'kr' ? 1.2 : 0.4}
               vectorEffect="non-scaling-stroke"
-              className={n ? 'cursor-pointer transition-[fill] duration-150 hover:brightness-95 focus:outline-none' : ''}
+              className={n ? 'cursor-pointer transition-[fill,fill-opacity] duration-150 hover:brightness-95 focus:outline-none' : ''}
               {...(n
                 ? {
                     role: 'button',
                     tabIndex: 0,
                     'aria-label': `${names[id] ?? id} 대회 ${n}개`,
                     'aria-pressed': id === selected,
-                    onClick: () => onSelect(id === selected ? null : id),
+                    onClick: () => onSelect(id),
                     onKeyDown: (e: React.KeyboardEvent) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        onSelect(id === selected ? null : id);
+                        onSelect(id);
                       }
                     },
                     onMouseEnter: () => setHover(id),
@@ -378,14 +463,42 @@ export default function MapView({
             />
           );
         })}
+        {ring && (
+          // 화면에서 몇 px 밖에 안 되는 나라(싱가포르 등)를 골랐을 때 위치를 알려 주는 고리
+          <circle
+            cx={ring.x}
+            cy={ring.y}
+            r={ring.r}
+            fill="none"
+            stroke={MAP_SELECTED}
+            strokeWidth={2}
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="none"
+          />
+        )}
       </svg>
-      {tip && counts[tip] ? (
-        <div className="pointer-events-none absolute top-2 left-2 rounded-ctl bg-surface px-2.5 py-1.5 text-[14px] shadow-[0_1px_3px_var(--shadow-strong)]">
-          <span className="font-semibold">{names[tip] ?? tip}</span>
-          <span className="num ml-1.5 text-[16px] font-semibold">{counts[tip]}</span>
-          <span className="text-ink-3">개</span>
-        </div>
-      ) : null}
+      <div className="pointer-events-none absolute top-2 left-2 flex flex-col items-start gap-1.5">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="pointer-events-auto inline-flex h-11 items-center gap-1.5 rounded-ctl border border-line bg-surface px-3 text-[14px] font-semibold text-ink shadow-[0_1px_2px_var(--shadow)] transition hover:bg-sunken active:translate-y-px sm:h-8"
+          >
+            <ArrowLeft size={14} weight="bold" />
+            전체 지도
+          </button>
+        )}
+        {tip && counts[tip] ? (
+          <div className="rounded-ctl bg-surface px-2.5 py-1.5 text-[14px] shadow-[0_1px_3px_var(--shadow-strong)]">
+            <span className="font-semibold">{names[tip] ?? tip}</span>
+            <span className="num ml-1.5 text-[16px] font-semibold">{counts[tip]}</span>
+            <span className="text-ink-3">개</span>
+          </div>
+        ) : null}
+      </div>
+      <div className="absolute bottom-2 left-2">
+        <MapLegend max={max} />
+      </div>
       <div className="absolute top-2 right-2 flex flex-col divide-y divide-line overflow-hidden rounded-ctl border border-line shadow-[0_1px_2px_var(--shadow)]">
         <button type="button" className={ctl} onClick={() => zoomBy(1.6)} disabled={zoom >= MAX_ZOOM} aria-label="지도 확대">
           <Plus size={16} weight="bold" />
