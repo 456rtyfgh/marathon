@@ -130,7 +130,7 @@ function Main() {
     history.replaceState(null, '', u.pathname + u.search + u.hash);
     document.title = selected
       ? `${selected.name_ko} ${selected.race_date.slice(0, 4)} 일정·접수 기간 | 마라톤 캘린더`
-      : '마라톤 캘린더 - 2026·2027 국내·해외 마라톤 대회 일정과 접수 기간';
+      : '마라톤 캘린더 — 2026·2027 국내·해외 마라톤 대회 일정과 접수';
     if (selected) {
       pageView(document.title);
       track('race_view', {
@@ -378,10 +378,10 @@ function Main() {
         <section className="mx-auto grid max-w-6xl gap-8 px-4 pt-10 pb-8 sm:px-6 md:grid-cols-[1fr_auto] md:items-end md:pt-14 md:pb-10">
           <div>
             <h1 className="text-[34px] leading-[1.12] font-extrabold tracking-[-0.03em] sm:text-[46px]">
-              마라톤 접수 일정
+              마라톤 캘린더
             </h1>
             <p className="mt-4 max-w-[42ch] text-[16px] leading-relaxed text-balance text-ink-2 sm:text-[17px]">
-              {remote === 'loading' ? '국내·해외 마라톤의 접수 방식과 기간을 접수가 가까운 순서로 모았습니다.' : <>국내 {stats.kr}개, 해외 {stats.abroad}개 대회의 접수 방식과 기간을 접수가 가까운 순서로 모았습니다.
+              {remote === 'loading' ? '국내·해외 마라톤 대회 일정과 접수 기간을 접수가 가까운 순서로 모았습니다.' : <>국내·해외 마라톤 대회 일정과 접수 기간을 접수가 가까운 순서로 모았습니다. 국내 {stats.kr}개, 해외 {stats.abroad}개.
             </>}</p>
           </div>
 

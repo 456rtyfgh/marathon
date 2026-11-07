@@ -5,7 +5,7 @@
  * 화면이 뜨면 React 가 이 내용을 바로 갈아 끼운다.
  */
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { ENTRY, ORIGIN, countries, countryPath, esc, fmt, isCancelled, ldJson, monthLabel, monthPath, months, today, upcoming, whereOf } from './seo-lib.mjs';
+import { ENTRY, LANDINGS, ORIGIN, countries, countryPath, esc, fmt, isCancelled, ldJson, monthLabel, monthPath, months, today, upcoming, whereOf } from './seo-lib.mjs';
 
 const dist = new URL('../dist/index.html', import.meta.url);
 const kr = upcoming.filter((r) => r.country_code === 'KR').length;
@@ -30,9 +30,11 @@ const nav = `<nav aria-label="월별 마라톤 일정"><h2>월별 마라톤 일�
   .join(' · ')}</p></nav>
 <nav aria-label="나라별 마라톤 일정"><h2>나라별 마라톤 일정</h2><p>${countries
   .map((c) => `<a href="${countryPath(c.code)}">${esc(c.code === 'kr' ? '국내' : c.name)}</a>`)
-  .join(' · ')}</p></nav>`;
+  .join(' · ')}</p></nav>
+<nav aria-label="주제별 마라톤 일정"><h2>주제별 마라톤 일정</h2><p>${LANDINGS.map((l) => `<a href="${l.path}">${esc(l.name)}</a>`).join(' · ')}</p></nav>`;
 const html = `<main class="seo-pre" style="max-width:72rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
-<h1>마라톤 캘린더 — 2026·2027 국내·해외 마라톤 대회 일정과 접수 기간</h1>
+<h1>마라톤 캘린더</h1>
+<p>국내·해외 마라톤 대회 일정과 접수 기간을 접수가 가까운 순서로 모았습니다. 국내 ${kr}개, 해외 ${upcoming.length - kr}개.</p>
 <p>국내 ${kr}개, 해외 ${upcoming.length - kr}개 마라톤·트레일러닝 대회의 날짜, 접수 시작·마감일, 추첨·선착순 여부, 참가비, 여행사 패키지와 예상 경비를 모았습니다. 서울마라톤, 춘천마라톤, JTBC 서울마라톤, 도쿄·오사카·보스턴·뉴욕·베를린·런던 마라톤 일정을 한눈에 확인하세요.</p>
 ${nav}
 ${[...byMonth.entries()].map(([ym, rs]) => `<h2><a href="${monthPath(ym)}">${monthLabel(ym)} 마라톤 일정</a></h2><ul>${rs.map(item).join('')}</ul>`).join('\n')}
