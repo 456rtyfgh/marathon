@@ -26,7 +26,12 @@ const load = (kind: Kind) =>
     .then((m) => ({
       ...m,
       boxes: new Map(Object.entries(BOXES[kind]).map(([id, [x, y, w, h]]) => [id, { x, y, w, h }])),
-    })));
+    }))
+    .catch((e) => {
+      // 실패한 요청을 남겨 두면 다시 그려져도 영영 다시 받지 않는다 → 비워서 다음에 다시 받게
+      delete pending[kind];
+      throw e;
+    }));
 const NO_BOXES = new Map<string, Box>();
 
 const MAX_ZOOM = 8;
