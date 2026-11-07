@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, CheckSquare, Plus } from '@phosphor-icons/react';
 import type { Race, EntryType, Region, Discipline } from './lib/types';
 import { ENTRY_LABEL, DISCIPLINES, DISCIPLINE_LABEL } from './lib/types';
@@ -8,7 +8,7 @@ import {
   entrySortKey,
   isCancelled,
   daysBetween,
-  TODAY,
+  todayISO,
   isDomestic,
   isTrail,
   dateParts,
@@ -19,15 +19,18 @@ import { AuthProvider, useAuth } from './lib/auth';
 import { useFavorites } from './lib/favorites';
 import { useRegistered } from './lib/registered';
 import RaceRow from './components/RaceRow';
-import RaceDetail from './components/RaceDetail';
-import AdminPanel from './components/AdminPanel';
-import RequestPanel from './components/RequestPanel';
 import { AuthBar, AuthForm } from './components/AuthPanel';
 import { Panel, Note, MoreButton } from './components/ui';
 import { Logo } from './components/Logo';
 import MapSection, { type Scope } from './components/MapSection';
 import { placeOf } from './lib/places';
 import { track, pageView } from './lib/analytics';
+
+// 상세·요청·관리 패널은 열 때만 필요하므로 첫 화면 번들에서 뺀다 (상세는 목록이 뜬 뒤 미리 받아 둔다)
+const loadRaceDetail = () => import('./components/RaceDetail');
+const RaceDetail = lazy(loadRaceDetail);
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const RequestPanel = lazy(() => import('./components/RequestPanel'));
 
 // 지난 대회 '더 보기' 한 번에 붙이는 수
 const PAGE = 80;
@@ -100,6 +103,11 @@ function Main() {
   useEffect(() => {
     reload();
   }, []);
+  useEffect(() => {
+    if (remote === 'loading') return;
+    const t = setTimeout(() => void loadRaceDetail(), 1500);
+    return () => clearTimeout(t);
+  }, [remote]);
   // 관리자는 방금 고친 내용이 바로 보이도록 DB 에서 직접 읽는다
   useEffect(() => {
     if (profile?.is_admin) reload(true);
@@ -142,8 +150,25 @@ function Main() {
     }
   }, [selected, deepLinked]);
 
-  const today = TODAY();
+  // 오늘(한국 날짜)이 바뀔 때만 새 Date — 렌더마다 새로 만들면 아래 메모가 매번 다시 계산된다
+  const todayKey = todayISO();
+  const today = useMemo(() => new Date(todayKey + 'T00:00:00Z'), [todayKey]);
   const ratingMap = useMemo(() => new Map((data?.ratings ?? []).map((r) => [r.race_id, r])), [data]);
+  // 대회마다 한 번만 계산해 두는 값 (검색·필터·정렬 때마다 1359개를 다시 계산하지 않게)
+  const info = useMemo(() => {
+    const m = new Map<Race, { hay: string; domestic: boolean; place: string | null; status: EntryStatus; sortKey: number }>();
+    for (const r of data.races) {
+      const domestic = isDomestic(r);
+      m.set(r, {
+        hay: `${r.name_ko} ${r.name_en} ${r.city_ko} ${r.country_ko}`.toLowerCase(),
+        domestic,
+        place: placeOf(r, domestic),
+        status: entryStatus(r, today),
+        sortKey: entrySortKey(r, today),
+      });
+    }
+    return m;
+  }, [data, today]);
 
   const upcomingRaces = useMemo(
     () => (data ? data.races.filter((r) => daysBetween(today, r.race_date) >= 0) : []),
@@ -179,36 +204,39 @@ function Main() {
     [upcomingRaces, ratingMap],
   );
 
-  const matches = (r: Race) => {
-    if (favOnly && !fav.has(r.id)) return false;
-    if (regOnly && !reg.has(r.id)) return false;
-    if (discipline && (isTrail(r) ? 'trail' : 'road') !== discipline) return false;
-    if (scope === 'kr' && !isDomestic(r)) return false;
-    if (scope === 'abroad' && isDomestic(r)) return false;
-    if (majorOnly && !r.is_major) return false;
-    if (regions.length && !regions.includes(r.region)) return false;
-    if (place && (place === 'kr' ? !isDomestic(r) : placeOf(r, isDomestic(r)) !== place)) return false;
-    if (types.length && !types.includes(r.entry_type)) return false;
-    if (status) {
-      const st = entryStatus(r, today);
-      if (status === 'closing7') {
-        if (st !== 'open' || !r.entry_closes || daysBetween(today, r.entry_closes) > 7) return false;
-      } else if (status === 'opening30') {
-        if (st !== 'upcoming' || !r.entry_opens || daysBetween(today, r.entry_opens) > 30) return false;
-      } else if (status === 'closed') {
-        // '접수 끝' 칩은 정원이 차서 일찍 끝난 대회도 함께 보여 준다
-        if (st !== 'closed' && st !== 'soldout') return false;
-      } else if (st !== status) return false;
-    }
-    if (!isDomestic(r) && r.flight_hours != null && r.flight_hours > maxFlight) return false;
-    const needle = q.trim().toLowerCase();
-    if (needle && !`${r.name_ko} ${r.name_en} ${r.city_ko} ${r.country_ko}`.toLowerCase().includes(needle)) return false;
-    return true;
-  };
+  // 검색창은 바로 바뀌고, 목록은 입력을 막지 않게 뒤따라 바뀐다 (목록·결과 문구는 모두 dq 기준)
+  const dq = useDeferredValue(q);
 
   const groups = useMemo(() => {
+    const needle = dq.trim().toLowerCase();
+    const matches = (r: Race) => {
+      const x = info.get(r)!;
+      if (favOnly && !fav.ids.includes(r.id)) return false;
+      if (regOnly && !reg.ids.includes(r.id)) return false;
+      if (discipline && (isTrail(r) ? 'trail' : 'road') !== discipline) return false;
+      if (scope === 'kr' && !x.domestic) return false;
+      if (scope === 'abroad' && x.domestic) return false;
+      if (majorOnly && !r.is_major) return false;
+      if (regions.length && !regions.includes(r.region)) return false;
+      if (place && (place === 'kr' ? !x.domestic : x.place !== place)) return false;
+      if (types.length && !types.includes(r.entry_type)) return false;
+      if (status) {
+        const st = x.status;
+        if (status === 'closing7') {
+          if (st !== 'open' || !r.entry_closes || daysBetween(today, r.entry_closes) > 7) return false;
+        } else if (status === 'opening30') {
+          if (st !== 'upcoming' || !r.entry_opens || daysBetween(today, r.entry_opens) > 30) return false;
+        } else if (status === 'closed') {
+          // '접수 끝' 칩은 정원이 차서 일찍 끝난 대회도 함께 보여 준다
+          if (st !== 'closed' && st !== 'soldout') return false;
+        } else if (st !== status) return false;
+      }
+      if (!x.domestic && r.flight_hours != null && r.flight_hours > maxFlight) return false;
+      if (needle && !x.hay.includes(needle)) return false;
+      return true;
+    };
     const list = upcomingRaces.filter(matches);
-    const byEntry = (a: Race, b: Race) => entrySortKey(a, today) - entrySortKey(b, today);
+    const byEntry = (a: Race, b: Race) => info.get(a)!.sortKey - info.get(b)!.sortKey;
     // 접수한 대회만 볼 때는 접수 상태가 의미 없으니 대회일 순 한 묶음
     if (regOnly) {
       const sorted = [...list].sort((a, b) => a.race_date.localeCompare(b.race_date));
@@ -220,7 +248,7 @@ function Main() {
         .map((st) => ({
           key: st,
           title: STATUS_GROUP[st],
-          races: list.filter((r) => entryStatus(r, today) === st).sort(byEntry),
+          races: list.filter((r) => info.get(r)!.status === st).sort(byEntry),
         }))
         .filter((g) => g.races.length);
     }
@@ -230,7 +258,9 @@ function Main() {
       for (const r of sorted) {
         const p = dateParts(r.race_date);
         const k = `${p.y}년 ${p.m}월`;
-        map.set(k, [...(map.get(k) ?? []), r]);
+        const g = map.get(k);
+        if (g) g.push(r);
+        else map.set(k, [r]);
       }
       return [...map.entries()].map(([k, races]) => ({ key: k, title: k, races }));
     }
@@ -253,8 +283,7 @@ function Main() {
             ? '저장순 (캘린더 저장 수 많은 순)'
             : '조회순 (조회 수 많은 순)';
     return [{ key: 'all', title, races: sorted }];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upcomingRaces, q, scope, regions, place, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, discipline]);
+  }, [upcomingRaces, info, dq, scope, regions, place, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, discipline]);
 
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
   const activeFilters =
@@ -293,14 +322,14 @@ function Main() {
 
   // 묶음(접수 중·곧 시작…)마다 처음 GROUP_PAGE 개만, '더 보기' 한 번에 GROUP_MORE 개씩 더.
   // 다시 접는 건 필터·정렬 값이 바뀔 때만 — groups 는 저장·접수 표시에도 다시 만들어져서 거기에 걸면 ☆ 하나에 접혀 버린다
-  const foldKey = JSON.stringify([q.trim(), scope, regions, place, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, discipline]);
+  const foldKey = JSON.stringify([dq.trim(), scope, regions, place, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, discipline]);
   const [unfold, setUnfold] = useState<{ key: string; n: Record<string, number> }>({ key: foldKey, n: {} });
   // 키가 바뀌는 순간 비운다 (렌더 중 갱신). 비교만 하면 검색어를 지워 원래 키로 돌아올 때 예전 펼침이 되살아난다
   if (unfold.key !== foldKey) setUnfold({ key: foldKey, n: {} });
   const opened = unfold.key === foldKey ? unfold.n : null;
   const showMore = (g: string, now: number) => setUnfold({ key: foldKey, n: { ...opened, [g]: now + GROUP_MORE } });
   // 검색·필터로 좁혀서 결과가 적으면 접지 않고 전부
-  const narrowed = !!q.trim() || activeFilters > 0 || !!place || regions.length > 0 || favOnly || regOnly;
+  const narrowed = !!dq.trim() || activeFilters > 0 || !!place || regions.length > 0 || favOnly || regOnly;
   const showAll = narrowed && shown <= SHOW_ALL_UNDER;
   const visible = useMemo(
     () =>
@@ -311,6 +340,22 @@ function Main() {
         return { ...g, races: g.races.slice(0, n), total: g.races.length };
       }),
     [groups, opened, showAll],
+  );
+
+  // 지도는 넘기는 값이 바뀔 때만 다시 그린다 (검색 입력·☆·상세 열기로 path 수백 개를 다시 그리지 않게)
+  const mapSection = useMemo(
+    () => (
+      <MapSection
+        scope={scope}
+        races={upcomingRaces}
+        regions={regions}
+        onRegions={setRegions}
+        place={place}
+        onPlace={setPlace}
+        onScope={setScope}
+      />
+    ),
+    [scope, upcomingRaces, regions, place],
   );
 
   const openRequest = (from: string) => {
@@ -647,15 +692,7 @@ function Main() {
         </div>
 
         {/* 지역 막대 + 지도 */}
-        <MapSection
-          scope={scope}
-          races={upcomingRaces}
-          regions={regions}
-          onRegions={setRegions}
-          place={place}
-          onPlace={setPlace}
-          onScope={setScope}
-        />
+        {mapSection}
 
         {/* 목록 */}
         <section id="list" className="mx-auto max-w-6xl scroll-mt-32 px-1 pb-16 sm:px-2">
@@ -667,20 +704,20 @@ function Main() {
             </div>
           ) : shown === 0 ? (
             <div className="px-3 py-20 text-center">
-              <p className="text-[17px] font-semibold">{q.trim() ? `‘${q.trim()}’ 대회를 찾지 못했습니다.` : '조건에 맞는 대회가 없습니다.'}</p>
+              <p className="text-[17px] font-semibold">{dq.trim() ? `‘${dq.trim()}’ 대회를 찾지 못했습니다.` : '조건에 맞는 대회가 없습니다.'}</p>
               <p className="mx-auto mt-1.5 max-w-[34ch] text-[15px] break-keep text-balance text-ink-2">
                 찾는 대회가 없나요? 추가 요청을 남겨 주시면 매주 월요일 일정을 확인할 때 같이 넣습니다.
               </p>
               <div className="mt-5 flex justify-center gap-3">
                 <button
-                  onClick={() => openRequest(q.trim() ? 'empty_search' : 'empty')}
+                  onClick={() => openRequest(dq.trim() ? 'empty_search' : 'empty')}
                   className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-ink px-4 text-sm font-semibold text-bg hover:opacity-85"
                 >
                   <Plus size={14} weight="bold" aria-hidden />
                   대회 추가 요청
                 </button>
                 <button onClick={reset} className="h-10 rounded-ctl bg-sunken px-4 text-sm font-semibold hover:bg-line">
-                  {q.trim() ? '검색·필터 풀기' : '필터 풀기'}
+                  {dq.trim() ? '검색·필터 풀기' : '필터 풀기'}
                 </button>
               </div>
             </div>
@@ -779,28 +816,34 @@ function Main() {
 
       <Panel open={!!selected} onClose={() => setSelected(null)} label={selected?.name_ko ?? '대회 정보'}>
         {selected && (
-          <RaceDetail
-            race={selected}
-            agencies={data.agencies}
-            packages={data.packages}
-            costs={data.costs}
-            rating={ratingMap.get(selected.id)}
-            favorite={fav.has(selected.id)}
-            onToggleFavorite={() => fav.toggle(selected.id)}
-            registered={reg.has(selected.id)}
-            onToggleRegistered={() => reg.toggle(selected.id)}
-            onClose={() => setSelected(null)}
-            onLogin={() => setAuthMode('in')}
-          />
+          <Suspense fallback={null}>
+            <RaceDetail
+              race={selected}
+              agencies={data.agencies}
+              packages={data.packages}
+              costs={data.costs}
+              rating={ratingMap.get(selected.id)}
+              favorite={fav.has(selected.id)}
+              onToggleFavorite={() => fav.toggle(selected.id)}
+              registered={reg.has(selected.id)}
+              onToggleRegistered={() => reg.toggle(selected.id)}
+              onClose={() => setSelected(null)}
+              onLogin={() => setAuthMode('in')}
+            />
+          </Suspense>
         )}
       </Panel>
 
       <Panel open={showRequest} onClose={() => setShowRequest(false)} label="대회 추가 요청">
-        <RequestPanel onClose={() => setShowRequest(false)} onLogin={() => setAuthMode('in')} />
+        <Suspense fallback={null}>
+          <RequestPanel onClose={() => setShowRequest(false)} onLogin={() => setAuthMode('in')} />
+        </Suspense>
       </Panel>
 
       <Panel open={showAdmin && !!profile?.is_admin} onClose={() => setShowAdmin(false)} label="관리">
-        {<AdminPanel races={data.races} onClose={() => setShowAdmin(false)} onSaved={() => reload(true)} />}
+        <Suspense fallback={null}>
+          <AdminPanel races={data.races} onClose={() => setShowAdmin(false)} onSaved={() => reload(true)} />
+        </Suspense>
       </Panel>
 
       <Panel
