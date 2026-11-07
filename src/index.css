@@ -34,6 +34,21 @@
   /* 강조색 계열을 글자로 써야 할 때 (바탕 대비 4.5 이상) */
   --accent-ink-light: #121418;
   --accent-ink-dark: #eceef1;
+  /* 지도 대회 수 단계 (1 적음 → 5 많음). 볼트에서 올리브로, 단계마다 OKLCH 명도 약 0.08~0.13 차이.
+     라이트는 많을수록 어둡게, 다크는 많을수록 밝게 (바탕과 대비가 커지는 쪽) */
+  --map1-light: #cde76f;
+  --map1-dark: #344718;
+  --map2-light: #a7cf43;
+  --map2-dark: #4e6823;
+  --map3-light: #86b735;
+  --map3-dark: #6f8d2a;
+  --map4-light: #659d32;
+  --map4-dark: #95b731;
+  --map5-light: #488331;
+  --map5-dark: #c0e73f;
+  /* 지도에서 고른 곳: 단계색(연두·올리브)과 색상이 확실히 다른 파랑 */
+  --map-sel-light: #033fb2;
+  --map-sel-dark: #3295f6;
 
   /* 모드와 상관없는 그림자 */
   --shadow: rgb(0 0 0 / 0.08);
@@ -49,6 +64,12 @@
   --accent: var(--accent-light);
   --on-accent: var(--on-accent-light);
   --accent-ink: var(--accent-ink-light);
+  --map-1: var(--map1-light);
+  --map-2: var(--map2-light);
+  --map-3: var(--map3-light);
+  --map-4: var(--map4-light);
+  --map-5: var(--map5-light);
+  --map-selected: var(--map-sel-light);
 
   @media (prefers-color-scheme: dark) {
     --bg: var(--bg-dark);
@@ -61,6 +82,12 @@
     --accent: var(--accent-dark);
     --on-accent: var(--on-accent-dark);
     --accent-ink: var(--accent-ink-dark);
+    --map-1: var(--map1-dark);
+    --map-2: var(--map2-dark);
+    --map-3: var(--map3-dark);
+    --map-4: var(--map4-dark);
+    --map-5: var(--map5-dark);
+    --map-selected: var(--map-sel-dark);
   }
 
   @supports (color: light-dark(white, black)) {
@@ -74,6 +101,12 @@
     --accent: light-dark(var(--accent-light), var(--accent-dark));
     --on-accent: light-dark(var(--on-accent-light), var(--on-accent-dark));
     --accent-ink: light-dark(var(--accent-ink-light), var(--accent-ink-dark));
+    --map-1: light-dark(var(--map1-light), var(--map1-dark));
+    --map-2: light-dark(var(--map2-light), var(--map2-dark));
+    --map-3: light-dark(var(--map3-light), var(--map3-dark));
+    --map-4: light-dark(var(--map4-light), var(--map4-dark));
+    --map-5: light-dark(var(--map5-light), var(--map5-dark));
+    --map-selected: light-dark(var(--map-sel-light), var(--map-sel-dark));
   }
 
   color-scheme: light dark;

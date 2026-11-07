@@ -41,6 +41,20 @@ const pairs = [
   ['accent', 'bg', 0],
   ['accent', 'surface', 0],
   ['line', 'bg', 0],
+  // 지도 (비텍스트 기준 3). 가장 많은 단계·고른 곳은 지도 바탕(surface)과 빈 나라(sunken) 위에서 보여야 한다
+  ['map5', 'surface', 3],
+  ['map5', 'sunken', 3],
+  ['map-sel', 'surface', 3],
+  ['map-sel', 'sunken', 3],
+  // 이웃 단계끼리 (참고, 1.25 이상이면 눈으로 구분됨)
+  ['map1', 'sunken', 0],
+  ['map2', 'map1', 0],
+  ['map3', 'map2', 0],
+  ['map4', 'map3', 0],
+  ['map5', 'map4', 0],
+  // 고른 곳 vs 단계색 (참고). 다크에선 1단계(어두움)·5단계(밝음) 둘 다와 3 이상은 불가능 →
+  // 단계색과는 색상(파랑 대 연두)과 외곽선으로 구분한다
+  ...['map1', 'map3', 'map5'].map((m) => ['map-sel', m, 0]),
 ];
 
 let fail = 0;
