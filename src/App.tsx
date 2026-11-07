@@ -659,7 +659,7 @@ function Main() {
           ) : shown === 0 ? (
             <div className="px-3 py-20 text-center">
               <p className="text-[17px] font-semibold">{q.trim() ? `‘${q.trim()}’ 대회를 찾지 못했습니다.` : '조건에 맞는 대회가 없습니다.'}</p>
-              <p className="mt-1.5 text-[15px] text-ink-2">
+              <p className="mx-auto mt-1.5 max-w-[34ch] text-[15px] break-keep text-balance text-ink-2">
                 찾는 대회가 없나요? 추가 요청을 남겨 주시면 매주 월요일 일정을 확인할 때 같이 넣습니다.
               </p>
               <div className="mt-5 flex justify-center gap-3">
