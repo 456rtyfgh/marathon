@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { CaretRight, Star, BookmarkSimple, Eye, CalendarCheck, Check } from '@phosphor-icons/react';
 import type { Race, RaceRating } from '../lib/types';
 import { ENTRY_LABEL } from '../lib/types';
-import { dateParts, feeLabel, isDomestic, isTrail, statusLine, raceDayLine, TODAY, shortCount, mayFillEarly, isCancelled } from '../lib/util';
+import { dateParts, feeLabel, isDomestic, isTrail, statusLine, raceDayLine, TODAY, shortCount, mayFillEarly, isCancelled, expectedEntryText } from '../lib/util';
 
 const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
 
@@ -31,6 +31,8 @@ function RaceRow({
   const mayFill = !registered && mayFillEarly(race, today);
   // 취소된 대회: 지우지 않고 남겨 두되 흐리게, D-day 대신 '대회 취소'
   const cancelled = isCancelled(race);
+  // 접수 일정이 확정 전(예상·미정)이면 '접수 미정' 아래 작게 예상 날짜만
+  const expected = registered ? null : expectedEntryText(race, today);
 
   return (
     <li style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 104px' }}>
@@ -148,6 +150,8 @@ function RaceRow({
             >
               {dday(st.days)}
             </span>
+          ) : expected ? (
+            <span className="num mt-0.5 text-[12px] text-ink-3">{expected}</span>
           ) : (
             <span className="mt-1 text-[14px] font-semibold text-ink-3">
               {st.label === '정원 마감 시까지' ? '접수 중' : st.label === '조기 마감' ? '정원 마감' : ''}

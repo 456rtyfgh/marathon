@@ -47,9 +47,10 @@ export const countryPath = (code) => `/c/${code.toLowerCase()}/`;
 export const years = [...new Set(races.map((r) => r.race_date.slice(0, 4)))].sort();
 export const yearPath = (y) => `/${y}/`;
 
-/** src/lib/util.ts 의 entryStatus(r) === 'open' 과 같은 규칙 (오늘이 접수 시작~마감 안, 조기 마감 아님) */
+/** src/lib/util.ts 의 entryStatus(r) === 'open' 과 같은 규칙 (접수 일정 확정, 오늘이 접수 시작~마감 안, 조기 마감 아님) */
 export const isEntryOpen = (r, day = today) => {
   if (isCancelled(r)) return false;
+  if (r.entry_confidence === 'expected' || r.entry_confidence === 'tbc') return false;
   if (!r.entry_opens && !r.entry_closes) return false;
   if (r.entry_opens && r.entry_opens > day) return false;
   if (r.sold_out_on && r.sold_out_on <= day) return false;

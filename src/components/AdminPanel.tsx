@@ -7,7 +7,7 @@ import {
   loadRaceRequests, adminResolveRequest, adminSetSoldOut, soldOutReportRaceId, loadSoldOutDates,
   type Member, type StatRow, type RaceRequest,
 } from '../lib/data';
-import { entryStatus, fmtDate, safeUrl, STATUS_LABEL, todayISO } from '../lib/util';
+import { entryStatusByDate, fmtDate, safeUrl, STATUS_LABEL, todayISO } from '../lib/util';
 
 const EMPTY: Race = {
   id: '',
@@ -342,7 +342,7 @@ function SoldOutReports({ races, onSaved }: { races: Race[]; onSaved: () => void
         <ul className="divide-y divide-line rounded-box border border-line bg-surface">
           {groups.map((g) => {
             const soldOn = g.raceId in local ? local[g.raceId] : g.race?.sold_out_on ?? null;
-            const status = g.race ? (soldOn ? '조기 마감' : STATUS_LABEL[entryStatus({ ...g.race, sold_out_on: null })]) : null;
+            const status = g.race ? (soldOn ? '조기 마감' : STATUS_LABEL[entryStatusByDate({ ...g.race, sold_out_on: null })]) : null;
             const memos = g.reqs.map((q) => ({ q, memo: q.note?.split('\n').slice(1).join(' ').trim() })).filter((x) => x.memo);
             return (
               <li key={g.raceId} className="space-y-2 px-4 py-3.5">

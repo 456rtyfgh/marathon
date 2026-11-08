@@ -33,11 +33,35 @@ export function isSoldOut(race: Race, today = TODAY()): boolean {
   return !!race.sold_out_on && daysBetween(today, race.sold_out_on) <= 0;
 }
 
+/** 접수 일정이 공식 확정인가. 'expected'·'tbc' 만 false (값이 없으면 확정으로 본다) */
+export function isEntryConfirmed(race: Pick<Race, 'entry_confidence'>): boolean {
+  return race.entry_confidence !== 'expected' && race.entry_confidence !== 'tbc';
+}
+
+/** 'YYYY-MM-DD' → '11/10' (앞 0 없음) */
+export function monthDay(iso: string): string {
+  const d = new Date(iso + 'T00:00:00Z');
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+}
+
 /**
- * 접수 상태. 조기 마감은 접수가 열린 뒤(open·closed)에만 인정한다.
+ * 확정 안 된 접수 일정의 작은 안내 글: '예상 11/10~11/15' / '예상 11/10' / null.
+ * 확정·취소·조기 마감 대회, 접수일이 둘 다 없는 대회는 null.
+ */
+export function expectedEntryText(race: Race, today = TODAY()): string | null {
+  if (isEntryConfirmed(race) || isCancelled(race) || isSoldOut(race, today)) return null;
+  const { entry_opens: o, entry_closes: c } = race;
+  if (o && c && o !== c) return `예상 ${monthDay(o)}~${monthDay(c)}`;
+  const one = o ?? c;
+  return one ? `예상 ${monthDay(one)}` : null;
+}
+
+/**
+ * 날짜만 보고 정한 접수 상태 (확정 여부는 보지 않는다. 관리 화면용).
+ * 조기 마감은 접수가 열린 뒤(open·closed)에만 인정한다.
  * 접수 시작 전인데 조기 마감일이 있으면 데이터 오류로 보고 'upcoming' 을 둔다.
  */
-export function entryStatus(race: Race, today = TODAY()): EntryStatus {
+export function entryStatusByDate(race: Race, today = TODAY()): EntryStatus {
   if (isCancelled(race)) return 'cancelled';
   const { entry_opens, entry_closes } = race;
   if (!entry_opens && !entry_closes) return isSoldOut(race, today) ? 'soldout' : 'unknown';
@@ -47,6 +71,17 @@ export function entryStatus(race: Race, today = TODAY()): EntryStatus {
   if (isSoldOut(race, today)) return 'soldout';
   if (c < 0) return 'closed';
   return 'open';
+}
+
+/**
+ * 화면·묶음·요약·정렬에 쓰는 접수 상태.
+ * 접수 일정이 확정되지 않은 대회(예상·미정)는 날짜가 있어도 '일정 미공개'(unknown) 묶음으로 둔다
+ * — 예상 날짜로 D-day·접수 중·알림이 나가지 않게. 조기 마감은 사실이므로 그대로 둔다.
+ */
+export function entryStatus(race: Race, today = TODAY()): EntryStatus {
+  if (isCancelled(race)) return 'cancelled';
+  if (!isEntryConfirmed(race)) return isSoldOut(race, today) ? 'soldout' : 'unknown';
+  return entryStatusByDate(race, today);
 }
 
 /** 선착순인데 접수 중이고 아직 조기 마감 확인이 안 된 대회 */
@@ -91,6 +126,7 @@ export function statusLine(
   }
   if (st === 'soldout') return { label: '조기 마감', days: null, hot: false };
   if (st === 'closed') return { label: '접수 마감', days: null, hot: false };
+  if (!isEntryConfirmed(race)) return { label: '접수 미정', days: null, hot: false };
   return { label: '일정 미공개', days: null, hot: false };
 }
 
@@ -141,7 +177,7 @@ export function costFor(race: Race, costs: CostBaseline[]): CostBaseline | undef
  * "접수 임박순" 정렬 키. 낮을수록 먼저.
  * 1) 지금 신청 중 → 마감이 가까운 순
  * 2) 곧 오픈 → 오픈이 가까운 순
- * 3) 일정 미공개
+ * 3) 일정 미공개 (접수 일정이 예상·미정인 대회 포함)
  * 4) 이미 마감(조기 마감 포함) → 대회일 가까운 순
  * 5) 취소된 대회 → 맨 뒤
  */
