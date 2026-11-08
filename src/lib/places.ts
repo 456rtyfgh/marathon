@@ -1,4 +1,5 @@
 import type { Race } from './types';
+import { isSubregionId, subOf } from './subregions';
 
 /** 지도(@svg-maps/south-korea) 의 시·도 id 와 이름 */
 export const PROVINCES: { id: string; name: string; keys: string[] }[] = [
@@ -33,4 +34,11 @@ export function provinceOf(race: Pick<Race, 'city_ko'>): string | null {
 /** 지도 / 칩에서 고른 곳 — 국내는 시·도 id, 해외는 국가 코드(소문자) */
 export function placeOf(race: Race, domestic: boolean): string | null {
   return domestic ? provinceOf(race) : race.country_code?.toLowerCase() || null;
+}
+
+/** 목록 필터: place 가 'kr' 이면 국내 전체, 주·도 코드('US-CA')면 subregion 일치, 아니면 placeOf 일치 */
+export function matchesPlace(race: Race, domestic: boolean, place: string): boolean {
+  if (place === 'kr') return domestic;
+  if (isSubregionId(place)) return subOf(race) === place;
+  return placeOf(race, domestic) === place;
 }

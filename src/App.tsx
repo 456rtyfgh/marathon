@@ -23,7 +23,7 @@ import { AuthBar, AuthForm } from './components/AuthPanel';
 import { Panel, Note, MoreButton } from './components/ui';
 import { Logo } from './components/Logo';
 import MapSection, { type Scope } from './components/MapSection';
-import { placeOf } from './lib/places';
+import { matchesPlace, placeOf } from './lib/places';
 import { track, pageView } from './lib/analytics';
 
 // 상세·요청·관리 패널은 열 때만 필요하므로 첫 화면 번들에서 뺀다 (목록이 뜬 뒤 미리 받아 둔다 —
@@ -226,7 +226,7 @@ function Main() {
       if (scope === 'abroad' && x.domestic) return false;
       if (majorOnly && !r.is_major) return false;
       if (regions.length && !regions.includes(r.region)) return false;
-      if (place && (place === 'kr' ? !x.domestic : x.place !== place)) return false;
+      if (place && !matchesPlace(r, x.domestic, place)) return false;
       if (types.length && !types.includes(r.entry_type)) return false;
       if (status) {
         const st = x.status;
