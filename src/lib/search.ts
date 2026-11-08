@@ -10,8 +10,9 @@ import { SUBREGION_NAME, subOf } from './subregions.ts';
 
 /** NFC·소문자, 악센트 제거, 빈칸·가운뎃점·특수문자 제거. 숫자 뒤 km 는 k ('10km' = '10K') */
 export function normalize(s: string): string {
+  // NFKD 가 아니라 NFD — NFKD 는 입력 중 자모(ㅌ ㅁ …)를 조합용 자모로 바꿔 '쓰는 중인 끝 글자' 비교가 깨진다
   return s
-    .normalize('NFKD')
+    .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .normalize('NFC')
     .toLowerCase()
