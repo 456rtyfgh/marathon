@@ -24,6 +24,7 @@ import { Panel, Note, MoreButton } from './components/ui';
 import { Logo } from './components/Logo';
 import MapSection, { type Scope } from './components/MapSection';
 import { matchesPlace, placeOf } from './lib/places';
+import { buildIndex, searchRaces, suggestRaces } from './lib/search';
 import { track, pageView } from './lib/analytics';
 
 // 상세·요청·관리 패널은 열 때만 필요하므로 첫 화면 번들에서 뺀다 (목록이 뜬 뒤 미리 받아 둔다 —
@@ -164,11 +165,10 @@ function Main() {
   const ratingMap = useMemo(() => new Map((data?.ratings ?? []).map((r) => [r.race_id, r])), [data]);
   // 대회마다 한 번만 계산해 두는 값 (검색·필터·정렬 때마다 1359개를 다시 계산하지 않게)
   const info = useMemo(() => {
-    const m = new Map<Race, { hay: string; domestic: boolean; place: string | null; status: EntryStatus; sortKey: number }>();
+    const m = new Map<Race, { domestic: boolean; place: string | null; status: EntryStatus; sortKey: number }>();
     for (const r of data.races) {
       const domestic = isDomestic(r);
       m.set(r, {
-        hay: `${r.name_ko} ${r.name_en} ${r.city_ko} ${r.country_ko}`.toLowerCase(),
         domestic,
         place: placeOf(r, domestic),
         status: entryStatus(r, today),
@@ -182,6 +182,8 @@ function Main() {
     () => (data ? data.races.filter((r) => daysBetween(today, r.race_date) >= 0) : []),
     [data, today],
   );
+  // 검색 색인 (정규화·자모를 대회마다 한 번만) — 검색은 지금처럼 다가오는 대회만
+  const searchIndex = useMemo(() => buildIndex(upcomingRaces), [upcomingRaces]);
   const pastRaces = useMemo(
     () =>
       data
@@ -214,9 +216,10 @@ function Main() {
 
   // 검색창은 바로 바뀌고, 목록은 입력을 막지 않게 뒤따라 바뀐다 (목록·결과 문구는 모두 dq 기준)
   const dq = useDeferredValue(q);
+  // 검색어에 맞는 대회 (띄어쓰기·다른 표기·꼬리말·오타 — src/lib/search.ts). 필터·정렬을 바꿀 때는 다시 계산하지 않는다
+  const hits = useMemo(() => (dq.trim() ? searchRaces(searchIndex, dq) : null), [searchIndex, dq]);
 
   const groups = useMemo(() => {
-    const needle = dq.trim().toLowerCase();
     const matches = (r: Race) => {
       const x = info.get(r)!;
       if (favOnly && !fav.ids.includes(r.id)) return false;
@@ -240,7 +243,7 @@ function Main() {
         } else if (st !== status) return false;
       }
       if (!x.domestic && r.flight_hours != null && r.flight_hours > maxFlight) return false;
-      if (needle && !x.hay.includes(needle)) return false;
+      if (hits && !hits.has(r)) return false;
       return true;
     };
     const list = upcomingRaces.filter(matches);
@@ -291,9 +294,14 @@ function Main() {
             ? '저장순 (캘린더 저장 수 많은 순)'
             : '조회순 (조회 수 많은 순)';
     return [{ key: 'all', title, races: sorted }];
-  }, [upcomingRaces, info, dq, scope, regions, place, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, discipline]);
+  }, [upcomingRaces, info, hits, scope, regions, place, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, discipline]);
 
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
+  // 검색 결과 0개일 때 '혹시 이 대회인가요?' (필터와 무관하게 다가오는 대회 중). 결과 수(shown)에는 넣지 않는다 → search_empty 기록 그대로
+  const suggestions = useMemo(
+    () => (shown === 0 && dq.trim() ? suggestRaces(searchIndex, dq, 3) : []),
+    [shown, dq, searchIndex],
+  );
   const activeFilters =
     types.length + (status ? 1 : 0) + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0) + (discipline ? 1 : 0);
 
@@ -312,6 +320,8 @@ function Main() {
   };
 
   const openRace = useCallback((r: Race) => setSelected(r), []);
+  // 상세 맨 아래 '비슷한 대회' 에 넘기는 값 (RaceDetail 의 선택 props — 펼쳐서 넘겨 그쪽 props 가 아직 없어도 타입 검사가 통과한다)
+  const similarProps = { races: upcomingRaces, ratingMap, isFavorite: fav.has, isRegistered: reg.has, onOpenRace: openRace };
 
   // 검색어: 입력이 1.2초 멈추면 한 번 기록 (결과 0건이면 '찾는데 없는 대회'로 따로 센다)
   const shownRef = useRef(0);
@@ -728,6 +738,16 @@ function Main() {
                   {dq.trim() ? '검색·필터 풀기' : '필터 풀기'}
                 </button>
               </div>
+              {suggestions.length > 0 && (
+                <div className="mt-12 text-left">
+                  <h2 className="pb-2 text-[17px] font-bold tracking-tight sm:px-2">혹시 이 대회인가요?</h2>
+                  <ul className="-mx-3 divide-y divide-line border-y border-line">
+                    {suggestions.map((r) => (
+                      <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} registered={reg.has(r.id)} onOpen={openRace} />
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           ) : (
             visible.map((g, i) => (
@@ -826,6 +846,7 @@ function Main() {
         {selected && (
           <Suspense fallback={null}>
             <RaceDetail
+              key={selected.id}
               race={selected}
               agencies={data.agencies}
               packages={data.packages}
@@ -837,6 +858,7 @@ function Main() {
               onToggleRegistered={() => reg.toggle(selected.id)}
               onClose={() => setSelected(null)}
               onLogin={() => setAuthMode('in')}
+              {...similarProps}
             />
           </Suspense>
         )}
