@@ -46,10 +46,11 @@ export function monthDay(iso: string): string {
 
 /**
  * 확정 안 된 접수 일정의 작은 안내 글: '예상 11/10~11/15' / '예상 11/10' / null.
- * 확정·취소·조기 마감 대회, 접수일이 둘 다 없는 대회는 null.
+ * 확정·취소·조기 마감·이미 끝난 대회, 접수일이 둘 다 없는 대회는 null.
  */
 export function expectedEntryText(race: Race, today = TODAY()): string | null {
   if (isEntryConfirmed(race) || isCancelled(race) || isSoldOut(race, today)) return null;
+  if (daysBetween(today, race.race_date) < 0) return null;
   const { entry_opens: o, entry_closes: c } = race;
   if (o && c && o !== c) return `예상 ${monthDay(o)}~${monthDay(c)}`;
   const one = o ?? c;
@@ -80,8 +81,11 @@ export function entryStatusByDate(race: Race, today = TODAY()): EntryStatus {
  */
 export function entryStatus(race: Race, today = TODAY()): EntryStatus {
   if (isCancelled(race)) return 'cancelled';
-  if (!isEntryConfirmed(race)) return isSoldOut(race, today) ? 'soldout' : 'unknown';
-  return entryStatusByDate(race, today);
+  if (isEntryConfirmed(race)) return entryStatusByDate(race, today);
+  if (isSoldOut(race, today)) return 'soldout';
+  // 이미 끝난 대회는 날짜상 마감이면 지금처럼 '접수 마감' (끝난 대회 목록이 '접수 미정' 으로 바뀌지 않게)
+  if (daysBetween(today, race.race_date) < 0 && entryStatusByDate(race, today) === 'closed') return 'closed';
+  return 'unknown';
 }
 
 /** 선착순인데 접수 중이고 아직 조기 마감 확인이 안 된 대회 */
