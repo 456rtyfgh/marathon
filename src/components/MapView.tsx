@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Minus, ArrowsIn, ArrowLeft } from '@phosphor-icons/react';
+import { Plus, Minus, ArrowsIn, ArrowLeft, GlobeHemisphereEast } from '@phosphor-icons/react';
 import { union, type Box } from '../lib/geo';
 import { MAP_SELECTED, mapFill, mapStep } from '../lib/mapColor';
 import type { SubCountry } from '../lib/subregions';
@@ -34,6 +34,8 @@ import nzBoxes from '../maps/nz-boxes.json';
 type Kind = 'kr' | 'world' | SubCountry;
 type MapData = { viewBox: string; locations: { id: string; d: string }[]; boxes: Map<string, Box> };
 type Pt = { x: number; y: number };
+/** 지도 왼쪽 위 '돌아가기' 버튼 하나. icon 은 'back' = ArrowLeft, 'world' = GlobeHemisphereEast */
+export type MapBack = { label: string; icon: 'back' | 'world'; onClick: () => void };
 
 const BOXES: Record<Kind, Record<string, number[]>> = {
   kr: koreaBoxes,
@@ -156,7 +158,8 @@ export default function MapView({
   selected,
   focus,
   onSelect,
-  onBack,
+  backs,
+  onUp,
 }: {
   kind: Kind;
   counts: Record<string, number>;
@@ -165,8 +168,10 @@ export default function MapView({
   /** 이 지역들이 꽉 차게 확대 (예: 유럽 나라들). 밖의 나라는 흐리게 */
   focus: string[];
   onSelect: (id: string) => void;
-  /** 지역·시·도 확대 중일 때 '전체 지도' 버튼 */
-  onBack?: () => void;
+  /** 왼쪽 위 돌아가기 버튼들 (왼쪽부터 순서대로). 빈 배열이면 버튼 없음 */
+  backs: MapBack[];
+  /** 한 단계 위로 (바다 클릭·Esc). 없으면 둘 다 아무 일 없음 */
+  onUp?: () => void;
 }) {
   const [map, setMap] = useState<MapData | undefined>(cache[kind]);
   // 처음 화면(지금 맞춤 영역). 제스처 계산은 ref 로, 그리기 판단은 state 로
@@ -485,6 +490,32 @@ export default function MapView({
   });
   const select = useCallback((id: string) => onSelectRef.current(id), []);
 
+  // 한 단계 위로 (바다 클릭·Esc). Esc 처리기를 매번 다시 붙이지 않게 ref 로
+  const onUpRef = useRef(onUp);
+  useLayoutEffect(() => {
+    onUpRef.current = onUp;
+  });
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+      // 대회 상세·로그인 등 패널(native dialog)의 Esc 닫기와 겹치지 않게
+      if (document.querySelector('dialog[open]')) return;
+      // 검색창 등에서 누른 Esc 는 그 입력칸 몫
+      const t = e.target as HTMLElement | null;
+      if (t && (t.closest('input, textarea, select') || t.isContentEditable)) return;
+      // 지도가 화면에 전혀 안 보이면 (목록을 보다가 Esc 로 필터가 풀리지 않게)
+      const r = boxRef.current?.getBoundingClientRect();
+      if (!r || r.bottom <= 0 || r.top >= window.innerHeight) return;
+      const up = onUpRef.current;
+      if (!up) return;
+      e.preventDefault();
+      up();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // CSS 로 크기를 정한다 (viewBox 와 상관없이 → 비율 측정과 되먹임 없음). PC 에서 더 크게
   const size = SIZE[kind];
 
@@ -505,7 +536,7 @@ export default function MapView({
     'grid size-11 place-items-center bg-surface text-ink transition hover:bg-sunken active:bg-line disabled:text-ink-3 disabled:hover:bg-surface sm:size-8';
 
   return (
-    <div className="relative">
+    <div ref={boxRef} className="relative">
       <svg
         ref={svgRef}
         viewBox={view.current ? fmtBox(view.current) : map.viewBox}
@@ -524,6 +555,10 @@ export default function MapView({
             e.stopPropagation();
             e.preventDefault();
           }
+        }}
+        // 바다(나라·주·도 path 가 아닌 svg 바탕)를 누르면 한 단계 위로. 드래그 뒤 click 은 위에서 막지만 한 번 더 본다
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !gesture.current.suppressClick) onUp?.();
         }}
       >
         <Paths
@@ -552,16 +587,22 @@ export default function MapView({
           />
         )}
       </svg>
-      <div className="pointer-events-none absolute top-2 left-2 flex flex-col items-start gap-1.5">
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="pointer-events-auto inline-flex h-11 items-center gap-1.5 rounded-ctl border border-line bg-surface px-3 text-[14px] font-semibold text-ink shadow-[0_1px_2px_var(--shadow)] transition hover:bg-sunken active:translate-y-px sm:h-8"
-          >
-            <ArrowLeft size={14} weight="bold" />
-            전체 지도
-          </button>
+      {/* 오른쪽 끝은 확대 버튼 줄 앞에서 멈춘다 (휴대폰 44px 버튼 + 여백) */}
+      <div className="pointer-events-none absolute top-2 right-[60px] left-2 flex flex-col items-start gap-1.5 sm:right-14">
+        {backs.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {backs.map((b) => (
+              <button
+                key={b.label}
+                type="button"
+                onClick={b.onClick}
+                className="pointer-events-auto inline-flex h-11 min-w-11 items-center gap-1.5 rounded-ctl border border-line bg-surface px-3 text-[14px] font-semibold text-ink shadow-[0_1px_2px_var(--shadow)] transition hover:bg-sunken active:translate-y-px sm:h-8"
+              >
+                {b.icon === 'world' ? <GlobeHemisphereEast size={14} weight="bold" /> : <ArrowLeft size={14} weight="bold" />}
+                {b.label}
+              </button>
+            ))}
+          </div>
         )}
         {tip && counts[tip] ? (
           <div className="rounded-ctl bg-surface px-2.5 py-1.5 text-[14px] shadow-[0_1px_3px_var(--shadow-strong)]">

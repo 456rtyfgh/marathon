@@ -7,6 +7,7 @@ import { PROVINCES, placeOf } from '../lib/places';
 import { SUBREGIONS, SUBREGION_NAME, isSubCountry, isSubregionId, subCountryOf, subOf, type SubCountry } from '../lib/subregions';
 import { EAST_ASIA, EAST_ASIA_ENTRY, countryRegion } from '../lib/geo';
 import { track } from '../lib/analytics';
+import type { MapBack } from './MapView';
 
 const MapView = lazy(() => import('./MapView'));
 
@@ -139,6 +140,14 @@ function MapSection({
     track('filter', { name: 'scope', value: 'kr' });
   };
 
+  /** 국내 지도에서 세계 지도로 — 도구 막대 '전체' 탭을 누른 것과 같은 상태 */
+  const toWorld = () => {
+    onScope('all');
+    onRegions([]);
+    onPlace(null);
+    track('filter', { name: 'scope', value: 'all' });
+  };
+
   // 안전망: 다른 경로로 세계 지도에서 한국이 골라져도 국내 지도로 (사용자가 누른 게 아닐 수 있어 기록은 남기지 않는다)
   useEffect(() => {
     if (scope !== 'kr' && place === 'kr') {
@@ -219,6 +228,24 @@ function MapSection({
     }
     pick(id, zoneIds.length > 1);
   };
+
+  /** 지도 왼쪽 위 돌아가기 버튼과 한 단계 위(바다 클릭·Esc): 주·도 고름 → 나라 전체 → 세계 */
+  const nav = (): { backs: MapBack[]; up?: () => void } => {
+    const toAll = (onClick: () => void): MapBack => ({ label: '전체 지도', icon: 'back', onClick });
+    const world = (onClick: () => void): MapBack => ({ label: '세계 지도', icon: 'world', onClick });
+    if (nearOn) return { backs: [toAll(() => setNear(false))], up: () => setNear(false) };
+    if (sub) {
+      if (subPicked) return { backs: [toAll(() => onPlace(sub)), world(leaveZone)], up: () => onPlace(sub) };
+      return { backs: [world(leaveZone)], up: leaveZone };
+    }
+    if (zone) return { backs: [toAll(leaveZone)], up: leaveZone };
+    if (scope === 'kr') {
+      if (place) return { backs: [toAll(() => onPlace(null)), world(toWorld)], up: () => onPlace(null) };
+      return { backs: [world(toWorld)], up: toWorld };
+    }
+    return { backs: [] };
+  };
+  const { backs, up } = nav();
 
   return (
     <section className="mx-auto max-w-6xl px-4 pt-4 sm:px-6" aria-label="지역별로 보기">
@@ -331,19 +358,8 @@ function MapSection({
               selected={sub ? subPicked : place}
               focus={sub ? NO_ZONE : nearOn ? EAST_ASIA : zoneIds}
               onSelect={onMapSelect}
-              onBack={
-                nearOn
-                  ? () => setNear(false)
-                  : sub
-                    ? subPicked
-                      ? () => onPlace(sub)
-                      : undefined
-                    : zone
-                      ? leaveZone
-                      : scope === 'kr' && place
-                        ? () => onPlace(null)
-                        : undefined
-              }
+              backs={backs}
+              onUp={up}
             />
           </Suspense>
           {scope !== 'kr' && place === 'kr' && (
