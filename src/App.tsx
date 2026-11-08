@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, CheckSquare, Plus } from '@phosphor-icons/react';
 import type { Race, EntryType, Region, Discipline } from './lib/types';
 import { ENTRY_LABEL, DISCIPLINES, DISCIPLINE_LABEL } from './lib/types';
@@ -25,6 +25,8 @@ import { Logo } from './components/Logo';
 import MapSection, { type Scope } from './components/MapSection';
 import { matchesPlaces, placeOf } from './lib/places';
 import { buildIndex, searchRaces, suggestRaces } from './lib/search';
+import { scrollToResults, RESULTS_EMPTY_ID } from './lib/scrollToResults';
+import { ResultsAnnouncer } from './components/ResultsAnnouncer';
 import { track, pageView } from './lib/analytics';
 
 // 상세·요청·관리 패널은 열 때만 필요하므로 첫 화면 번들에서 뺀다 (목록이 뜬 뒤 미리 받아 둔다 —
@@ -330,6 +332,22 @@ function Main() {
     const t = setTimeout(() => track('search', { search_term: term, results: shownRef.current }), 1200);
     return () => clearTimeout(t);
   }, [q]);
+
+  // 검색창에서 엔터(모바일 '검색' 키): 키보드를 닫고 결과(0개면 '찾지 못했습니다' 안내)로 내려간다.
+  // 입력 중엔 스크롤하지 않는다. 목록(dq)이 입력(q)을 따라잡은 뒤에 한 번만
+  const searchRef = useRef<HTMLInputElement>(null);
+  const jumpRef = useRef(false);
+  const onSearchSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    searchRef.current?.blur();
+    if (dq === q) scrollToResults();
+    else jumpRef.current = true;
+  };
+  useEffect(() => {
+    if (!jumpRef.current || dq !== q) return;
+    jumpRef.current = false;
+    scrollToResults();
+  }, [dq, q]);
   useEffect(() => {
     if (maxFlight >= 24) return;
     const t = setTimeout(() => track('filter', { name: 'flight', value: `${maxFlight}h` }), 1200);
@@ -544,17 +562,21 @@ function Main() {
               ))}
             </div>
 
-            <label className="relative order-first w-full sm:order-none sm:w-auto sm:flex-1">
-              <span className="sr-only">대회 검색</span>
-              <MagnifyingGlass size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-3" />
-              <input
-                type="search"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="대회 이름, 도시, 나라"
-                className="h-10 w-full rounded-ctl border border-line bg-surface pr-3 pl-9 text-[15px] outline-none transition placeholder:text-ink-3 focus:border-ink"
-              />
-            </label>
+            <form role="search" onSubmit={onSearchSubmit} className="order-first w-full sm:order-none sm:w-auto sm:flex-1">
+              <label className="relative block">
+                <span className="sr-only">대회 검색</span>
+                <MagnifyingGlass size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-3" />
+                <input
+                  ref={searchRef}
+                  type="search"
+                  enterKeyHint="search"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="대회 이름, 도시, 나라"
+                  className="h-10 w-full rounded-ctl border border-line bg-surface pr-3 pl-9 text-[15px] outline-none transition placeholder:text-ink-3 focus:border-ink"
+                />
+              </label>
+            </form>
             {/* 휴대폰은 헤더 버튼이 숨겨져 있어 검색창 바로 밑에 (PC 는 바로 위 헤더 버튼이 같은 역할) */}
             <p className="order-first -mt-0.5 flex w-full items-baseline justify-end gap-1.5 text-[13px] text-ink-3 sm:hidden">
               찾는 대회가 없나요?
@@ -714,6 +736,7 @@ function Main() {
 
         {/* 목록 */}
         <section id="list" className="mx-auto max-w-6xl scroll-mt-32 px-1 pb-16 sm:px-2">
+          <ResultsAnnouncer query={dq.trim()} count={shown} suggestions={suggestions.length} loading={remote === 'loading'} />
           {remote === 'loading' ? (
             <div className="space-y-px pt-8" aria-busy="true" aria-label="대회 목록 불러오는 중">
               {Array.from({ length: 6 }, (_, i) => (
@@ -721,7 +744,7 @@ function Main() {
               ))}
             </div>
           ) : shown === 0 ? (
-            <div className="px-3 py-20 text-center">
+            <div id={RESULTS_EMPTY_ID} className="scroll-mt-32 px-3 py-20 text-center">
               <p className="text-[17px] font-semibold">{dq.trim() ? `‘${dq.trim()}’ 대회를 찾지 못했습니다.` : '조건에 맞는 대회가 없습니다.'}</p>
               <p className="mx-auto mt-1.5 max-w-[34ch] text-[15px] break-keep text-balance text-ink-2">
                 찾는 대회가 없나요? 추가 요청을 남겨 주시면 매주 월요일 일정을 확인할 때 같이 넣습니다.
