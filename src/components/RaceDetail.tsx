@@ -104,8 +104,8 @@ export default function RaceDetail({
   const raceDay = raceDayLine(race, today);
   const st = statusLine(race, today, registered);
   const soldOut = isSoldOut(race, today) ? dateParts(race.sold_out_on!) : null;
-  // 예상 접수일은 '미정' 으로 보이고 작은 글씨로만 '예상 M/D~M/D'
-  const entryConfirmed = isEntryConfirmed(race);
+  // 예상 접수일은 '미정' 으로 보이고 작은 글씨로만 '예상 M/D~M/D'. 이미 끝난·취소된 대회는 예전처럼 날짜 그대로
+  const entryConfirmed = isEntryConfirmed(race) || raceDay.days == null;
   const expectedText = expectedEntryText(race, today);
   // 정원이 차서 끝나는 건 선착순·상시 접수뿐. 추첨·기록 기준 대회는 제보 대상이 아니다
   const canReport =
