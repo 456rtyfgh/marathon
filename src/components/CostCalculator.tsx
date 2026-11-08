@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ArrowUpRight, Minus, Plus } from '@phosphor-icons/react';
 import type { Race, CostBaseline } from '../lib/types';
 import { costFor, feeToKrw, feeLabel, krwExact, isDomestic } from '../lib/util';
-import { isUlleung, stayDates, stayLinks, stayQuery, transportLinks, type BookingLink } from '../lib/booking';
+import { isUlleung, nearbyLinks, stayDates, stayLinks, stayQuery, transportLinks, type BookingLink } from '../lib/booking';
 import { track } from '../lib/analytics';
 
 type Tier = 'low' | 'mid' | 'high';
@@ -49,6 +49,16 @@ function DomesticBooking({ race }: { race: Race }) {
           </p>
         </div>
         {rides.length > 0 && <BookingList race={race} links={rides} />}
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-[15px] font-semibold text-ink">식당·사우나</h3>
+          <p className="mt-0.5 text-[13px] text-ink-3">
+            당일치기라면 — 대회 끝나고 ‘{stayQuery(race)}’ 근처 식당·사우나를 지도에서 찾습니다.
+          </p>
+        </div>
+        <BookingList race={race} links={nearbyLinks(race)} />
       </section>
 
       <dl className="flex items-baseline justify-between gap-4 border-t border-line pt-4">

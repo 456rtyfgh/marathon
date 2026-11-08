@@ -103,3 +103,16 @@ export function transportLinks(race: Race, today = TODAY()): BookingLink[] {
     { id: 'txbus', label: '시외버스', url: 'https://txbus.t-money.co.kr/main.do', note: '시외버스 통합예매' },
   ];
 }
+
+/**
+ * 당일치기: 대회장 근처 식당·사우나 지도 검색. 검색어는 숙소와 같은 stayQuery.
+ * 네이버 지도 /p/search/<검색어> — PC 는 그 검색, 휴대폰은 m.map.naver.com/search?query= 로 넘어가 검색어 유지 (2026-11-08 확인)
+ */
+export function nearbyLinks(race: Race): BookingLink[] {
+  const q = stayQuery(race);
+  const naver = (term: string) => `https://map.naver.com/p/search/${encodeURIComponent(`${q} ${term}`)}`;
+  return [
+    { id: 'map-food', label: '식당', url: naver('맛집'), note: '네이버 지도 · 맛집' },
+    { id: 'map-sauna', label: '사우나·목욕탕', url: naver('사우나'), note: '네이버 지도 · 사우나' },
+  ];
+}
