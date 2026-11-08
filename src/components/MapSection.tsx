@@ -5,7 +5,7 @@ import { REGIONS } from '../lib/types';
 import { isDomestic } from '../lib/util';
 import { PROVINCES, placeOf } from '../lib/places';
 import { SUBREGIONS, SUBREGION_NAME, isSubCountry, isSubregionId, subCountryOf, subOf, type SubCountry } from '../lib/subregions';
-import { countryRegion } from '../lib/geo';
+import { EAST_ASIA, EAST_ASIA_ENTRY, countryRegion } from '../lib/geo';
 import { track } from '../lib/analytics';
 
 const MapView = lazy(() => import('./MapView'));
@@ -120,6 +120,14 @@ function MapSection({
   // '+N개 더' 를 펼친 나라 (다른 나라로 바뀌면 저절로 접힌다)
   const [allSubFor, setAllSubFor] = useState<SubCountry | null>(null);
   const allSubChips = !!sub && allSubFor === sub;
+  // 동아시아 확대 (지도 전용 — 목록 필터 regions 는 그대로). 한국·일본은 지역이 나라 하나라 첫 클릭은 이걸로
+  const [near, setNear] = useState(false);
+  const nearOn = near && scope !== 'kr' && !zone && !sub;
+  useEffect(() => setNear(false), [scope]);
+  // 지역·주·도 지도가 생기면 푼다. 지역이 없어질 때는 그대로 (다른 지역 확대 중 한국·일본 클릭 = 지역 풀고 동아시아로)
+  useEffect(() => {
+    if (zone || sub) setNear(false);
+  }, [zone, sub]);
 
   const toList = () => document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
 
@@ -180,6 +188,28 @@ function MapSection({
     // 그 시·도로 확대되는 걸 보도록 스크롤하지 않는다
     if (scope === 'kr') return pick(id, false);
     if (sub) return pickSub(id, false);
+    // 동아시아 확대 중: 그 안의 나라는 선택, 밖의 나라는 아래 규칙대로 그 지역으로
+    if (nearOn) {
+      setNear(false);
+      if (id === 'kr') return toKorea();
+      if (EAST_ASIA.includes(id)) {
+        const r = geo.regionOf[id];
+        if (!r) return;
+        if (r === '일본') return enterZone(r);
+        onRegions([r]);
+        onPlace(id);
+        track('map_select', { place: id });
+        if (!isSubCountry(id)) toList();
+        return;
+      }
+    }
+    // 한국·일본 첫 클릭은 바로 들어가지 않고 동아시아로 확대만 ('아시아' 확대 중이면 아래에서 바로 선택)
+    if (EAST_ASIA_ENTRY.includes(id) && zone !== '아시아' && zone !== geo.regionOf[id]) {
+      if (zone) leaveZone();
+      setNear(true);
+      track('map_region', { region: '동아시아' });
+      return;
+    }
     if (id === 'kr') return toKorea();
     const r = geo.regionOf[id];
     if (!r) return pick(id, true);
@@ -299,18 +329,20 @@ function MapSection({
               counts={scope === 'kr' ? geo.province : sub ? (geo.sub[sub] ?? NO_COUNTS) : geo.country}
               names={geo.names}
               selected={sub ? subPicked : place}
-              focus={sub ? NO_ZONE : zoneIds}
+              focus={sub ? NO_ZONE : nearOn ? EAST_ASIA : zoneIds}
               onSelect={onMapSelect}
               onBack={
-                sub
-                  ? subPicked
-                    ? () => onPlace(sub)
-                    : undefined
-                  : zone
-                    ? leaveZone
-                    : scope === 'kr' && place
-                      ? () => onPlace(null)
+                nearOn
+                  ? () => setNear(false)
+                  : sub
+                    ? subPicked
+                      ? () => onPlace(sub)
                       : undefined
+                    : zone
+                      ? leaveZone
+                      : scope === 'kr' && place
+                        ? () => onPlace(null)
+                        : undefined
               }
             />
           </Suspense>
@@ -335,7 +367,7 @@ function MapSection({
                 ? '시·도를 누르면 그곳 대회만 보입니다.'
                 : sub
                   ? '주·도를 누르면 그곳 대회만 보입니다.'
-                  : zone
+                  : zone || nearOn
                   ? '나라를 누르면 그 나라 대회만 보입니다. 다른 지역 나라를 누르면 그 지역으로 옮겨 갑니다.'
                   : '나라를 누르면 그 지역(아시아·유럽 등)으로 확대되고, 한 번 더 누르면 그 나라 대회만 보입니다.'}{' '}
               색이 진할수록 대회가 많습니다. 두 손가락이나 휠로 확대하고 끌어서 옮깁니다.
