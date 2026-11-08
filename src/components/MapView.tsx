@@ -2,21 +2,63 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { Plus, Minus, ArrowsIn, ArrowLeft } from '@phosphor-icons/react';
 import { union, type Box } from '../lib/geo';
 import { MAP_SELECTED, mapFill, mapStep } from '../lib/mapColor';
+import type { SubCountry } from '../lib/subregions';
 import MapLegend from './MapLegend';
 // 지도는 JS 모듈 대신 JSON 파일로 받아 res.json() 으로 읽는다 (800KB 짜리 JS 를 해석·실행하지 않게)
 import koreaUrl from '../maps/korea.json?url';
 import worldUrl from '../maps/world.json?url';
+// 주·도 지도 8개 (Natural Earth admin-1, .duo-data/submaps/gen.mjs 로 만듦). 그 나라를 고를 때만 받는다
+import jpUrl from '../maps/jp.json?url';
+import usUrl from '../maps/us.json?url';
+import auUrl from '../maps/au.json?url';
+import deUrl from '../maps/de.json?url';
+import frUrl from '../maps/fr.json?url';
+import cnUrl from '../maps/cn.json?url';
+import gbUrl from '../maps/gb.json?url';
+import nzUrl from '../maps/nz.json?url';
 // 조각별 경계 상자 중 가장 큰 것 = geo.ts 의 mainBox(d). 791KB 의 d 를 화면에서 훑지 않게 미리 계산해 둔 것
 // (지도 json 이 바뀌면 다시 만든다: node .duo-data/perf/gen-boxes.mjs)
 import koreaBoxes from '../maps/korea-boxes.json';
 import worldBoxes from '../maps/world-boxes.json';
+// 주·도 지도 boxes: node .duo-data/submaps/gen-boxes.mjs
+import jpBoxes from '../maps/jp-boxes.json';
+import usBoxes from '../maps/us-boxes.json';
+import auBoxes from '../maps/au-boxes.json';
+import deBoxes from '../maps/de-boxes.json';
+import frBoxes from '../maps/fr-boxes.json';
+import cnBoxes from '../maps/cn-boxes.json';
+import gbBoxes from '../maps/gb-boxes.json';
+import nzBoxes from '../maps/nz-boxes.json';
 
-type Kind = 'kr' | 'world';
+/** kr = 국내 시·도, world = 세계, 그 밖 = 그 나라 주·도 지도 */
+type Kind = 'kr' | 'world' | SubCountry;
 type MapData = { viewBox: string; locations: { id: string; d: string }[]; boxes: Map<string, Box> };
 type Pt = { x: number; y: number };
 
-const BOXES: Record<Kind, Record<string, number[]>> = { kr: koreaBoxes, world: worldBoxes };
-const URLS: Record<Kind, string> = { kr: koreaUrl, world: worldUrl };
+const BOXES: Record<Kind, Record<string, number[]>> = {
+  kr: koreaBoxes,
+  world: worldBoxes,
+  jp: jpBoxes,
+  us: usBoxes,
+  au: auBoxes,
+  de: deBoxes,
+  fr: frBoxes,
+  cn: cnBoxes,
+  gb: gbBoxes,
+  nz: nzBoxes,
+};
+const URLS: Record<Kind, string> = {
+  kr: koreaUrl,
+  world: worldUrl,
+  jp: jpUrl,
+  us: usUrl,
+  au: auUrl,
+  de: deUrl,
+  fr: frUrl,
+  cn: cnUrl,
+  gb: gbUrl,
+  nz: nzUrl,
+};
 const cache: Partial<Record<Kind, MapData>> = {};
 // 받는 중인 것은 같이 기다린다 (StrictMode 의 두 번 실행에도 한 번만 받고 한 번만 읽게)
 const pending: Partial<Record<Kind, Promise<MapData>>> = {};
@@ -43,10 +85,31 @@ const MIN_FIT_W = 100;
 const MIN_PICK_W = 60;
 /** 국내 지도에서 시·도 하나를 고를 때 최소 폭 (지도 단위, 전체 524). 세종·대전·광주도 둘레가 보이게 */
 const MIN_PROVINCE_W = 120;
+/** 주·도 지도에서 주·도 하나를 고를 때 최소 폭 (지도 전체 폭 비율 — 국내 120/524 와 비슷하게). 도쿄도·베를린·DC 도 둘레가 보이게 */
+const MIN_SUB_SHARE = 0.22;
 /** 이보다 넓은 나라(러시아·캐나다 등)는 대회가 가장 많은 나라가 아니면 맞춤에서 뺀다 */
 const HUGE_W = 180;
 /** 대회 비중이 이보다 작은 나라가 화면을 25% 넘게 넓히면 맞춤에서 뺀다 (그린란드·북마리아나 등) */
 const MINOR_SHARE = 0.03;
+
+/**
+ * 지도 상자 크기 (Tailwind 가 읽게 글자 그대로). 주·도 지도는 viewBox 비율 그대로, 높이 제한은 국내 지도와 같게
+ * (지도를 다시 만들어 viewBox 가 바뀌면 비율도 고친다)
+ */
+const SIZE: Record<Kind, string> = {
+  kr: 'aspect-[524/631] max-h-[340px] sm:max-h-[520px]',
+  world: 'aspect-[5/4] max-h-[420px] sm:aspect-auto sm:h-[min(62vh,560px)] sm:max-h-none',
+  jp: 'aspect-[1000/1140] max-h-[340px] sm:max-h-[520px]',
+  us: 'aspect-[1000/625] max-h-[340px] sm:max-h-[520px]',
+  au: 'aspect-[1000/955] max-h-[340px] sm:max-h-[520px]',
+  de: 'aspect-[1000/1352] max-h-[340px] sm:max-h-[520px]',
+  fr: 'aspect-[1000/960] max-h-[340px] sm:max-h-[520px]',
+  cn: 'aspect-[1000/837] max-h-[340px] sm:max-h-[520px]',
+  gb: 'aspect-[1000/1577] max-h-[340px] sm:max-h-[520px]',
+  nz: 'aspect-[1000/1442] max-h-[340px] sm:max-h-[520px]',
+};
+/** 범례를 오른쪽 아래에 두는 지도 (국내: 왼쪽 아래가 제주, 일본: 오키나와, 미국: 알래스카·하와이, 뉴질랜드: 남섬). 나머지는 왼쪽 아래 */
+const LEGEND_RIGHT = new Set<Kind>(['kr', 'jp', 'us', 'nz']);
 
 const parseBox = (s: string): Box => {
   const [x, y, w, h] = s.split(' ').map(Number);
@@ -230,7 +293,14 @@ export default function MapView({
   useLayoutEffect(() => {
     if (!map || !ratio) return;
     const full = parseBox(map.viewBox);
-    const minW = kind === 'kr' ? MIN_PROVINCE_W : picked && focus.length > 1 ? MIN_PICK_W : MIN_FIT_W;
+    const minW =
+      kind === 'kr'
+        ? MIN_PROVINCE_W
+        : kind !== 'world'
+          ? full.w * MIN_SUB_SHARE
+          : picked && focus.length > 1
+            ? MIN_PICK_W
+            : MIN_FIT_W;
     const b = toRatio(fitIds(target, minW) ?? full, ratio);
     const prev = lastKey.current;
     lastKey.current = targetKey;
@@ -391,7 +461,7 @@ export default function MapView({
 
   // 세계 지도의 한국은 국내 대회 전체라 다른 나라보다 훨씬 많다 → 단계 기준에서 빼야 다른 나라 색이 다 연해지지 않는다
   const max = useMemo(
-    () => Math.max(1, ...Object.entries(counts).filter(([id]) => kind === 'kr' || id !== 'kr').map(([, n]) => n)),
+    () => Math.max(1, ...Object.entries(counts).filter(([id]) => kind !== 'world' || id !== 'kr').map(([, n]) => n)),
     [counts, kind],
   );
 
@@ -403,16 +473,13 @@ export default function MapView({
   const select = useCallback((id: string) => onSelectRef.current(id), []);
 
   // CSS 로 크기를 정한다 (viewBox 와 상관없이 → 비율 측정과 되먹임 없음). PC 에서 더 크게
-  const size =
-    kind === 'kr'
-      ? 'aspect-[524/631] max-h-[340px] sm:max-h-[520px]'
-      : 'aspect-[5/4] max-h-[420px] sm:aspect-auto sm:h-[min(62vh,560px)] sm:max-h-none';
+  const size = SIZE[kind];
 
   if (!map) {
     return <div className={`w-full animate-pulse rounded-box bg-sunken ${size}`} />;
   }
 
-  const sel = kind === 'world' && selected ? boxes.get(selected) : undefined;
+  const sel = kind !== 'kr' && selected ? boxes.get(selected) : undefined;
   const ring =
     sel && base && Math.max(sel.w, sel.h) < base.w * 0.03
       ? { x: sel.x + sel.w / 2, y: sel.y + sel.h / 2, r: Math.max(base.w * 0.035, Math.max(sel.w, sel.h)) }
@@ -433,7 +500,7 @@ export default function MapView({
         // 처음 화면에서는 한 손가락 세로 스와이프를 페이지 스크롤로 넘기고, 확대한 뒤에는 지도를 옮긴다
         style={{ touchAction: zoomed ? 'none' : 'pan-y', WebkitTapHighlightColor: 'transparent' }}
         role="group"
-        aria-label={kind === 'kr' ? '시·도별 대회 지도' : '나라별 대회 지도'}
+        aria-label={kind === 'kr' ? '시·도별 대회 지도' : kind === 'world' ? '나라별 대회 지도' : '주·도별 대회 지도'}
         onMouseLeave={() => setHover(null)}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -491,8 +558,8 @@ export default function MapView({
           </div>
         ) : null}
       </div>
-      {/* 국내 지도는 왼쪽 아래가 제주라 가리지 않게 오른쪽 아래(남해 바다) */}
-      <div className={`absolute bottom-2 ${kind === 'kr' ? 'right-2' : 'left-2'}`}>
+      {/* 국내 지도는 왼쪽 아래가 제주라 가리지 않게 오른쪽 아래(남해 바다). 주·도 지도도 땅을 덜 가리는 쪽 */}
+      <div className={`absolute bottom-2 ${LEGEND_RIGHT.has(kind) ? 'right-2' : 'left-2'}`}>
         <MapLegend max={max} />
       </div>
       <div className="absolute top-2 right-2 flex flex-col divide-y divide-line overflow-hidden rounded-ctl border border-line shadow-[0_1px_2px_var(--shadow)]">
@@ -552,7 +619,7 @@ const Paths = memo(function Paths({
         fill={fill(id)}
         fillOpacity={dim ? 0.45 : undefined}
         stroke="var(--bg)"
-        strokeWidth={kind === 'kr' ? 1.2 : 0.4}
+        strokeWidth={kind === 'kr' ? 1.2 : kind === 'world' ? 0.4 : 0.8}
         vectorEffect="non-scaling-stroke"
         className={n ? 'cursor-pointer transition-[fill,fill-opacity] duration-150 hover:brightness-95 focus:outline-none' : ''}
         {...(n
