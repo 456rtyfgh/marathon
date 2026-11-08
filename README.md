@@ -90,3 +90,11 @@ SPA 라우팅은 `not_found_handling: single-page-application` 로 처리된다.
 - 여행사 패키지 가격은 공개 상품가 기준이며 출발일·객실 조건에 따라 달라진다. 대부분 **대회 참가비
   불포함**이다.
 - 각 대회 카드의 "출처 확인" 링크와 `last_verified` 로 언제 확인한 정보인지 추적할 수 있다.
+
+## 6. 지도 출처
+
+- 국내 시·도 지도 `src/maps/korea.json`, 세계 지도 `src/maps/world.json` — [svg-maps](https://github.com/VictorCazanave/svg-maps)
+  `@svg-maps/south-korea`·`@svg-maps/world` (Victor Cazanave, CC BY 4.0).
+- 주·도 지도 8개 `src/maps/{jp,us,au,de,fr,cn,gb,nz}.json` — [Natural Earth](https://www.naturalearthdata.com/)
+  `ne_10m_admin_1_states_provinces` v5.1.1 (공개 도메인). mapshaper 로 나라별로 거르고(프랑스는 레지옹 13개, 영국은 4개로 합침,
+  먼 작은 섬은 뺌) 투영·단순화한 뒤 좌표를 소수 1자리로 줄였다. id 는 ISO 3166-2 코드(`races.subregion` 과 같음).
