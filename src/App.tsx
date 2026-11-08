@@ -335,19 +335,20 @@ function Main() {
 
   // 검색창에서 엔터(모바일 '검색' 키): 키보드를 닫고 결과(0개면 '찾지 못했습니다' 안내)로 내려간다.
   // 입력 중엔 스크롤하지 않는다. 목록(dq)이 입력(q)을 따라잡은 뒤에 한 번만
+  // (목록을 불러오는 중이면 다 불러온 뒤에 — 그 사이 위쪽 '요즘 많이 보는 대회' 가 생겨 목록이 밀려 내려가므로)
   const searchRef = useRef<HTMLInputElement>(null);
   const jumpRef = useRef(false);
   const onSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
     searchRef.current?.blur();
-    if (dq === q) scrollToResults();
+    if (dq === q && remote !== 'loading') scrollToResults();
     else jumpRef.current = true;
   };
   useEffect(() => {
-    if (!jumpRef.current || dq !== q) return;
+    if (!jumpRef.current || dq !== q || remote === 'loading') return;
     jumpRef.current = false;
     scrollToResults();
-  }, [dq, q]);
+  }, [dq, q, remote]);
   useEffect(() => {
     if (maxFlight >= 24) return;
     const t = setTimeout(() => track('filter', { name: 'flight', value: `${maxFlight}h` }), 1200);
