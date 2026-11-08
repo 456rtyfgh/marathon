@@ -27,6 +27,7 @@ import CostCalculator from './CostCalculator';
 import PackageTable from './PackageTable';
 import AlertForm from './AlertForm';
 import ReviewsTab from './ReviewsTab';
+import SimilarRaces from './SimilarRaces';
 import { Button, CloseButton, Input, Note, Tabs } from './ui';
 import { useAuth } from '../lib/auth';
 import { submitSoldOutReport } from '../lib/data';
@@ -48,6 +49,11 @@ export default function RaceDetail({
   onToggleRegistered,
   onClose,
   onLogin,
+  races,
+  ratingMap,
+  isFavorite,
+  isRegistered,
+  onOpenRace,
 }: {
   race: Race;
   agencies: Agency[];
@@ -60,6 +66,12 @@ export default function RaceDetail({
   onToggleRegistered: () => void;
   onClose: () => void;
   onLogin: () => void;
+  /** 아래 다섯 개는 '비슷한 대회' 용. races 가 없으면 그 구역을 그리지 않는다 */
+  races?: Race[];
+  ratingMap?: Map<string, RaceRating>;
+  isFavorite?: (id: string) => boolean;
+  isRegistered?: (id: string) => boolean;
+  onOpenRace?: (race: Race) => void;
 }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [copied, setCopied] = useState(false);
@@ -349,6 +361,17 @@ export default function RaceDetail({
               대회 일정과 접수 기간은 매년 바뀌고 예고 없이 달라지기도 합니다. 신청 전에는 공식 홈페이지에서 한 번 더
               확인하세요.
             </p>
+
+            {races && onOpenRace && (
+              <SimilarRaces
+                race={race}
+                races={races}
+                ratingMap={ratingMap}
+                isFavorite={isFavorite}
+                isRegistered={isRegistered}
+                onOpen={onOpenRace}
+              />
+            )}
           </div>
         )}
 
