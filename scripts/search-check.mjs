@@ -32,12 +32,14 @@ const CASES = [
   ['더레이스', null],
   ['나눔 레이스', null],
   ['마랕', null],
+  // 교보로런 = 더 레이스 서울 21K 안의 행사 (표기 사전)
+  ['교보', '더 레이스 서울'],
+  ['교보로런', '더 레이스 서울'],
   // 파트 B 가 넣는 대회
   ['치토세ㅣ', '치토세'],
   ['chitose', '치토세'],
   ['치토세', '치토세'],
 ];
-if (races.some((r) => r.name_ko.includes('교보'))) CASES.push(['교보', '교보']);
 
 // 옛 방식 그대로 (App.tsx 의 hay.includes) — 흔한 검색이 줄지 않았는지 비교용
 const oldCount = (q) =>
