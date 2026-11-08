@@ -100,7 +100,7 @@ const SIZE: Record<Kind, string> = {
   kr: 'aspect-[524/631] max-h-[340px] sm:max-h-[520px]',
   world: 'aspect-[5/4] max-h-[420px] sm:aspect-auto sm:h-[min(62vh,560px)] sm:max-h-none',
   jp: 'aspect-[1000/1140] max-h-[340px] sm:max-h-[520px]',
-  us: 'aspect-[1000/625] max-h-[340px] sm:max-h-[520px]',
+  us: 'aspect-[1200/625] max-h-[340px] sm:max-h-[520px]',
   au: 'aspect-[1000/955] max-h-[340px] sm:max-h-[520px]',
   de: 'aspect-[1000/1352] max-h-[340px] sm:max-h-[520px]',
   fr: 'aspect-[1000/960] max-h-[340px] sm:max-h-[520px]',
@@ -108,6 +108,14 @@ const SIZE: Record<Kind, string> = {
   gb: 'aspect-[1000/1577] max-h-[340px] sm:max-h-[520px]',
   nz: 'aspect-[1000/1442] max-h-[340px] sm:max-h-[520px]',
 };
+/**
+ * 처음 화면에서 오른쪽에 비워 둘 폭 (지도 폭 대비). 미국은 동북부의 작은 주들이 오른쪽 끝이라
+ * 휴대폰에서 오른쪽 위 확대 버튼에 가려 누를 수 없다 → 그만큼 비우고, SIZE 의 비율도 같이 넓힌다 (1000 × 1.2 = 1200).
+ * 상자가 넓어 가운데 맞춤만으로 그만큼 비는 PC 에서는 가운데 그대로
+ */
+const PAD_RIGHT: Partial<Record<Kind, number>> = { us: 0.2 };
+/** 오른쪽 위 확대 버튼 줄이 차지하는 폭 (px — 휴대폰 버튼 44 + 여백) */
+const CTL_ROOM = 56;
 /** 범례를 오른쪽 아래에 두는 지도 (국내: 왼쪽 아래가 제주, 일본: 오키나와, 미국: 알래스카·하와이, 뉴질랜드: 남섬). 나머지는 왼쪽 아래 */
 const LEGEND_RIGHT = new Set<Kind>(['kr', 'jp', 'us', 'nz']);
 
@@ -301,11 +309,16 @@ export default function MapView({
           : picked && focus.length > 1
             ? MIN_PICK_W
             : MIN_FIT_W;
-    const b = toRatio(fitIds(target, minW) ?? full, ratio);
+    // 상자가 넓어 가운데 맞춤만으로 오른쪽에 버튼 자리가 나면(PC) 그대로 가운데
+    const centered = toRatio(full, ratio);
+    const room = ((centered.x + centered.w - full.w) / centered.w) * (svgRef.current?.getBoundingClientRect().width ?? 0);
+    const pad = PAD_RIGHT[kind];
+    const home = pad && room < CTL_ROOM ? { ...full, w: full.w * (1 + pad) } : full;
+    const b = toRatio(fitIds(target, minW) ?? home, ratio);
     const prev = lastKey.current;
     lastKey.current = targetKey;
     baseRef.current = b;
-    const f = toRatio(full, ratio);
+    const f = toRatio(home, ratio);
     const x1 = Math.min(f.x, b.x), y1 = Math.min(f.y, b.y);
     boundsRef.current = { x: x1, y: y1, w: Math.max(f.x + f.w, b.x + b.w) - x1, h: Math.max(f.y + f.h, b.y + b.h) - y1 };
     setBase(b);
