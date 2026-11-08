@@ -48,6 +48,8 @@ export interface Race {
   elevation_gain?: number | null;
   /** 정원이 차서 조기 마감된 날 (YYYY-MM-DD). 없거나 null 이면 확인 안 됨 */
   sold_out_on?: string | null;
+  /** 주·도 (ISO 3166-2, 예 US-CA·JP-13). 일본·미국·호주·독일·프랑스·중국·영국·뉴질랜드만 채운다 */
+  subregion?: string | null;
 }
 
 export interface Agency {
