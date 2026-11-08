@@ -148,7 +148,7 @@ const toRatio = (b: Box, ratio: number): Box => {
 /**
  * 시·도(국내) 또는 나라(해외) 별 대회 수를 색으로 보여 주는 지도.
  * 색이 칠해진 곳을 누르면 onSelect(id) — 지역 확대인지 나라 선택인지는 부모(MapSection)가 정한다.
- * selected(고른 나라·시·도) → focus(지역 나라들) 순으로 그곳이 꽉 차게 확대한다.
+ * selected(고른 나라·시·도들 — 여러 곳이면 모두 들어가게) → focus(지역 나라들) 순으로 그곳이 꽉 차게 확대한다.
  * 두 손가락·휠로 더 확대하고, 확대한 뒤에는 끌어서 옮긴다.
  */
 export default function MapView({
@@ -164,7 +164,8 @@ export default function MapView({
   kind: Kind;
   counts: Record<string, number>;
   names: Record<string, string>;
-  selected: string | null;
+  /** 고른 곳들 (선택 색). 그릴 때마다 새 배열을 넘기면 path 묶음의 memo 가 깨진다 */
+  selected: string[];
   /** 이 지역들이 꽉 차게 확대 (예: 유럽 나라들). 밖의 나라는 흐리게 */
   focus: string[];
   onSelect: (id: string) => void;
@@ -299,8 +300,9 @@ export default function MapView({
   useEffect(() => () => cancelAnimationFrame(anim.current), []);
 
   // 맞춤 대상: 고른 나라·시·도 → 지역 나라들 → 지도 전체
-  const picked = !!selected && boxes.has(selected);
-  const target = picked ? [selected!] : focus;
+  const pickedIds = selected.filter((id) => boxes.has(id));
+  const picked = pickedIds.length > 0;
+  const target = picked ? pickedIds : focus;
   const targetKey = `${kind}|${target.join(',')}|${ratio}`;
   const lastKey = useRef('');
   useLayoutEffect(() => {
@@ -523,13 +525,14 @@ export default function MapView({
     return <div className={`w-full animate-pulse rounded-box bg-sunken ${size}`} />;
   }
 
-  const sel = kind !== 'kr' && selected ? boxes.get(selected) : undefined;
+  const one = selected.length === 1 ? selected[0] : null;
+  const sel = kind !== 'kr' && one ? boxes.get(one) : undefined;
   const ring =
     sel && base && Math.max(sel.w, sel.h) < base.w * 0.03
       ? { x: sel.x + sel.w / 2, y: sel.y + sel.h / 2, r: Math.max(base.w * 0.035, Math.max(sel.w, sel.h)) }
       : null;
 
-  const tip = hover ?? selected;
+  const tip = hover ?? one;
   const zoomed = zoom > 1.001;
   const moved = zoomed || panned;
   const ctl =
@@ -651,21 +654,21 @@ const Paths = memo(function Paths({
   counts: Record<string, number>;
   names: Record<string, string>;
   max: number;
-  selected: string | null;
+  selected: string[];
   focus: string[];
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
 }) {
   const inFocus = (id: string) => !focus.length || focus.includes(id);
   const fill = (id: string) => {
-    if (id === selected) return MAP_SELECTED;
+    if (selected.includes(id)) return MAP_SELECTED;
     // 세계 지도의 한국은 max 보다 크므로 가장 진한 단계
     return mapFill(mapStep(counts[id] ?? 0, max));
   };
   return map.locations.map(({ id, d }) => {
     const n = counts[id] ?? 0;
     // 지역 확대 중 밖의 나라도 누를 수 있게 두고(그 지역으로 옮겨 감) 색만 흐리게
-    const dim = n > 0 && !inFocus(id) && id !== selected;
+    const dim = n > 0 && !inFocus(id) && !selected.includes(id);
     return (
       <path
         key={id}
@@ -681,7 +684,7 @@ const Paths = memo(function Paths({
               role: 'button',
               tabIndex: 0,
               'aria-label': `${names[id] ?? id} 대회 ${n}개`,
-              'aria-pressed': id === selected,
+              'aria-pressed': selected.includes(id),
               onClick: () => onSelect(id),
               onKeyDown: (e: React.KeyboardEvent) => {
                 if (e.key === 'Enter' || e.key === ' ') {

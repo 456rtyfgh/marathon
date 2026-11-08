@@ -42,3 +42,8 @@ export function matchesPlace(race: Race, domestic: boolean, place: string): bool
   if (isSubregionId(place)) return subOf(race) === place;
   return placeOf(race, domestic) === place;
 }
+
+/** 고른 곳 여러 개의 합집합. 비어 있으면 거르지 않음 */
+export function matchesPlaces(race: Race, domestic: boolean, places: string[]): boolean {
+  return places.length === 0 || places.some((p) => matchesPlace(race, domestic, p));
+}

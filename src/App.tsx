@@ -23,7 +23,7 @@ import { AuthBar, AuthForm } from './components/AuthPanel';
 import { Panel, Note, MoreButton } from './components/ui';
 import { Logo } from './components/Logo';
 import MapSection, { type Scope } from './components/MapSection';
-import { matchesPlace, placeOf } from './lib/places';
+import { matchesPlaces, placeOf } from './lib/places';
 import { buildIndex, searchRaces, suggestRaces } from './lib/search';
 import { track, pageView } from './lib/analytics';
 
@@ -74,10 +74,11 @@ function Main() {
   const [q, setQ] = useState(() => new URLSearchParams(location.search).get('q') ?? '');
   const [scope, setScope] = useState<Scope>('all');
   const [regions, setRegions] = useState<Region[]>([]);
-  // 지도·칩에서 고른 곳: 국내는 시·도 id, 해외는 나라 코드(소문자), 'kr' 은 국내 전체
-  const [place, setPlace] = useState<string | null>(null);
+  // 지도·칩에서 고른 곳들 (여러 곳이면 합집합): 국내는 시·도 id, 해외는 나라 코드(소문자)·주·도('US-CA'), 'kr' 은 국내 전체
+  const [places, setPlaces] = useState<string[]>([]);
   const [types, setTypes] = useState<EntryType[]>([]);
-  const [status, setStatus] = useState<StatusFilter | null>(null);
+  // 접수 상태 (여러 개면 합집합)
+  const [status, setStatus] = useState<StatusFilter[]>([]);
   const [majorOnly, setMajorOnly] = useState(false);
   const [maxFlight, setMaxFlight] = useState(24);
   const [sort, setSort] = useState<Sort>('entry');
@@ -220,6 +221,13 @@ function Main() {
   const hits = useMemo(() => (dq.trim() ? searchRaces(searchIndex, dq) : null), [searchIndex, dq]);
 
   const groups = useMemo(() => {
+    const statusMatch = (r: Race, st: EntryStatus, s: StatusFilter) => {
+      if (s === 'closing7') return st === 'open' && !!r.entry_closes && daysBetween(today, r.entry_closes) <= 7;
+      if (s === 'opening30') return st === 'upcoming' && !!r.entry_opens && daysBetween(today, r.entry_opens) <= 30;
+      // '접수 끝' 칩은 정원이 차서 일찍 끝난 대회도 함께 보여 준다
+      if (s === 'closed') return st === 'closed' || st === 'soldout';
+      return st === s;
+    };
     const matches = (r: Race) => {
       const x = info.get(r)!;
       if (favOnly && !fav.ids.includes(r.id)) return false;
@@ -229,19 +237,9 @@ function Main() {
       if (scope === 'abroad' && x.domestic) return false;
       if (majorOnly && !r.is_major) return false;
       if (regions.length && !regions.includes(r.region)) return false;
-      if (place && !matchesPlace(r, x.domestic, place)) return false;
+      if (!matchesPlaces(r, x.domestic, places)) return false;
       if (types.length && !types.includes(r.entry_type)) return false;
-      if (status) {
-        const st = x.status;
-        if (status === 'closing7') {
-          if (st !== 'open' || !r.entry_closes || daysBetween(today, r.entry_closes) > 7) return false;
-        } else if (status === 'opening30') {
-          if (st !== 'upcoming' || !r.entry_opens || daysBetween(today, r.entry_opens) > 30) return false;
-        } else if (status === 'closed') {
-          // '접수 끝' 칩은 정원이 차서 일찍 끝난 대회도 함께 보여 준다
-          if (st !== 'closed' && st !== 'soldout') return false;
-        } else if (st !== status) return false;
-      }
+      if (status.length && !status.some((s) => statusMatch(r, x.status, s))) return false;
       if (!x.domestic && r.flight_hours != null && r.flight_hours > maxFlight) return false;
       if (hits && !hits.has(r)) return false;
       return true;
@@ -294,7 +292,7 @@ function Main() {
             ? '저장순 (캘린더 저장 수 많은 순)'
             : '조회순 (조회 수 많은 순)';
     return [{ key: 'all', title, races: sorted }];
-  }, [upcomingRaces, info, hits, scope, regions, place, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, discipline]);
+  }, [upcomingRaces, info, hits, scope, regions, places, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, discipline]);
 
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
   // 검색 결과 0개일 때 '혹시 이 대회인가요?' (필터와 무관하게 다가오는 대회 중). 결과 수(shown)에는 넣지 않는다 → search_empty 기록 그대로
@@ -303,15 +301,15 @@ function Main() {
     [shown, dq, searchIndex],
   );
   const activeFilters =
-    types.length + (status ? 1 : 0) + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0) + (discipline ? 1 : 0);
+    types.length + status.length + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0) + (discipline ? 1 : 0);
 
   const reset = () => {
     setQ('');
     setScope('all');
     setRegions([]);
-    setPlace(null);
+    setPlaces([]);
     setTypes([]);
-    setStatus(null);
+    setStatus([]);
     setMajorOnly(false);
     setMaxFlight(24);
     setFavOnly(false);
@@ -340,14 +338,14 @@ function Main() {
 
   // 묶음(접수 중·곧 시작…)마다 처음 GROUP_PAGE 개만, '더 보기' 한 번에 GROUP_MORE 개씩 더.
   // 다시 접는 건 필터·정렬 값이 바뀔 때만 — groups 는 저장·접수 표시에도 다시 만들어져서 거기에 걸면 ☆ 하나에 접혀 버린다
-  const foldKey = JSON.stringify([dq.trim(), scope, regions, place, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, discipline]);
+  const foldKey = JSON.stringify([dq.trim(), scope, regions, places, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, discipline]);
   const [unfold, setUnfold] = useState<{ key: string; n: Record<string, number> }>({ key: foldKey, n: {} });
   // 키가 바뀌는 순간 비운다 (렌더 중 갱신). 비교만 하면 검색어를 지워 원래 키로 돌아올 때 예전 펼침이 되살아난다
   if (unfold.key !== foldKey) setUnfold({ key: foldKey, n: {} });
   const opened = unfold.key === foldKey ? unfold.n : null;
   const showMore = (g: string, now: number) => setUnfold({ key: foldKey, n: { ...opened, [g]: now + GROUP_MORE } });
   // 검색·필터로 좁혀서 결과가 적으면 접지 않고 전부
-  const narrowed = !!dq.trim() || activeFilters > 0 || !!place || regions.length > 0 || favOnly || regOnly;
+  const narrowed = !!dq.trim() || activeFilters > 0 || places.length > 0 || regions.length > 0 || favOnly || regOnly;
   const showAll = narrowed && shown <= SHOW_ALL_UNDER;
   const visible = useMemo(
     () =>
@@ -368,12 +366,12 @@ function Main() {
         races={upcomingRaces}
         regions={regions}
         onRegions={setRegions}
-        place={place}
-        onPlace={setPlace}
+        places={places}
+        onPlaces={setPlaces}
         onScope={setScope}
       />
     ),
-    [scope, upcomingRaces, regions, place],
+    [scope, upcomingRaces, regions, places],
   );
 
   const openRequest = (from: string) => {
@@ -384,9 +382,11 @@ function Main() {
   const toggle = <T,>(list: T[], set: (v: T[]) => void, v: T) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
+  /** 현황판 숫자: 그것만 고른다 (그것만 골라져 있으면 풀기). 칩에서 더 얹으면 합쳐진다 */
   const pickStatus = (s: StatusFilter) => {
-    if (status !== s) track('filter', { name: 'status', value: s });
-    setStatus((cur) => (cur === s ? null : s));
+    const only = status.length === 1 && status[0] === s;
+    if (!only) track('filter', { name: 'status', value: s });
+    setStatus(only ? [] : [s]);
     setSort('entry');
     document.getElementById('list')?.scrollIntoView({ block: 'start' });
   };
@@ -449,18 +449,18 @@ function Main() {
           </div>
 
           <div className="grid grid-cols-3 gap-px overflow-hidden rounded-box bg-line md:w-[27rem]">
-            <Stat label="지금 접수 중" value={stats.open} active={status === 'open'} onClick={() => pickStatus('open')} />
+            <Stat label="지금 접수 중" value={stats.open} active={status.includes('open')} onClick={() => pickStatus('open')} />
             <Stat
               label="7일 안에 마감"
               value={stats.closing7}
-              active={status === 'closing7'}
+              active={status.includes('closing7')}
               hot={stats.closing7 > 0}
               onClick={() => pickStatus('closing7')}
             />
             <Stat
               label="30일 안에 시작"
               value={stats.opening30}
-              active={status === 'opening30'}
+              active={status.includes('opening30')}
               onClick={() => pickStatus('opening30')}
             />
           </div>
@@ -531,7 +531,7 @@ function Main() {
                   onClick={() => {
                     setScope(s);
                     setRegions([]);
-                    setPlace(null);
+                    setPlaces([]);
                     if (s !== scope) track('filter', { name: 'scope', value: s });
                   }}
                   className={`flex h-9 items-center gap-1.5 rounded-[4px] px-3 sm:h-8 text-[14px] font-semibold transition ${
@@ -671,10 +671,10 @@ function Main() {
                   ).map(([s, label]) => (
                     <Chip
                       key={s}
-                      on={status === s}
+                      on={status.includes(s)}
                       onClick={() => {
-                        if (status !== s) track('filter', { name: 'status', value: s });
-                        setStatus(status === s ? null : s);
+                        if (!status.includes(s)) track('filter', { name: 'status', value: s });
+                        toggle(status, setStatus, s);
                       }}
                     >
                       {label}
