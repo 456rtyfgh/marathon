@@ -7,15 +7,20 @@ export const CAL_LABEL: Record<CalKind, string> = { race: '대회 날', open: '�
 /** 한국 시간 오늘 'YYYY-MM-DD'. 워커에서도 쓰므로 util.ts 를 끌어오지 않고 여기서 계산한다 */
 const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 
+/** 접수 일정이 공식 확정인가 (util.ts 의 isEntryConfirmed 와 같은 규칙. 워커에서도 쓰므로 여기 따로 둔다) */
+const entryConfirmed = (race: { entry_confidence?: string | null }) =>
+  race.entry_confidence !== 'expected' && race.entry_confidence !== 'tbc';
+
 /**
  * 이 대회에서 캘린더에 넣을 수 있는 날짜들 (접수일이 미공개면 빠진다).
- * 조기 마감된 대회는 접수 일정이 의미 없으니 대회 날만 남긴다.
+ * 조기 마감된 대회, 접수일이 예상값(확정 아님)인 대회는 대회 날만 남긴다.
  */
 export function calDates(
-  race: Pick<Race, 'race_date' | 'entry_opens' | 'entry_closes' | 'sold_out_on'>,
+  race: Pick<Race, 'race_date' | 'entry_opens' | 'entry_closes' | 'sold_out_on'> & { entry_confidence?: string | null },
   today = kstToday(),
 ): { kind: CalKind; date: string }[] {
   if (race.sold_out_on && race.sold_out_on <= today) return [{ kind: 'race', date: race.race_date }];
+  if (!entryConfirmed(race)) return [{ kind: 'race', date: race.race_date }];
   const out: { kind: CalKind; date: string }[] = [];
   if (race.entry_opens) out.push({ kind: 'open', date: race.entry_opens });
   if (race.entry_closes && race.entry_closes !== race.entry_opens) out.push({ kind: 'close', date: race.entry_closes });
@@ -35,7 +40,9 @@ const nextDay = (iso: string) => {
 
 /** 하루 종일 일정 .ics. 접수 시작·마감에는 하루 전 알림을 단다. (워커에서도 그대로 쓴다) */
 export function raceIcs(
-  race: Pick<Race, 'id' | 'name_ko' | 'city_ko' | 'country_ko' | 'official_url' | 'race_date' | 'entry_opens' | 'entry_closes' | 'sold_out_on'>,
+  race: Pick<Race, 'id' | 'name_ko' | 'city_ko' | 'country_ko' | 'official_url' | 'race_date' | 'entry_opens' | 'entry_closes' | 'sold_out_on'> & {
+    entry_confidence?: string | null;
+  },
   pageUrl: string,
   kinds: CalKind[] = ['race', 'open', 'close'],
 ): string {

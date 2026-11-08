@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Race } from '../lib/types';
 import { subscribeAlert } from '../lib/data';
 import { useAuth } from '../lib/auth';
-import { daysBetween, TODAY, fmtDate, isSoldOut, isCancelled } from '../lib/util';
+import { daysBetween, TODAY, fmtDate, isSoldOut, isCancelled, isEntryConfirmed } from '../lib/util';
 import { Button, Field, Input, Note } from './ui';
 import { track } from '../lib/analytics';
 
@@ -17,7 +17,8 @@ export default function AlertForm({ race }: { race: Race }) {
 
   const today = TODAY();
   const opensAhead = race.entry_opens && daysBetween(today, race.entry_opens) > 0;
-  const target = opensAhead ? race.entry_opens : race.entry_closes ?? race.entry_opens;
+  // 예상 접수일로는 알리지 않는다 → 확정 전에는 '공개되면 알려 드립니다' 화면
+  const target = !isEntryConfirmed(race) ? null : opensAhead ? race.entry_opens : race.entry_closes ?? race.entry_opens;
   const d = target ? daysBetween(today, target) : null;
 
   // 취소된 대회는 상세에서 알림 탭을 숨기지만, 다른 경로로 열려도 신청을 받지 않는다

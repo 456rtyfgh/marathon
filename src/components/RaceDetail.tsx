@@ -22,6 +22,9 @@ import {
   safeUrl,
   isCancelled,
   noteText,
+  isEntryConfirmed,
+  expectedEntryText,
+  monthDay,
 } from '../lib/util';
 import CostCalculator from './CostCalculator';
 import PackageTable from './PackageTable';
@@ -101,6 +104,9 @@ export default function RaceDetail({
   const raceDay = raceDayLine(race, today);
   const st = statusLine(race, today, registered);
   const soldOut = isSoldOut(race, today) ? dateParts(race.sold_out_on!) : null;
+  // 예상 접수일은 '미정' 으로 보이고 작은 글씨로만 '예상 M/D~M/D'
+  const entryConfirmed = isEntryConfirmed(race);
+  const expectedText = expectedEntryText(race, today);
   // 정원이 차서 끝나는 건 선착순·상시 접수뿐. 추첨·기록 기준 대회는 제보 대상이 아니다
   const canReport =
     raceDay.days != null && (race.entry_type === 'fcfs' || race.entry_type === 'open') && entryStatus(race, today) === 'open';
@@ -213,7 +219,9 @@ export default function RaceDetail({
                   ) : (
                     <>
                       {ENTRY_LABEL[race.entry_type]}
-                      {race.entry_confidence !== 'confirmed' && `, 일정 ${CONFIDENCE_LABEL[race.entry_confidence]}`}
+                      {expectedText
+                        ? `, ${expectedText}`
+                        : race.entry_confidence !== 'confirmed' && `, 일정 ${CONFIDENCE_LABEL[race.entry_confidence]}`}
                     </>
                   )}
                 </div>
@@ -265,7 +273,11 @@ export default function RaceDetail({
               <h3 className="text-[15px] font-bold">접수는 {ENTRY_LABEL[race.entry_type]}</h3>
               <p className="mt-1 max-w-[60ch] text-[15px] leading-relaxed text-ink-2">{ENTRY_DESC[race.entry_type]}</p>
               <dl className="mt-4 grid grid-cols-2 gap-3">
-                <Fact label="접수 시작" value={race.entry_opens ? fmtDate(race.entry_opens) : '미공개'} />
+                {entryConfirmed ? (
+                  <Fact label="접수 시작" value={race.entry_opens ? fmtDate(race.entry_opens) : '미공개'} />
+                ) : (
+                  <Fact label="접수 시작" value="미정" sub={race.entry_opens ? `예상 ${monthDay(race.entry_opens)}` : undefined} />
+                )}
                 {soldOut ? (
                   <Fact
                     label="접수 마감"
@@ -274,8 +286,10 @@ export default function RaceDetail({
                       race.entry_closes && race.sold_out_on! < race.entry_closes ? `원래 마감 ${fmtDate(race.entry_closes)}` : undefined
                     }
                   />
-                ) : (
+                ) : entryConfirmed ? (
                   <Fact label="접수 마감" value={race.entry_closes ? fmtDate(race.entry_closes) : '정원이 차면 마감'} />
+                ) : (
+                  <Fact label="접수 마감" value="미정" sub={race.entry_closes ? `예상 ${monthDay(race.entry_closes)}` : undefined} />
                 )}
               </dl>
               {!registered && mayFillEarly(race, today) && (
