@@ -1,0 +1,32 @@
+{
+  "id": "tokyo-newyear-half",
+  "name_ko": "도쿄 뉴이어 하프 마라톤",
+  "name_en": "Tokyo New Year Half Marathon",
+  "city_ko": "도쿄",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2027-01-10",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-08-01",
+  "entry_closes": "2026-10-31",
+  "entry_confidence": "confirmed",
+  "entry_fee": 8600,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "하프",
+    "10km"
+  ],
+  "field_size": null,
+  "course": "평지",
+  "flight_hours": 2.3,
+  "official_url": "https://hitech-half-marathon.net",
+  "source_url": "https://hitech-half-marathon.net",
+  "last_verified": "2026-11-07",
+  "notes_ko": "도쿄 기타구 신아라카와 오하시 야구장에서 열리는 새해 첫 공인 하프·10km 대회입니다. 이미 정원 마감되었고 하프 참가비는 8,600엔입니다.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-11-07"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "biwako",
+  "name_ko": "비와코 마라톤",
+  "name_en": "Biwako Marathon",
+  "city_ko": "시가 오쓰",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2027-03-14",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-08-03",
+  "entry_closes": "2026-10-30",
+  "entry_confidence": "confirmed",
+  "entry_fee": 15000,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "풀"
+  ],
+  "field_size": null,
+  "course": "평지",
+  "flight_hours": 2,
+  "official_url": "https://biwako-marathon.com/",
+  "source_url": "https://biwako-marathon.com/",
+  "last_verified": "2026-11-07",
+  "notes_ko": "일본 최대 호수 비와코 주변을 달리는 대회. 8/10 정원 도달로 마감.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-09-30"
+}

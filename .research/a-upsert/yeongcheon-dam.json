@@ -1,0 +1,33 @@
+{
+  "id": "yeongcheon-dam",
+  "name_ko": "영천댐마라톤",
+  "name_en": "Yeongcheon Dam Marathon",
+  "city_ko": "경북 영천",
+  "country_ko": "대한민국",
+  "country_code": "KR",
+  "region": "한국",
+  "race_date": "2026-11-07",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-09-01",
+  "entry_closes": null,
+  "entry_confidence": "confirmed",
+  "entry_fee": 40000,
+  "entry_fee_currency": "KRW",
+  "distances": [
+    "하프",
+    "10km",
+    "5km"
+  ],
+  "field_size": null,
+  "course": "언덕",
+  "flight_hours": 2.5,
+  "official_url": "http://runyc.kr/",
+  "source_url": "http://runyc.kr/",
+  "last_verified": "2026-11-07",
+  "notes_ko": "영천댐공원 일원에서 열리는 하프·10km·5km 대회. 공식 사이트 기준 접수는 9월 1일 시작해 현재 마감됐고 하프 참가비 4만원.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-11-07"
+}

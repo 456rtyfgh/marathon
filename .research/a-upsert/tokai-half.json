@@ -1,0 +1,31 @@
+{
+  "id": "tokai-half",
+  "name_ko": "도카이 하프 마라톤",
+  "name_en": "Tokai Half Marathon",
+  "city_ko": "아이치 도카이",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2026-12-13",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-07-17",
+  "entry_closes": null,
+  "entry_confidence": "confirmed",
+  "entry_fee": 5500,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "하프"
+  ],
+  "field_size": 3500,
+  "course": "평지",
+  "flight_hours": 1.8,
+  "official_url": "https://www.tokai-halfmarathon.com/",
+  "source_url": "https://www.tokai-halfmarathon.com/",
+  "last_verified": "2026-11-07",
+  "notes_ko": "나고야 인근 도카이시 하프 대회(2026-12-13 9시 출발). 하프·10km 모두 정원 마감, 접수 마감일은 미확인.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-07-30"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "tokushima",
+  "name_ko": "도쿠시마 마라톤",
+  "name_en": "Tokushima Marathon",
+  "city_ko": "도쿠시마",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2027-03-14",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-10-01",
+  "entry_closes": "2026-11-30",
+  "entry_confidence": "confirmed",
+  "entry_fee": 13000,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "풀"
+  ],
+  "field_size": null,
+  "course": "평지",
+  "flight_hours": 2,
+  "official_url": "https://www.tokushima-marathon.jp/",
+  "source_url": "https://www.tokushima-marathon.jp/",
+  "last_verified": "2026-11-07",
+  "notes_ko": "코스가 크게 변경된 2027년 대회. 접수 중이며 11/30 마감.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-11-01"
+}

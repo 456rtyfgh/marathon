@@ -1,0 +1,31 @@
+{
+  "id": "barcelona",
+  "name_ko": "바르셀로나 마라톤",
+  "name_en": "Zurich Marató de Barcelona",
+  "city_ko": "바르셀로나",
+  "country_ko": "스페인",
+  "country_code": "ES",
+  "region": "유럽",
+  "race_date": "2027-03-14",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-04-30",
+  "entry_closes": null,
+  "entry_confidence": "confirmed",
+  "entry_fee": 100,
+  "entry_fee_currency": "EUR",
+  "distances": [
+    "풀"
+  ],
+  "field_size": 32000,
+  "course": "평지",
+  "flight_hours": 14.5,
+  "official_url": "https://zurichmaratobarcelona.es/en/",
+  "source_url": "https://zurichmaratobarcelona.es/en/2026/11/01/zurich-marato-de-barcelona-makes-history-with-37000-entries-sold-becoming-spains-most-popular-marathon/",
+  "last_verified": "2026-11-07",
+  "notes_ko": "인천 직항이 있고 빠른 코스로 꼽힙니다. 참가비는 70유로에서 100유로까지 단계별로 오릅니다.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-11-01"
+}

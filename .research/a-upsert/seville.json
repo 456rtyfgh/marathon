@@ -1,0 +1,31 @@
+{
+  "id": "seville",
+  "name_ko": "세비야 마라톤",
+  "name_en": "Zurich Maratón de Sevilla",
+  "city_ko": "세비야",
+  "country_ko": "스페인",
+  "country_code": "ES",
+  "region": "유럽",
+  "race_date": "2027-02-21",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-04-17",
+  "entry_closes": "2027-02-15",
+  "entry_confidence": "confirmed",
+  "entry_fee": 85,
+  "entry_fee_currency": "EUR",
+  "distances": [
+    "풀"
+  ],
+  "field_size": 14000,
+  "course": "평지",
+  "flight_hours": 16,
+  "official_url": "https://www.zurichmaratonsevilla.es/en/",
+  "source_url": "https://www.zurichmaratonsevilla.es/en/zms-news-item/leer/260424-sold-out-bibs",
+  "last_verified": "2026-11-07",
+  "notes_ko": "유럽에서 가장 평평한 코스로 꼽힌다. 2월이라 기온도 러닝에 적합. / 2026-04 매진",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-04-24"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "fukui-sakura",
+  "name_ko": "후쿠이 사쿠라 마라톤",
+  "name_en": "Fukui Sakura Marathon",
+  "city_ko": "후쿠이",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2027-03-28",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-09-26",
+  "entry_closes": "2026-11-09",
+  "entry_confidence": "confirmed",
+  "entry_fee": 14000,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "풀"
+  ],
+  "field_size": null,
+  "course": "평지",
+  "flight_hours": 2.3,
+  "official_url": "https://fukui-sakura-marathon.jp/",
+  "source_url": "https://www.fukui-sakura-marathon.jp/news/3432/",
+  "last_verified": "2026-11-07",
+  "notes_ko": "후쿠이 시내 벚꽃 속을 달리는 대회. 9/26 일반 접수 시작 6일 만인 10/1 국내 정원 도달로 마감.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-10-01"
+}

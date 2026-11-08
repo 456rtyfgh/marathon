@@ -1,0 +1,31 @@
+{
+  "id": "nagano",
+  "name_ko": "나가노 마라톤",
+  "name_en": "Nagano Marathon",
+  "city_ko": "나가노",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2027-04-18",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-09-12",
+  "entry_closes": null,
+  "entry_confidence": "confirmed",
+  "entry_fee": null,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "풀"
+  ],
+  "field_size": 9700,
+  "course": "평지",
+  "flight_hours": 2.5,
+  "official_url": "https://www.naganomarathon.gr.jp/",
+  "source_url": "https://www.naganomarathon.gr.jp/office/5569.html",
+  "last_verified": "2026-11-07",
+  "notes_ko": "나가노 올림픽 시설을 지나는 봄 대회입니다. 도쿄에서 신칸센으로 약 1시간 30분 더 가야 합니다.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-10-09"
+}

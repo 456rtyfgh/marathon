@@ -1,0 +1,31 @@
+{
+  "id": "kagoshima",
+  "name_ko": "가고시마 마라톤",
+  "name_en": "Kagoshima Marathon",
+  "city_ko": "가고시마",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2027-03-07",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-08-07",
+  "entry_closes": "2026-10-31",
+  "entry_confidence": "expected",
+  "entry_fee": 15000,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "풀"
+  ],
+  "field_size": 10000,
+  "course": "완만",
+  "flight_hours": 1.5,
+  "official_url": "https://www.kagoshima-marathon.jp/",
+  "source_url": "https://www.kagoshima-marathon.jp/news/2026/10/post-2046.html",
+  "last_verified": "2026-11-07",
+  "notes_ko": "외국인은 공식 사이트의 For foreigner 링크로 신청합니다. 사쿠라지마를 바라보며 달리는 코스입니다.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-10-19"
+}

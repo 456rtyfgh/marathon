@@ -1,0 +1,35 @@
+[
+ {
+  "id": "hwaseong-eco",
+  "name_ko": "경기화성 생태마라톤",
+  "name_en": "Gyeonggi Hwaseong Eco Marathon",
+  "city_ko": "경기 화성",
+  "country_ko": "대한민국",
+  "country_code": "KR",
+  "region": "한국",
+  "race_date": "2026-11-08",
+  "date_confidence": "expected",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-09-04",
+  "entry_closes": "2026-10-18",
+  "entry_confidence": "expected",
+  "entry_fee": 60000,
+  "entry_fee_currency": "KRW",
+  "distances": [
+   "하프",
+   "10km",
+   "5km"
+  ],
+  "field_size": 10000,
+  "course": null,
+  "flight_hours": 1,
+  "official_url": "https://kiccrace.com/hwasung1",
+  "source_url": "https://kiccrace.com/hwasung1",
+  "last_verified": "2026-11-07",
+  "notes_ko": "[취소] 화성 궁평항 일대에서 열리는 선착순 1만 명 규모 대회로 풀 없이 하프 이하 운영. 하프 60,000원 기준이며 접수 정보는 집계 사이트 기재 기준. (공식 사이트 미확인이라 날짜 신뢰도를 expected 로 둠)",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": null
+ }
+]

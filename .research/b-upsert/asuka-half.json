@@ -1,0 +1,31 @@
+{
+  "id": "asuka-half",
+  "name_ko": "아스카 하프 마라톤",
+  "name_en": "Asuka Half Marathon",
+  "city_ko": "나라 아스카무라",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2027-03-14",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-10-01",
+  "entry_closes": "2026-12-17",
+  "entry_confidence": "expected",
+  "entry_fee": 6000,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "하프"
+  ],
+  "field_size": 3000,
+  "course": "완만",
+  "flight_hours": 2,
+  "official_url": "https://asuka-marathon.jp",
+  "source_url": "https://asuka-marathon.jp/app/?p=1031",
+  "last_verified": "2026-11-07",
+  "notes_ko": "나라현 아스카 고분 지대를 도는 하프, 선착순 3,000명. 참가비 6,000엔과 접수기간은 집계 사이트 기준이라 공식 확인 필요.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-10-09"
+}

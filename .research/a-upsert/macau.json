@@ -1,0 +1,32 @@
+{
+  "id": "macau",
+  "name_ko": "마카오 국제 마라톤",
+  "name_en": "Macao International Marathon",
+  "city_ko": "마카오",
+  "country_ko": "마카오",
+  "country_code": "MO",
+  "region": "아시아",
+  "race_date": "2026-12-06",
+  "date_confidence": "expected",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-10-10",
+  "entry_closes": null,
+  "entry_confidence": "expected",
+  "entry_fee": null,
+  "entry_fee_currency": "MOP",
+  "distances": [
+    "풀",
+    "하프"
+  ],
+  "field_size": null,
+  "course": "완만",
+  "flight_hours": 3.5,
+  "official_url": "https://www.macaomarathon.com/zh/",
+  "source_url": "https://www.macaomarathon.com/zh/",
+  "last_verified": "2026-11-07",
+  "notes_ko": "매년 12월 초에 열리며 대교 구간이 있고 인천에서 직항으로 약 3시간 30분입니다. 2026년 대회는 모든 종목 접수가 정원 마감되었습니다(공식 사이트 공지). 대회 날짜는 아직 공식 확인 전.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-11-07"
+}

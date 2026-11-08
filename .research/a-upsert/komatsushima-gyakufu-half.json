@@ -1,0 +1,32 @@
+{
+  "id": "komatsushima-gyakufu-half",
+  "name_ko": "고마쓰시마 역풍 하프마라톤",
+  "name_en": "Komatsushima Gyakufu Half Marathon",
+  "city_ko": "고마쓰시마",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2026-11-29",
+  "date_confidence": "expected",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-07-01",
+  "entry_closes": null,
+  "entry_confidence": "expected",
+  "entry_fee": null,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "하프",
+    "10km"
+  ],
+  "field_size": null,
+  "course": null,
+  "flight_hours": 1.8,
+  "official_url": "https://komatsushima-marathon.jp/",
+  "source_url": "https://komatsushima-marathon.jp/info/%e3%83%8f%e3%83%bc%e3%83%95%e7%a8%ae%e7%9b%ae%e3%82%a8%e3%83%b3%e3%83%88%e3%83%aa%e3%83%bc%e7%b5%82%e4%ba%86%e3%81%ae%e3%81%8a%e7%9f%a5%e3%82%89%e3%81%9b/",
+  "last_verified": "2026-11-07",
+  "notes_ko": "도쿠시마현 고마쓰시마시의 평소 출입 불가한 해상자위대 시설 내부를 달리는 특별 코스 대회(제6회). 접수 개시일은 공식 공지로 확인, 10km·하프는 이미 마감.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-08-03"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "katsuta",
+  "name_ko": "가쓰타 전국 마라톤",
+  "name_en": "Katsuta National Marathon",
+  "city_ko": "이바라키 히타치나카",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2027-01-31",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-09-25",
+  "entry_closes": "2026-10-31",
+  "entry_confidence": "confirmed",
+  "entry_fee": 9000,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "풀"
+  ],
+  "field_size": null,
+  "course": "평지",
+  "flight_hours": 2.5,
+  "official_url": "https://www.katsutamarathon.jp/",
+  "source_url": "https://www.katsutamarathon.jp/",
+  "last_verified": "2026-11-07",
+  "notes_ko": "비교적 저렴한 참가비의 평탄한 겨울 대회. 접수는 마감.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-10-13"
+}

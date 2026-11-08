@@ -1,0 +1,32 @@
+{
+  "id": "itabashi-city-marathon",
+  "name_ko": "이타바시 시티 마라톤",
+  "name_en": "Itabashi City Marathon",
+  "city_ko": "도쿄 이타바시",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2027-03-21",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-09-01",
+  "entry_closes": "2026-12-04",
+  "entry_confidence": "tbc",
+  "entry_fee": null,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "풀",
+    "5km"
+  ],
+  "field_size": null,
+  "course": null,
+  "flight_hours": 2.3,
+  "official_url": "https://i-c-m.jp",
+  "source_url": "https://i-c-m.jp/info/%e3%83%95%e3%83%ab%e3%83%9e%e3%83%a9%e3%82%bd%e3%83%b3%e4%b8%80%e8%88%ac%e6%9e%a0%e3%82%a8%e3%83%b3%e3%83%88%e3%83%aa%e3%83%bc%e7%b7%a0%e5%88%87%e3%81%ab%e3%81%a4%e3%81%84%e3%81%a6/",
+  "last_verified": "2026-11-07",
+  "notes_ko": "아라카와 강변 코스의 도쿄 근교 대회. 2027-03-21 개최가 공식 사이트에서 확인되며 접수는 9/1 시작(마감 12/4는 집계 사이트 기준), 참가비 미확인.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-10-26"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "nagoya-city-half",
+  "name_ko": "나고야 시티 마라톤",
+  "name_en": "Nagoya City Marathon",
+  "city_ko": "아이치 나고야",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2027-03-14",
+  "date_confidence": "confirmed",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-10-22",
+  "entry_closes": "2026-10-27",
+  "entry_confidence": "confirmed",
+  "entry_fee": 11000,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "하프"
+  ],
+  "field_size": null,
+  "course": "평지",
+  "flight_hours": 2.2,
+  "official_url": "https://city-marathon.nagoya/",
+  "source_url": "https://city-marathon.nagoya/news/2026-10-21-8c22bfb2-0e41-40b7-9938-24bc699113c8/",
+  "last_verified": "2026-11-07",
+  "notes_ko": "나고야 시내를 달리는 하프 대회. 직전 회차는 정원이 11/11에 마감됐다.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-10-23"
+}

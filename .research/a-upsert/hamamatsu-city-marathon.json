@@ -1,0 +1,32 @@
+{
+  "id": "hamamatsu-city-marathon",
+  "name_ko": "하마마쓰 시티 마라톤",
+  "name_en": "Hamamatsu City Marathon",
+  "city_ko": "하마마쓰(시즈오카)",
+  "country_ko": "일본",
+  "country_code": "JP",
+  "region": "일본",
+  "race_date": "2027-02-14",
+  "date_confidence": "expected",
+  "is_major": false,
+  "entry_type": "fcfs",
+  "entry_opens": "2026-09-01",
+  "entry_closes": null,
+  "entry_confidence": "expected",
+  "entry_fee": null,
+  "entry_fee_currency": "JPY",
+  "distances": [
+    "하프",
+    "5km"
+  ],
+  "field_size": 5000,
+  "course": "평지",
+  "flight_hours": 2,
+  "official_url": "https://www.hamamatsu-city-marathon.com/",
+  "source_url": "https://www.hamamatsu-city-marathon.com/",
+  "last_verified": "2026-11-07",
+  "notes_ko": "하마마쓰시 주최 하프 중심 시민 마라톤(하프 정원 5,000명). 날짜와 모집 시작은 시 보도자료 기준이며 공식 사이트는 직접 열어보지 못해 접수 방식은 추정이다.",
+  "discipline": "road",
+  "elevation_gain": null,
+  "sold_out_on": "2026-11-04"
+}
