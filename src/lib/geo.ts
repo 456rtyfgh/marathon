@@ -4,6 +4,14 @@ import { isDomestic } from './util';
 export type Box = { x: number; y: number; w: number; h: number };
 
 /**
+ * 세계 지도 '동아시아' 확대 (지도 전용 — 목록 필터 region 이 아니다).
+ * 한국·일본은 region 이 나라 하나라 첫 클릭에 곧바로 들어가 버리므로, 대신 이 나라들이 보이게 확대한다.
+ */
+export const EAST_ASIA: string[] = ['kr', 'jp', 'cn', 'tw', 'hk', 'mo', 'mn', 'kp'];
+/** 세계 지도에서 첫 클릭이 '동아시아 확대' 가 되는 나라 */
+export const EAST_ASIA_ENTRY: string[] = ['kr', 'jp'];
+
+/**
  * 나라 코드(소문자) → 지역. 대회 데이터의 country_code·region 에서 만든다.
  * 국내 대회는 모두 'kr' → '한국'.
  */
