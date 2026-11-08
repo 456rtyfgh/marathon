@@ -4,6 +4,7 @@ import type { Race, Region } from '../lib/types';
 import { REGIONS } from '../lib/types';
 import { isDomestic } from '../lib/util';
 import { PROVINCES, placeOf } from '../lib/places';
+import { SUBREGIONS, SUBREGION_NAME, isSubCountry, isSubregionId, subCountryOf, subOf, type SubCountry } from '../lib/subregions';
 import { countryRegion } from '../lib/geo';
 import { track } from '../lib/analytics';
 
@@ -16,6 +17,8 @@ const OVERSEAS = REGIONS.filter((r) => r !== '한국') as Region[];
 const CHIP_LIMIT = 12;
 /** 지역을 안 골랐을 때의 focus. 그릴 때마다 새 [] 를 넘기면 지도 path 묶음의 memo 가 깨진다 */
 const NO_ZONE: string[] = [];
+/** 주·도 정보가 아직 없는 나라의 counts (그릴 때마다 새 {} 를 넘기지 않게) */
+const NO_COUNTS: Record<string, number> = {};
 
 /**
  * 지역 막대(시·도 / 지역 칩) + 나라 칩 + 지도.
@@ -67,6 +70,8 @@ function MapSection({
     const region: Partial<Record<Region, number>> = {};
     const province: Record<string, number> = {};
     const country: Record<string, number> = {};
+    // 주·도 지도 나라별 주·도 대회 수 (나라마다 따로 — 섞이면 5단계 기준(max)이 틀어진다)
+    const sub: Partial<Record<SubCountry, Record<string, number>>> = {};
     const names: Record<string, string> = { kr: '한국' };
     for (const r of base) {
       region[r.region] = (region[r.region] ?? 0) + 1;
@@ -78,9 +83,12 @@ function MapSection({
         const c = r.country_code.toLowerCase();
         country[c] = (country[c] ?? 0) + 1;
         names[c] = r.country_ko;
+        const s = isSubCountry(c) ? subOf(r) : null;
+        if (s) (sub[c as SubCountry] ??= {})[s] = (sub[c as SubCountry]?.[s] ?? 0) + 1;
       }
     }
     for (const p of PROVINCES) names[p.id] = p.name;
+    for (const [id, name] of SUBREGION_NAME) names[id] = name;
     // 지역별 나라 (대회 많은 순). 한국 지역은 'kr' 하나
     const regionOf = countryRegion(base);
     const byRegion: Partial<Record<Region, string[]>> = {};
@@ -88,7 +96,7 @@ function MapSection({
       const r = regionOf[c];
       if (r) (byRegion[r] ??= []).push(c);
     }
-    return { region, province, country, names, regionOf, byRegion };
+    return { region, province, country, sub, names, regionOf, byRegion };
   }, [races, scope]);
 
   // 지역 칩은 하나만 고르므로 지도도 그 지역으로 확대
@@ -96,6 +104,22 @@ function MapSection({
   const zoneIds = zone ? (geo.byRegion[zone] ?? NO_ZONE) : NO_ZONE;
   const [allChips, setAllChips] = useState(false);
   useEffect(() => setAllChips(false), [zone]);
+  // 대회 많은 나라(미국·일본 등)를 고르면 세계 지도 대신 그 나라 주·도 지도 (한국의 시·도 지도와 같은 방식)
+  const sub = scope === 'kr' ? null : subCountryOf(place);
+  const subPicked = sub && isSubregionId(place) ? place : null;
+  const subIds = useMemo(
+    () =>
+      sub
+        ? SUBREGIONS[sub].list
+            .filter((s) => geo.sub[sub]?.[s.id])
+            .sort((a, b) => (geo.sub[sub]?.[b.id] ?? 0) - (geo.sub[sub]?.[a.id] ?? 0))
+            .map((s) => s.id)
+        : NO_ZONE,
+    [sub, geo],
+  );
+  // '+N개 더' 를 펼친 나라 (다른 나라로 바뀌면 저절로 접힌다)
+  const [allSubFor, setAllSubFor] = useState<SubCountry | null>(null);
+  const allSubChips = !!sub && allSubFor === sub;
 
   const toList = () => document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
 
@@ -116,15 +140,25 @@ function MapSection({
     }
   }, [scope, place, onScope, onRegions, onPlace]);
 
-  /** 나라·시·도 고르기 (다시 누르면 풀림). 목록으로 스크롤은 지도에서 고를 때 또는 지도를 접어 둔 때만 */
+  /** 나라·시·도 고르기 (다시 누르면 풀림 — 그 나라 주·도를 고른 중이어도). 목록으로 스크롤은 지도에서 고를 때 또는 지도를 접어 둔 때만 */
   const pick = (id: string, scroll: boolean) => {
     if (scope !== 'kr' && id === 'kr') return toKorea();
-    const next = place === id ? null : id;
+    const next = place === id || subCountryOf(place) === id ? null : id;
     onPlace(next);
     if (next) {
       track('map_select', { place: next });
-      if (scroll) toList();
+      // 주·도 지도로 바뀌는 나라는 바뀐 지도를 보도록 스크롤하지 않는다 (지도를 접어 둔 때만)
+      if (scroll && (!mapOpen || !isSubCountry(next))) toList();
     }
+  };
+
+  /** 주·도 고르기. 고른 주·도를 다시 누르면 그 나라 전체 */
+  const pickSub = (id: string, scroll: boolean) => {
+    if (!sub) return;
+    if (place === id) return onPlace(sub);
+    onPlace(id);
+    track('map_select', { place: id });
+    if (scroll) toList();
   };
 
   /** 지역으로 확대. 나라 하나뿐인 지역(일본)은 그 나라도 같이 고른다 (두 번 누르지 않게). 한국은 국내 지도로 */
@@ -145,6 +179,7 @@ function MapSection({
   const onMapSelect = (id: string) => {
     // 그 시·도로 확대되는 걸 보도록 스크롤하지 않는다
     if (scope === 'kr') return pick(id, false);
+    if (sub) return pickSub(id, false);
     if (id === 'kr') return toKorea();
     const r = geo.regionOf[id];
     if (!r) return pick(id, true);
@@ -203,10 +238,10 @@ function MapSection({
           <span className="shrink-0 text-[13px] font-semibold text-ink-3">나라</span>
           {zoneIds
             // 아시아·유럽은 30개가 넘어 지도를 밀어내므로 대회 많은 순 앞쪽만 (고른 나라는 늘 보이게)
-            .filter((c, i) => allChips || i < CHIP_LIMIT || c === place)
+            .filter((c, i) => allChips || i < CHIP_LIMIT || c === place || c === sub)
             .map((c) => (
               // 지도가 펼쳐져 있으면 그 나라로 확대되는 걸 보도록 스크롤하지 않는다
-              <Chip key={c} on={place === c} onClick={() => pick(c, !mapOpen)}>
+              <Chip key={c} on={place === c || c === sub} onClick={() => pick(c, !mapOpen)}>
                 {geo.names[c]}
                 <span className="num ml-0.5 text-[14px] opacity-80">{geo.country[c]}</span>
               </Chip>
@@ -224,6 +259,30 @@ function MapSection({
         </div>
       )}
 
+      {sub && subIds.length > 0 && (
+        <div className="-mx-4 mt-2 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
+          <span className="shrink-0 text-[13px] font-semibold text-ink-3">{SUBREGIONS[sub].unit}</span>
+          {subIds
+            .filter((id, i) => allSubChips || i < CHIP_LIMIT || id === place)
+            .map((id) => (
+              <Chip key={id} on={place === id} onClick={() => pickSub(id, !mapOpen)}>
+                {geo.names[id]}
+                <span className="num ml-0.5 text-[14px] opacity-80">{geo.sub[sub]?.[id]}</span>
+              </Chip>
+            ))}
+          {subIds.length > CHIP_LIMIT + 1 && (
+            <button
+              type="button"
+              onClick={() => setAllSubFor(allSubChips ? null : sub)}
+              aria-expanded={allSubChips}
+              className="inline-flex h-10 items-center rounded-ctl px-2 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink sm:h-8"
+            >
+              {allSubChips ? '접기' : `+${subIds.length - CHIP_LIMIT}개 더`}
+            </button>
+          )}
+        </div>
+      )}
+
       {place && !(scope === 'kr' || regions.length) && (
         <div className="mt-2">
           <Chip on onClick={() => onPlace(null)}>
@@ -236,13 +295,23 @@ function MapSection({
         <div className="mt-3 rounded-box border border-line bg-surface p-1.5 sm:p-2">
           <Suspense fallback={<div className="aspect-[5/4] animate-pulse rounded-box bg-sunken sm:aspect-auto sm:h-[min(62vh,560px)]" />}>
             <MapView
-              kind={scope === 'kr' ? 'kr' : 'world'}
-              counts={scope === 'kr' ? geo.province : geo.country}
+              kind={scope === 'kr' ? 'kr' : (sub ?? 'world')}
+              counts={scope === 'kr' ? geo.province : sub ? (geo.sub[sub] ?? NO_COUNTS) : geo.country}
               names={geo.names}
-              selected={place}
-              focus={zoneIds}
+              selected={sub ? subPicked : place}
+              focus={sub ? NO_ZONE : zoneIds}
               onSelect={onMapSelect}
-              onBack={zone ? leaveZone : scope === 'kr' && place ? () => onPlace(null) : undefined}
+              onBack={
+                sub
+                  ? subPicked
+                    ? () => onPlace(sub)
+                    : undefined
+                  : zone
+                    ? leaveZone
+                    : scope === 'kr' && place
+                      ? () => onPlace(null)
+                      : undefined
+              }
             />
           </Suspense>
           {scope !== 'kr' && place === 'kr' && (
@@ -264,18 +333,30 @@ function MapSection({
             <span>
               {scope === 'kr'
                 ? '시·도를 누르면 그곳 대회만 보입니다.'
-                : zone
+                : sub
+                  ? '주·도를 누르면 그곳 대회만 보입니다.'
+                  : zone
                   ? '나라를 누르면 그 나라 대회만 보입니다. 다른 지역 나라를 누르면 그 지역으로 옮겨 갑니다.'
                   : '나라를 누르면 그 지역(아시아·유럽 등)으로 확대되고, 한 번 더 누르면 그 나라 대회만 보입니다.'}{' '}
               색이 진할수록 대회가 많습니다. 두 손가락이나 휠로 확대하고 끌어서 옮깁니다.
             </span>
-            <span>
-              지도{' '}
-              <a href="https://github.com/VictorCazanave/svg-maps" target="_blank" rel="noreferrer" className="underline underline-offset-2">
-                svg-maps
-              </a>{' '}
-              (CC BY 4.0)
-            </span>
+            {sub ? (
+              <span>
+                지도{' '}
+                <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                  Natural Earth
+                </a>{' '}
+                (공개 도메인)
+              </span>
+            ) : (
+              <span>
+                지도{' '}
+                <a href="https://github.com/VictorCazanave/svg-maps" target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                  svg-maps
+                </a>{' '}
+                (CC BY 4.0)
+              </span>
+            )}
           </p>
         </div>
       )}
