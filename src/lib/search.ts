@@ -1,5 +1,5 @@
 import type { Race } from './types';
-import { ALIASES, TAILS } from './aliases.ts';
+import { ALIASES, ONE_WAY, TAILS } from './aliases.ts';
 import { SUBREGION_NAME, subOf } from './subregions.ts';
 
 /*
@@ -69,7 +69,7 @@ function aliasVariants(term: string): string[] {
   for (const group of ALIASES)
     for (const a of group) {
       if (!term.includes(a)) continue;
-      for (const b of group) if (b !== a) out.push(term.replace(a, b));
+      for (const b of group) if (b !== a && !ONE_WAY.has(b)) out.push(term.replace(a, b));
     }
   return out;
 }
@@ -146,7 +146,8 @@ const typoLimit = (n: number) => (n < 6 ? 0 : n < 12 ? 1 : 2);
 export function searchRaces(index: SearchDoc[], q: string): Set<Race> {
   const out = new Set<Race>();
   const whole = normalize(q);
-  if (!whole) return out;
+  // 특수문자만 친 검색어 ('-' '(' …) 는 빈 검색어와 같다 — 전부
+  if (!whole) return new Set(index.map((d) => d.race));
   const words = q.split(/\s+/).map(normalize).filter(Boolean);
   // 정확히 맞는 것이 있으면 그것만, 없을 때만 꼬리말을 떼고 다시 ('도쿄마라톤' 은 도쿄 마라톤만, '대구마라톤' 은 대구 대회들)
   for (const strip of [false, true]) {
