@@ -28,7 +28,7 @@ export default function AlertForm({ race }: { race: Race }) {
     return (
       <div className="rounded-box bg-surface px-4 py-4">
         <div className="text-[13px] text-ink-3">{t('alert.cancelled')}</div>
-        <div className="mt-0.5 text-[17px] font-bold">{t('alert.cancelledOn', { d: fmtDate(race.race_date, lang) })}</div>
+        <div className="mt-1 text-[17px] font-bold">{t('alert.cancelledOn', { d: fmtDate(race.race_date, lang) })}</div>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-2">{t('alert.cancelledText')}</p>
       </div>
     );
@@ -39,7 +39,7 @@ export default function AlertForm({ race }: { race: Race }) {
     return (
       <div className="rounded-box bg-surface px-4 py-4">
         <div className="text-[13px] text-ink-3">{t('alert.soldout')}</div>
-        <div className="mt-0.5 text-[17px] font-bold">{t('alert.soldoutOn', { d: fmtDate(race.sold_out_on!, lang) })}</div>
+        <div className="mt-1 text-[17px] font-bold">{t('alert.soldoutOn', { d: fmtDate(race.sold_out_on!, lang) })}</div>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-2">{t('alert.soldoutText')}</p>
       </div>
     );
@@ -70,7 +70,7 @@ export default function AlertForm({ race }: { race: Race }) {
           <div className="flex items-end justify-between gap-4">
             <div>
               <div className="text-[13px] text-ink-3">{opensAhead ? t('alert.opens') : t('alert.closes')}</div>
-              <div className="mt-0.5 text-[17px] font-bold">{fmtDate(target, lang)}</div>
+              <div className="mt-1 text-[17px] font-bold">{fmtDate(target, lang)}</div>
             </div>
             {d != null && d >= 0 && <div className="num text-[34px] font-bold leading-none">D-{d}</div>}
           </div>
@@ -91,7 +91,7 @@ export default function AlertForm({ race }: { race: Race }) {
                   key={n}
                   aria-pressed={on}
                   onClick={() => toggle(n)}
-                  className={`num h-11 min-w-14 sm:h-9 rounded-ctl px-3 text-[17px] font-semibold transition active:translate-y-px ${
+                  className={`num h-11 min-w-14 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition active:translate-y-px sm:h-10 ${
                     on ? 'bg-ink text-bg' : 'bg-surface text-ink-2 hover:bg-sunken'
                   }`}
                 >

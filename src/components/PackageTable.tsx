@@ -34,7 +34,7 @@ export default function PackageTable({ packages, agencies }: { packages: Package
     return (
       <div className="space-y-4">
         <p className="text-[15px] text-ink-2">{t('pkg.none')}</p>
-        <p className="text-[14px] text-ink-3">{t('pkg.agencies')}</p>
+        <p className="text-[13px] text-ink-3">{t('pkg.agencies')}</p>
         <ul className="grid gap-2 sm:grid-cols-2">
           {agencies.map((a) => (
             <li key={a.id}>
@@ -75,11 +75,11 @@ export default function PackageTable({ packages, agencies }: { packages: Package
                 onClick={() => track('agency_click', { agency_id: p.agency_id, race_id: p.race_id, package_id: p.id })}
                 target="_blank"
                 rel="noreferrer"
-                className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 rounded-box bg-surface px-4 py-3.5 transition hover:bg-sunken"
+                className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 rounded-box bg-surface px-4 py-4 transition hover:bg-sunken"
               >
                 <div className="min-w-0">
                   <div className="text-[13px] text-ink-3">{ag ? enText(`agency.${ag.id}.name`, ag.name) : p.agency_id}</div>
-                  <div className="truncate text-[15px] font-semibold text-ink">{enText(`package.${p.id}.title`, p.title)}</div>
+                  <div className="mt-1 line-clamp-2 text-[15px] leading-snug font-semibold text-ink">{enText(`package.${p.id}.title`, p.title)}</div>
                   <div className="mt-1 text-[13px] text-ink-3">
                     {p.nights != null ? t('pkg.nights', { n: p.nights, d: p.nights + 1 }) : t('pkg.ask')}
                     {p.includes.length > 0 && `, ${p.includes.map(inc).join(lang === 'en' ? ', ' : ' ')}`}
@@ -89,19 +89,19 @@ export default function PackageTable({ packages, agencies }: { packages: Package
                   {p.price_solo_krw != null ? (
                     <>
                       <div
-                        className={`num inline-block rounded-tag px-1 text-[22px] font-bold leading-tight ${
+                        className={`num inline-block rounded-tag px-1 text-[20px] font-bold leading-tight whitespace-nowrap ${
                           low ? 'bg-accent text-on-accent' : 'text-ink'
                         }`}
                       >
                         {krwExact(p.price_solo_krw, lang)}
                       </div>
-                      <div className="text-[12px] text-ink-3">
+                      <div className="mt-1 text-[12px] text-ink-3">
                         {low ? t('pkg.cheapest') : t('pkg.solo')}
                         {p.price_group_krw != null && t('pkg.group', { v: krwExact(p.price_group_krw, lang) })}
                       </div>
                     </>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-[14px] font-semibold text-ink-2 group-hover:text-ink">
+                    <span className="inline-flex items-center gap-1 text-[15px] font-semibold whitespace-nowrap text-ink-2 group-hover:text-ink">
                       {t('pkg.askPrice')} <ArrowUpRight size={14} />
                     </span>
                   )}

@@ -25,9 +25,9 @@ export default function SimilarRaces({
   if (!list.length) return null;
   return (
     <section>
-      <h3 className="text-[15px] font-bold">{t('similar.title')}</h3>
-      {/* 목록 행은 자체 좌우 여백이 있어, 본문 글자 줄과 맞게 그만큼 바깥으로 뺀다 */}
-      <ul className="-mx-3 mt-2 divide-y divide-line border-y border-line sm:-mx-5">
+      <h3 className="text-[17px] font-bold">{t('similar.title')}</h3>
+      {/* 목록 행은 좌우 여백 16px(px-4)이 있어, 행 글자가 본문 글자 줄(패널 여백)에 오게 그만큼 바깥으로 뺀다 */}
+      <ul className="-mx-4 mt-2 divide-y divide-line border-y border-line">
         {list.map((r) => (
           <RaceRow
             key={r.id}

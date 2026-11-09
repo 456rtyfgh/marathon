@@ -47,8 +47,8 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
         <div>
           {avg ? (
             <>
-              <div className="num text-[44px] leading-none font-bold">{avg.toFixed(1)}</div>
-              <div className="mt-1.5">
+              <div className="num text-[40px] leading-none font-bold">{avg.toFixed(1)}</div>
+              <div className="mt-2">
                 <StarRating value={avg} size={16} />
               </div>
             </>
@@ -98,7 +98,7 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
                     {r.race_year ? t('rev.year', { y: r.race_year }) : ''}
                     {r.finish_time ? t('rev.time', { t: r.finish_time }) : ''}
                   </span>
-                  <span className="num ml-auto text-[14px] text-ink-3">{r.created_at.slice(0, 10)}</span>
+                  <span className="num ml-auto text-[13px] text-ink-3">{r.created_at.slice(0, 10)}</span>
                 </div>
                 <p className="mt-2 max-w-[62ch] text-[15px] leading-relaxed whitespace-pre-wrap text-ink-2">{r.body}</p>
                 {(r.course_rating || r.support_rating || r.value_rating) && (
@@ -118,7 +118,7 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
                       await deleteReview(r.id);
                       reload();
                     }}
-                    className="mt-2 text-[13px] text-ink-3 underline underline-offset-4 transition hover:text-ink"
+                    className="-mb-3 mt-2 inline-flex min-h-11 items-center text-[13px] text-ink-3 underline underline-offset-4 transition hover:text-ink"
                   >
                     {t('rev.delete')}
                   </button>
@@ -130,10 +130,10 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
       )}
 
       <section>
-        <h3 className="text-[15px] font-bold">{t('rev.extTitle')}</h3>
+        <h3 className="text-[17px] font-bold">{t('rev.extTitle')}</h3>
         <p className="mt-1 text-[13px] text-ink-3">{t('rev.extHelp')}</p>
         {ext.length === 0 ? (
-          <p className="mt-3 text-[14px] text-ink-3">{t('rev.extNone')}</p>
+          <p className="mt-3 text-[15px] text-ink-3">{t('rev.extNone')}</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {ext.map((e) => (
@@ -149,8 +149,8 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
                       {t(`kind.${e.kind}` as const)}, {e.source}
                       {e.author && `, ${e.author}`}
                     </span>
-                    <span className="mt-0.5 block text-[15px] font-semibold text-ink">{e.title}</span>
-                    {e.summary && <span className="mt-0.5 block text-[13px] text-ink-2">{e.summary}</span>}
+                    <span className="mt-1 block text-[15px] font-semibold text-ink">{e.title}</span>
+                    {e.summary && <span className="mt-1 block text-[13px] text-ink-2">{e.summary}</span>}
                   </span>
                   <ArrowUpRight size={16} className="mt-1 shrink-0 text-ink-3 group-hover:text-ink" />
                 </a>
@@ -222,7 +222,7 @@ function ReviewForm({
   return (
     <form onSubmit={submit} className="space-y-5 rounded-box bg-surface p-4 sm:p-5">
       <fieldset>
-        <legend className="mb-1.5 text-[13px] font-semibold text-ink-2">{t('rev.overall')}</legend>
+        <legend className="mb-2 text-[13px] font-semibold text-ink-2">{t('rev.overall')}</legend>
         <StarRating value={rating} onChange={setRating} size={28} />
       </fieldset>
 
@@ -235,8 +235,8 @@ function ReviewForm({
         </Field>
       </div>
 
-      <fieldset className="space-y-2">
-        <legend className="mb-1.5 text-[13px] font-semibold text-ink-2">
+      <fieldset>
+        <legend className="mb-2 text-[13px] font-semibold text-ink-2">
           {t('rev.detail')} <span className="font-normal text-ink-3">{t('common.optional')}</span>
         </legend>
         <StarRating value={course} onChange={setCourse} size={18} label={t('rev.courseLabel')} />
@@ -251,7 +251,7 @@ function ReviewForm({
           rows={5}
           maxLength={3000}
           placeholder={t('rev.placeholder')}
-          className={`${inputCls} h-auto resize-y py-2.5 leading-relaxed`}
+          className={`${inputCls} resize-y py-3 leading-relaxed`}
         />
       </Field>
 

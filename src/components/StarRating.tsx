@@ -13,9 +13,9 @@ export default function StarRating({ value, onChange, size = 18, label }: Props)
   const editable = Boolean(onChange);
   const rounded = Math.round(value);
   return (
-    <div className="flex items-center gap-3">
-      {label && <span className="w-16 shrink-0 text-[14px] text-ink-2">{label}</span>}
-      <div className="flex gap-0.5" role={editable ? 'radiogroup' : 'img'} aria-label={editable ? label ?? t('star.aria') : t('star.value', { v: value.toFixed(1) })}>
+    <div className="flex items-center gap-2">
+      {label && <span className="w-20 shrink-0 text-[13px] text-ink-2">{label}</span>}
+      <div className={`flex ${editable ? '' : 'gap-1'}`} role={editable ? 'radiogroup' : 'img'} aria-label={editable ? label ?? t('star.aria') : t('star.value', { v: value.toFixed(1) })}>
         {[1, 2, 3, 4, 5].map((n) => {
           const on = n <= rounded;
           const icon = <Star size={size} weight={on ? 'fill' : 'regular'} className={on ? 'text-ink' : 'text-line'} />;
@@ -28,14 +28,14 @@ export default function StarRating({ value, onChange, size = 18, label }: Props)
               aria-checked={n === rounded}
               aria-label={t('star.n', { n })}
               onClick={() => onChange!(n)}
-              className="rounded-tag p-0.5 transition hover:scale-110 active:scale-95"
+              className="grid h-11 min-w-8 place-items-center rounded-tag transition hover:scale-110 active:scale-95 sm:h-10"
             >
               {icon}
             </button>
           );
         })}
       </div>
-      {editable && value > 0 && <span className="num text-[16px] font-semibold text-ink-2">{t('star.n', { n: value })}</span>}
+      {editable && value > 0 && <span className="num text-[15px] font-semibold whitespace-nowrap text-ink-2">{t('star.n', { n: value })}</span>}
     </div>
   );
 }

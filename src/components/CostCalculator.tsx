@@ -25,11 +25,11 @@ function DomesticBooking({ race }: { race: Race }) {
   // 검색어는 한국어 그대로(예약 사이트가 한국어), 영어 화면 글에는 영어 지명
   const q = lang === 'en' ? (cityName(race, 'en') ?? race.name_en) : stayQuery(race);
   return (
-    <div className="space-y-7">
+    <div className="space-y-8">
       <section className="space-y-3">
         <div>
-          <h3 className="text-[15px] font-semibold text-ink">{t('cost.stayTitle')}</h3>
-          <p className="mt-0.5 text-[13px] text-ink-3">
+          <h3 className="text-[17px] font-bold text-ink">{t('cost.stayTitle')}</h3>
+          <p className="mt-1 text-[13px] text-ink-3">
             {!dates
               ? t('cost.stayNoDate', { q })
               : race.date_confidence === 'expected'
@@ -43,8 +43,8 @@ function DomesticBooking({ race }: { race: Race }) {
 
       <section className="space-y-3">
         <div>
-          <h3 className="text-[15px] font-semibold text-ink">{t('cost.rideTitle')}</h3>
-          <p className="mt-0.5 text-[13px] text-ink-3">
+          <h3 className="text-[17px] font-bold text-ink">{t('cost.rideTitle')}</h3>
+          <p className="mt-1 text-[13px] text-ink-3">
             {ferry ? t('cost.rideFerry') : jeju ? t('cost.rideJeju') : t('cost.rideOther')}
           </p>
         </div>
@@ -53,14 +53,14 @@ function DomesticBooking({ race }: { race: Race }) {
 
       <section className="space-y-3">
         <div>
-          <h3 className="text-[15px] font-semibold text-ink">{t('cost.nearTitle')}</h3>
-          <p className="mt-0.5 text-[13px] text-ink-3">{t('cost.nearText', { q })}</p>
+          <h3 className="text-[17px] font-bold text-ink">{t('cost.nearTitle')}</h3>
+          <p className="mt-1 text-[13px] text-ink-3">{t('cost.nearText', { q })}</p>
         </div>
         <BookingList race={race} links={nearbyLinks(race, lang)} />
       </section>
 
       <dl className="flex items-baseline justify-between gap-4 border-t border-line pt-4">
-        <dt className="text-[14px] text-ink-2">{t('cost.fee')}</dt>
+        <dt className="text-[15px] text-ink-2">{t('cost.fee')}</dt>
         <dd className="num text-[17px] font-semibold text-ink">{feeLabel(race, lang)}</dd>
       </dl>
     </div>
@@ -115,7 +115,7 @@ function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
   }, [base, nights, people, tier, shareRoom, race]);
 
   if (!base || !r) {
-    return <p className="text-sm text-ink-3">{t('cost.noBase')}</p>;
+    return <p className="text-[15px] text-ink-3">{t('cost.noBase')}</p>;
   }
 
   const rows: [string, number, string][] = [
@@ -141,7 +141,7 @@ function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
               role="radio"
               aria-checked={tier === tier_}
               onClick={() => setTier(tier_)}
-              className={`h-9 rounded-[4px] border px-3.5 text-[14px] font-semibold transition ${
+              className={`h-11 rounded-[4px] border px-4 text-[15px] font-semibold whitespace-nowrap transition sm:h-8 ${
                 tier === tier_ ? 'border-line bg-surface text-ink' : 'border-transparent text-ink-3 hover:text-ink'
               }`}
             >
@@ -150,7 +150,7 @@ function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
           ))}
         </div>
         {people > 1 && nights > 0 && (
-          <label className="flex cursor-pointer items-center gap-2 text-[14px] text-ink-2">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-[15px] text-ink-2 sm:min-h-10">
             <input
               type="checkbox"
               checked={shareRoom}
@@ -166,7 +166,7 @@ function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
         <dl className="divide-y divide-line px-4">
           {rows.map(([label, value, hint]) => (
             <div key={label} className="flex items-baseline justify-between gap-4 py-3">
-              <dt className="text-[14px] text-ink-2">
+              <dt className="text-[15px] text-ink-2">
                 {label}
                 {hint && <span className="ml-2 text-[13px] text-ink-3">{hint}</span>}
               </dt>
@@ -179,7 +179,7 @@ function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
             <div className="text-[13px] text-ink-3">{t('cost.total')}</div>
             {people > 1 && <div className="num text-[15px] text-ink-2">{t('cost.per', { v: krwExact(r.per, lang) })}</div>}
           </div>
-          <div className="num text-[32px] font-bold leading-none">{krwExact(r.total, lang)}</div>
+          <div className="num text-[34px] font-bold leading-none sm:text-[40px]">{krwExact(r.total, lang)}</div>
         </div>
       </div>
 
@@ -207,15 +207,15 @@ function Stepper({
   const btn =
     'grid size-11 place-items-center sm:size-9 rounded-ctl text-ink-2 transition hover:bg-sunken hover:text-ink active:scale-95 disabled:opacity-30';
   return (
-    <div className="flex items-center justify-between rounded-box bg-surface px-3 py-2.5">
-      <span className="shrink-0 whitespace-nowrap text-[14px] text-ink-2">{label}</span>
+    <div className="flex items-center justify-between rounded-box bg-surface py-2 pr-2 pl-4">
+      <span className="shrink-0 whitespace-nowrap text-[15px] text-ink-2">{label}</span>
       <div className="flex items-center gap-1">
         <button className={btn} aria-label={t('cost.less', { label: label.toLowerCase() })} disabled={value <= min} onClick={() => onChange(value - 1)}>
           <Minus size={16} weight="bold" />
         </button>
-        <span className="num w-12 text-center text-[22px] font-bold">
+        <span className="num w-12 text-center text-[20px] font-bold whitespace-nowrap">
           {value}
-          <span className="ml-0.5 text-[14px] font-semibold text-ink-3">{unit}</span>
+          <span className="ml-1 text-[13px] font-semibold text-ink-3">{unit}</span>
         </span>
         <button className={btn} aria-label={t('cost.more', { label: label.toLowerCase() })} disabled={value >= max} onClick={() => onChange(value + 1)}>
           <Plus size={16} weight="bold" />
