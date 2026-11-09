@@ -43,7 +43,8 @@ const loadRequestPanel = () => import('./components/RequestPanel');
 const RaceDetail = lazy(loadRaceDetail);
 const AdminPanel = lazy(loadAdminPanel);
 const RequestPanel = lazy(loadRequestPanel);
-const CommunityPage = lazy(() => import('./community/CommunityPage'));
+const loadCommunityPage = () => import('./community/CommunityPage');
+const CommunityPage = lazy(loadCommunityPage);
 
 // 지난 대회 '더 보기' 한 번에 붙이는 수
 const PAGE = 80;
@@ -130,6 +131,8 @@ function Main() {
       // 미리 받기가 실패해도(오프라인 등) 열 때 다시 받으므로 여기서는 조용히 넘긴다
       loadRaceDetail().catch(() => {});
       loadRequestPanel().catch(() => {});
+      loadCommunityPage().catch(() => {});
+      import('./community/MyPosts').catch(() => {}); // 내 정보(AuthPanel)가 lazy 로 여는 것
       if (profile?.is_admin) loadAdminPanel().catch(() => {});
     }, 1500);
     return () => clearTimeout(t);
