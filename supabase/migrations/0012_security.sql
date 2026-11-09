@@ -427,11 +427,22 @@ end $$;
 commit;
 
 
+-- ── (선택) [L1] 닉네임만 공개하는 뷰 — 기본은 실행하지 않음 ─────────────────────────────────────
+-- 지금은 다른 사람 프로필을 읽는 화면이 없다(후기·요청은 복사해 둔 nickname 칸을 씀). 닉네임 목록이 필요해지면 주석을 풀어 실행.
+-- id·is_admin·created_at 은 넣지 않는다(관리자 식별·UUID 추적 방지). 단, 닉네임 수(=회원 수)는 보인다.
+-- security_invoker 를 켜면 위 L1 정책 때문에 비로그인에겐 빈 뷰가 된다 → 소유자 권한 뷰로 두므로
+-- Supabase advisor 가 'security_definer_view' 경고를 낸다(알고 쓰는 것).
+-- create or replace view public.profile_nicknames as select p.nickname from public.profiles p;
+-- revoke all on public.profile_nicknames from public, anon, authenticated;
+-- grant select on public.profile_nicknames to anon, authenticated;
+
+
 -- ── 되돌리기 (필요할 때만, 해당 부분만) ───────────────────────────────────────────────────────
 -- M5:  위 do 블록에서 revoke/grant 를 바꿔 'grant execute … to anon, authenticated' 로.
 -- L2:  grant select on public.reviews, public.race_requests to anon;
 -- L1:  drop policy profiles_read on public.profiles; create policy profiles_read on public.profiles for select using (true);
 -- H2:  drop trigger zz_force_server_time on public.reviews; (race_requests, profiles 도)
 -- H1:  drop trigger profiles_guard_insert on public.profiles;
+-- (선택) 닉네임 뷰를 만들었다면: drop view public.profile_nicknames;
 -- 함수 본문: 0002(is_admin)·0004(handle_new_user)·0010(나머지) 의 create or replace 를 다시 실행.
 -- M2 의 새 칸(confirmed_at·pending_since·unsubscribe_token)은 지우지 않아도 기존 동작에 영향 없음.
