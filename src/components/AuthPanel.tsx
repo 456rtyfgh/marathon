@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { EnvelopeSimple, SignOut, UserCircle } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
 import { Button, CloseButton, Field, Input, Note, Panel } from './ui';
@@ -9,6 +9,8 @@ import { CONTACT_EMAIL, POLICY_VERSION, PRIVACY_PATH, emptyConsent, requiredOk }
 import { SignupConsent } from './SignupConsent';
 import { WithdrawForm } from './WithdrawForm';
 import { PolicyNotice } from './PolicyNotice';
+
+const MyPosts = lazy(() => import('../community/MyPosts'));
 
 export function AuthBar({ onOpen }: { onOpen: () => void }) {
   const { session, profile, signOut, policyNoticeDue, recovering } = useAuth();
@@ -143,6 +145,9 @@ function ProfileForm({ onClose, onWithdraw }: { onClose: () => void; onWithdraw:
           {busy ? t('common.saving') : t('auth.saveNick')}
         </Button>
       </form>
+      <Suspense fallback={null}>
+        <MyPosts />
+      </Suspense>
       <section className="border-t border-line pt-5 text-[13px] leading-relaxed">
         <h3 className="text-[15px] font-semibold text-ink">{t('rights.title')}</h3>
         <ul className="mt-3 space-y-2">

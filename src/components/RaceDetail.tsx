@@ -33,6 +33,8 @@ import CostCalculator from './CostCalculator';
 import PackageTable from './PackageTable';
 import AlertForm from './AlertForm';
 import ReviewsTab from './ReviewsTab';
+import RaceTalkTab from '../community/RaceTalkTab';
+import { COMMUNITY_TEXT } from '../community/strings';
 import SimilarRaces from './SimilarRaces';
 import { Button, CloseButton, Input, Note, Tabs } from './ui';
 import { useAuth } from '../lib/auth';
@@ -41,7 +43,7 @@ import { spamReason, friendlyError } from '../lib/spam';
 
 const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
 
-type Tab = 'overview' | 'reviews' | 'packages' | 'cost' | 'alert';
+type Tab = 'overview' | 'reviews' | 'talk' | 'packages' | 'cost' | 'alert';
 
 interface RaceDetailProps {
   race: Race;
@@ -334,6 +336,7 @@ function RaceDetailView({
           items={[
             ['overview', t('tab.overview')],
             ['reviews', reviewCount ? t('tab.reviewsN', { n: reviewCount }) : t('tab.reviews')],
+            ['talk', COMMUNITY_TEXT[lang].tab],
             ['packages', racePackages.length ? t('tab.packagesN', { n: racePackages.length }) : t('tab.packages')],
             ['cost', t('tab.cost')],
             ...(cancelled ? [] : ([['alert', t('tab.alert')]] as [Tab, string][])),
@@ -474,6 +477,7 @@ function RaceDetailView({
         )}
 
         {view === 'reviews' && <ReviewsTab race={race} onLogin={onLogin} />}
+        {view === 'talk' && <RaceTalkTab race={race} onLogin={onLogin} />}
         {view === 'packages' && <PackageTable packages={racePackages} agencies={agencies} />}
         {view === 'cost' && <CostCalculator race={race} costs={costs} />}
         {view === 'alert' && <AlertForm race={race} />}
