@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { Fragment, memo } from 'react';
 import { CaretRight, Star, BookmarkSimple, Eye, CalendarCheck, Check } from '@phosphor-icons/react';
 import type { Race, RaceRating } from '../lib/types';
 import { dateParts, feeLabel, isDomestic, isTrail, statusLine, raceDayLine, TODAY, shortCount, mayFillEarly, isCancelled, expectedEntryText } from '../lib/util';
@@ -7,6 +7,26 @@ import { ENTRY_TEXT } from '../i18n/format';
 import { raceName, whereText } from '../i18n/names';
 
 const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
+
+/** ' · '·', ' 에서만 줄이 바뀌게 덩어리마다 nowrap ('조기\n마감 가능' 처럼 꺾이지 않게). 글자는 그대로 */
+function Chunks({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(\s·\s|,\s)/).map((s, i) =>
+        i % 2 ? (
+          <Fragment key={i}>{s}</Fragment>
+        ) : s ? (
+          <span key={i} className="whitespace-nowrap">
+            {s}
+          </span>
+        ) : null,
+      )}
+    </>
+  );
+}
+
+/** 제목 옆 작은 표(메이저·트레일·접수 완료·대회 취소) — 한 크기 */
+const TAG = 'inline-flex h-5 items-center rounded-tag px-2 text-[12px] font-bold';
 
 function RaceRow({
   race,
@@ -41,76 +61,74 @@ function RaceRow({
     <li style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 104px' }}>
       <button
         onClick={() => onOpen(race)}
-        className="group grid w-full grid-cols-[4rem_1fr_auto] items-center gap-x-4 gap-y-2 px-3 py-4 text-left transition hover:bg-surface sm:grid-cols-[5rem_1fr_auto_7.5rem_1.25rem] sm:gap-x-6 sm:px-5"
+        className="group grid w-full grid-cols-[4rem_1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-4 text-left transition-colors hover:bg-surface sm:grid-cols-[5rem_1fr_auto_7.5rem_1.25rem] sm:gap-x-6"
       >
-        {/* 대회 날짜 */}
-        <div className={`flex flex-col items-start leading-none ${cancelled ? 'opacity-50' : ''}`}>
-          <span className="num text-[13px] font-semibold text-ink-3">
+        {/* 대회 날짜 (취소는 흐린 글자색으로 — 투명도는 대비가 모자람) */}
+        <div className="flex flex-col items-start leading-none">
+          <span className="num text-[12px] font-semibold text-ink-3">
             {p.y !== thisYear ? t('date.ym', { y: p.y, m: p.m, mon: p.mon }) : t('date.m', { m: p.m, mon: p.mon })}
           </span>
-          <span className="num mt-0.5 text-[34px] font-bold text-ink sm:text-[40px]">{p.d}</span>
+          <span className={`num mt-0.5 text-[34px] font-bold sm:text-[40px] ${cancelled ? 'text-ink-3' : 'text-ink'}`}>{p.d}</span>
           <span className="text-[12px] text-ink-3">{t('date.weekday', { w: p.w })}</span>
         </div>
 
-        {/* 대회명 */}
+        {/* 대회명 (최대 두 줄, 표는 이름 끝에 붙어 같이 줄바꿈) */}
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className={`truncate break-keep text-[17px] font-bold tracking-tight ${cancelled ? 'text-ink-2' : 'text-ink'}`}>
-              {raceName(race, lang)}
-            </h3>
-            {favorite && <BookmarkSimple size={15} weight="fill" className="shrink-0 text-ink" aria-label={t('row.saved')} />}
-            {trail && (
-              <span className="shrink-0 rounded-tag border border-ink-3 px-1 py-px text-[10px] font-bold text-ink-2">
-                {t('row.trail')}
-              </span>
+          <div className="line-clamp-2 text-[17px] leading-snug">
+            <h3 className={`inline font-bold tracking-tight ${cancelled ? 'text-ink-2' : 'text-ink'}`}>{raceName(race, lang)}</h3>
+            {favorite && (
+              <BookmarkSimple size={14} weight="fill" className="ml-2 inline-block align-[-1px] text-ink" aria-label={t('row.saved')} />
             )}
-            {race.is_major && (
-              <span className="shrink-0 rounded-tag bg-ink px-1.5 py-0.5 text-[10px] font-bold text-bg">
-                {t('row.major')}
-              </span>
-            )}
+            {trail && <span className={`${TAG} ml-2 border border-ink-3 align-[2px] text-ink-2`}>{t('row.trail')}</span>}
+            {race.is_major && <span className={`${TAG} ml-2 bg-ink align-[2px] text-bg`}>{t('row.major')}</span>}
           </div>
-          <p className="mt-1 truncate break-keep text-[14px] text-ink-2">
-            {lang === 'en' ? whereText(race, 'en') : domestic ? race.city_ko : `${race.country_ko} ${race.city_ko}`}
+          <p className="mt-1 text-[15px] leading-snug text-ink-2">
+            {lang === 'en' ? <Chunks text={whereText(race, 'en')} /> : domestic ? race.city_ko : `${race.country_ko} ${race.city_ko}`}
             <span className="text-ink-3">
               {'  '}
               {mayFill ? (
                 <>
-                  {/* 휴대폰은 한 줄에 들어가게 짧게 */}
-                  <span className="sm:hidden">{t('row.fcfsShort')}</span>
-                  <span className="hidden sm:inline">{t('row.fcfsLong')}</span>
+                  {/* 휴대폰은 짧게 */}
+                  <span className="sm:hidden">
+                    <Chunks text={t('row.fcfsShort')} />
+                  </span>
+                  <span className="hidden sm:inline">
+                    <Chunks text={t('row.fcfsLong')} />
+                  </span>
                 </>
               ) : (
-                ENTRY_TEXT[lang][race.entry_type]
+                <Chunks text={ENTRY_TEXT[lang][race.entry_type]} />
               )}
-              {race.date_confidence !== 'confirmed' && t('row.dateExpected')}
+              {race.date_confidence !== 'confirmed' && <Chunks text={t('row.dateExpected')} />}
               {trail &&
-                race.elevation_gain != null &&
-                t('row.gain', { n: race.elevation_gain.toLocaleString(lang === 'en' ? 'en-US' : 'ko-KR') })}
+                race.elevation_gain != null && (
+                  <Chunks text={t('row.gain', { n: race.elevation_gain.toLocaleString(lang === 'en' ? 'en-US' : 'ko-KR') })} />
+                )}
             </span>
           </p>
+          {/* 부가 숫자: 작고 흐리게, 숫자도 같은 크기 */}
           {rating && (rating.review_count > 0 || (rating.views ?? 0) > 0) && (
-            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px] text-ink-2">
+            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-3">
               {rating.review_count > 0 && (
                 <span className="inline-flex items-center gap-1">
-                  <Star size={13} weight="fill" />
-                  <span className="num text-[15px] font-semibold">{Number(rating.avg_rating).toFixed(1)}</span>
-                  <span className="text-ink-3">{t('row.reviews', { count: rating.review_count })}</span>
+                  <Star size={12} weight="fill" className="text-ink-2" />
+                  <span className="num font-semibold text-ink-2">{Number(rating.avg_rating).toFixed(1)}</span>
+                  <span>{t('row.reviews', { count: rating.review_count })}</span>
                 </span>
               )}
               {(rating.views ?? 0) > 0 && (
-                <span className="inline-flex items-center gap-1 text-ink-3" title={t('row.viewsTitle')}>
-                  <Eye size={13} />
+                <span className="inline-flex items-center gap-1" title={t('row.viewsTitle')}>
+                  <Eye size={12} />
                   {t('views.pre')}
-                  <span className="num text-[14px]">{shortCount(rating.views!, lang)}</span>
+                  <span className="num">{shortCount(rating.views!, lang)}</span>
                   {t('views.post', { count: rating.views! })}
                 </span>
               )}
               {(rating.saves ?? 0) > 0 && (
-                <span className="inline-flex items-center gap-1 text-ink-3" title={t('row.savesTitle')}>
-                  <CalendarCheck size={13} />
+                <span className="inline-flex items-center gap-1" title={t('row.savesTitle')}>
+                  <CalendarCheck size={12} />
                   {t('saves.pre')}
-                  <span className="num text-[14px]">{shortCount(rating.saves!, lang)}</span>
+                  <span className="num">{shortCount(rating.saves!, lang)}</span>
                   {t('saves.post', { count: rating.saves! })}
                 </span>
               )}
@@ -118,21 +136,21 @@ function RaceRow({
           )}
         </div>
 
-        {/* 참가비 · 이동 (데스크톱) */}
-        <dl className="hidden grid-cols-[auto_auto] gap-x-4 text-[13px] leading-5 text-ink-2 sm:grid">
+        {/* 참가비 · 이동 (데스크톱): 칸 너비를 고정해 행마다 라벨·값 위치가 같게 */}
+        <dl className="hidden w-[9rem] grid-cols-[1fr_auto] gap-x-4 text-[13px] leading-5 sm:grid">
           <div className="contents">
-            <dt className="text-ink-3">{t('row.fee')}</dt>
-            <dd className="num text-right text-[15px] font-semibold text-ink">{feeLabel(race, lang)}</dd>
+            <dt className="whitespace-nowrap text-ink-3">{t('row.fee')}</dt>
+            <dd className="num text-right font-semibold whitespace-nowrap text-ink-2">{feeLabel(race, lang)}</dd>
           </div>
           <div className="contents">
-            <dt className="text-ink-3">{domestic ? t('row.fromSeoul') : t('row.fromIncheon')}</dt>
-            <dd className="num text-right text-[15px] font-semibold text-ink">
+            <dt className="whitespace-nowrap text-ink-3">{domestic ? t('row.fromSeoul') : t('row.fromIncheon')}</dt>
+            <dd className="num text-right font-semibold whitespace-nowrap text-ink-2">
               {race.flight_hours != null ? t('row.hours', { n: race.flight_hours }) : '-'}
             </dd>
           </div>
           <div className="contents">
-            <dt className="text-ink-3">{t('row.raceIn')}</dt>
-            <dd className="num text-right text-[15px] font-semibold text-ink">
+            <dt className="whitespace-nowrap text-ink-3">{t('row.raceIn')}</dt>
+            <dd className="num text-right font-semibold whitespace-nowrap text-ink-2">
               {raceDay.days != null ? dday(raceDay.days) : cancelled ? '-' : t('row.over')}
             </dd>
           </div>
@@ -141,34 +159,34 @@ function RaceRow({
         {/* 접수 상태 */}
         <div className="col-start-3 row-start-1 flex flex-col items-end text-right sm:col-start-auto sm:row-start-auto">
           {registered && (
-            <span className="mb-0.5 inline-flex items-center gap-0.5 rounded-tag bg-ink px-1.5 py-px text-[11px] font-bold text-bg">
-              <Check size={11} weight="bold" />
+            <span className={`${TAG} mb-1 gap-1 bg-ink text-bg`}>
+              <Check size={12} weight="bold" />
               {t('row.registered')}
             </span>
           )}
           {cancelled ? (
-            <span className="mt-0.5 rounded-tag border border-ink-3 px-1.5 py-0.5 text-[13px] font-bold text-ink-2">{t('st.cancelled')}</span>
+            <span className={`${TAG} border border-ink-3 text-ink-2`}>{t('st.cancelled')}</span>
           ) : (
-            <span className="text-[12px] text-ink-3">{st.label}</span>
+            <span className="text-[12px] whitespace-nowrap text-ink-3">{st.label}</span>
           )}
           {cancelled ? null : st.days != null ? (
             <span
-              className={`num mt-0.5 inline-block rounded-tag px-1.5 text-[26px] font-bold leading-tight ${
+              className={`num mt-0.5 inline-block rounded-tag px-1 text-[26px] font-bold leading-tight ${
                 st.hot ? 'bg-accent text-on-accent' : 'text-ink'
               }`}
             >
               {dday(st.days)}
             </span>
           ) : expected ? (
-            <span className="num mt-0.5 text-[12px] text-ink-3">{expected}</span>
+            <span className="num mt-0.5 text-[12px] whitespace-nowrap text-ink-3">{expected}</span>
           ) : (
-            <span className="mt-1 text-[14px] font-semibold text-ink-3">
+            <span className="mt-1 text-[15px] font-semibold whitespace-nowrap text-ink-3">
               {st.label === t('st.untilFull') ? t('row.open') : st.label === t('st.soldout') ? t('row.full') : ''}
             </span>
           )}
           {/* 휴대폰: 참가비 칸이 숨으므로 대회일 D-day 를 여기 작게 */}
           {!registered && raceDay.days != null && (
-            <span className="num mt-0.5 text-[12px] text-ink-3 sm:hidden">{t('row.raceDday', { d: dday(raceDay.days) })}</span>
+            <span className="num mt-1 text-[12px] whitespace-nowrap text-ink-3 sm:hidden">{t('row.raceDday', { d: dday(raceDay.days) })}</span>
           )}
         </div>
 
