@@ -1,5 +1,5 @@
 /**
- * /privacy · /terms (영어는 /en/…) 의 얇은 틀 (PLAN 3-5, 3-8). main.tsx 가 App 대신 이 화면을 그린다.
+ * /privacy (영어는 /en/privacy) 의 얇은 틀 (PLAN 3-5). main.tsx 가 App 대신 이 화면을 그린다. 이용약관은 정적 페이지(scripts/terms.mjs).
  * 본문 조항은 섹션 컴포넌트(<section id>)로 따로 두고, 글자 모양은 여기서 한꺼번에 입힌다 —
  * 다른 세션의 조항 컴포넌트를 끼워도 같은 모양이 되게. 목차·제목 링크도 그려진 섹션을 읽어 만든다
  * (규칙: <section id> 의 첫 자식이 <h2>. h2 가 없는 섹션은 목차에 넣지 않는다).
@@ -9,12 +9,11 @@ import { createPortal } from 'react-dom';
 import { CaretDown, LinkSimple } from '@phosphor-icons/react';
 import { Logo } from '../components/Logo';
 import { langPath, useLang } from '../i18n';
-import { CONTACT_EMAIL, POLICY_VERSION, PRIVACY_PATH, REVISIONS, TERMS_PATH } from '../lib/policy';
+import { CONTACT_EMAIL, POLICY_VERSION, REVISIONS, TERMS_PATH } from '../lib/policy';
 import { LEGAL, pick } from './strings';
 import PrivacyPolicy from './PrivacyPolicy';
-import TermsPage from './TermsPage';
 
-export type LegalKind = 'privacy' | 'terms';
+export type LegalKind = 'privacy';
 
 /** 머리·본문·푸터가 같은 왼쪽 선에 서게. 넓은 화면: 목차 13rem + 간격 3.5rem + 본문 42rem(한 줄 한글 약 42자) */
 const WRAP = 'mx-auto w-full max-w-[61.5rem] px-4 sm:px-6';
@@ -203,7 +202,7 @@ export default function LegalPage({ kind }: { kind: LegalKind }) {
           </details>
 
           <div ref={bodyRef} className={`${BODY} ${STACK}`}>
-            {kind === 'privacy' ? <PrivacyPolicy /> : <TermsPage />}
+            <PrivacyPolicy />
 
             <section id="revisions">
               <h2>{pick(LEGAL.revisions, lang)}</h2>
@@ -254,10 +253,10 @@ export default function LegalPage({ kind }: { kind: LegalKind }) {
             </a>
           </span>
           <a
-            href={langPath(kind === 'privacy' ? TERMS_PATH : PRIVACY_PATH, lang)}
+            href={langPath(TERMS_PATH, lang)}
             className="inline-flex min-h-11 items-center self-start underline decoration-ink-3 underline-offset-[3px] hover:text-ink sm:min-h-0"
           >
-            {pick(LEGAL[kind === 'privacy' ? 'terms' : 'privacy'], lang)}
+            {pick(LEGAL.terms, lang)}
           </a>
           <a
             href={langPath('/', lang)}

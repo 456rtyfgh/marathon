@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
 import { initAnalytics } from './lib/analytics';
-import { PRIVACY_PATH, TERMS_PATH } from './lib/policy';
+import { PRIVACY_PATH } from './lib/policy';
 import { LangProvider, applyLang, initialLang, stripLang } from './i18n';
 
 // 예전 주소(marathoncalendar.pages.dev)로 들어오면 대표 주소로 옮긴다
@@ -17,9 +17,9 @@ applyLang(lang);
 
 initAnalytics();
 
-// 처리방침·약관은 App 바깥에서 따로 그린다 (App 의 hooks 를 건드리지 않게, 본문은 그 페이지에서만 받는다)
+// 처리방침은 App 바깥에서 따로 그린다 (App 의 hooks 를 건드리지 않게, 본문은 그 페이지에서만 받는다). 약관은 정적 페이지 scripts/terms.mjs
 const path = stripLang(location.pathname).replace(/(.)\/+$/, '$1');
-const legal = path === PRIVACY_PATH ? 'privacy' : path === TERMS_PATH ? 'terms' : null;
+const legal = path === PRIVACY_PATH ? 'privacy' : null;
 
 const render = (node: ReactNode) =>
   createRoot(document.getElementById('root')!).render(
