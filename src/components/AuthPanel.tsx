@@ -4,24 +4,51 @@ import { useAuth } from '../lib/auth';
 import { Button, CloseButton, Field, Input, Note, Panel } from './ui';
 import { spamReason } from '../lib/spam';
 import { track } from '../lib/analytics';
-import { useLang } from '../i18n';
+import { langPath, useLang } from '../i18n';
+import { CONTACT_EMAIL, POLICY_VERSION, PRIVACY_PATH, emptyConsent, requiredOk } from '../lib/policy';
+import { SignupConsent } from './SignupConsent';
+import { WithdrawForm } from './WithdrawForm';
+import { PolicyNotice } from './PolicyNotice';
 
 export function AuthBar({ onOpen }: { onOpen: () => void }) {
-  const { session, profile, signOut } = useAuth();
+  const { session, profile, signOut, policyNoticeDue } = useAuth();
   const { t } = useLang();
   const [editing, setEditing] = useState(false);
+  const [view, setView] = useState<'me' | 'withdraw'>('me');
+  const [withdrawn, setWithdrawn] = useState(false);
+  const [noticeClosed, setNoticeClosed] = useState(false);
+  const openMe = (v: 'me' | 'withdraw') => {
+    setView(v);
+    setEditing(true);
+  };
+  const close = () => {
+    setEditing(false);
+    setView('me');
+  };
 
   if (!session) {
     return (
-      <Button size="sm" onClick={onOpen}>
-        {t('auth.login')}
-      </Button>
+      <>
+        <Button size="sm" onClick={onOpen}>
+          {t('auth.login')}
+        </Button>
+        {/* 탈퇴하면 세션이 바로 없어지므로 완료 안내는 로그아웃 상태에서 보여 준다 */}
+        <Panel open={withdrawn} onClose={() => setWithdrawn(false)} label={t('withdraw.title')} variant="sheet">
+          <div className="space-y-4 p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-[20px] font-bold tracking-tight">{t('withdraw.title')}</h2>
+              <CloseButton onClick={() => setWithdrawn(false)} />
+            </div>
+            <Note tone="ok">{t('withdraw.done')}</Note>
+          </div>
+        </Panel>
+      </>
     );
   }
   return (
     <div className="flex items-center gap-1">
       <button
-        onClick={() => setEditing(true)}
+        onClick={() => openMe('me')}
         title={t('auth.changeNick')}
         className="inline-flex h-11 items-center gap-2 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition hover:bg-sunken hover:text-ink sm:h-9"
       >
@@ -37,15 +64,41 @@ export function AuthBar({ onOpen }: { onOpen: () => void }) {
       >
         <SignOut size={17} />
       </button>
-      <Panel open={editing} onClose={() => setEditing(false)} label={t('auth.me')} variant="sheet">
-        {editing && <ProfileForm onClose={() => setEditing(false)} />}
+      <Panel open={editing} onClose={close} label={view === 'withdraw' ? t('withdraw.title') : t('auth.me')} variant="sheet">
+        {editing &&
+          (view === 'withdraw' ? (
+            <WithdrawForm
+              onBack={() => setView('me')}
+              onClose={close}
+              onDone={() => {
+                close();
+                setWithdrawn(true);
+              }}
+            />
+          ) : (
+            <ProfileForm onClose={close} onWithdraw={() => setView('withdraw')} />
+          ))}
+      </Panel>
+      <Panel
+        open={policyNoticeDue && !noticeClosed && !editing}
+        onClose={() => setNoticeClosed(true)}
+        label={t('policyNotice.title')}
+        variant="sheet"
+      >
+        <PolicyNotice
+          onClose={() => setNoticeClosed(true)}
+          onWithdraw={() => {
+            setNoticeClosed(true);
+            openMe('withdraw');
+          }}
+        />
       </Panel>
     </div>
   );
 }
 
-/** 내 정보: 닉네임 바꾸기 */
-function ProfileForm({ onClose }: { onClose: () => void }) {
+/** 내 정보: 닉네임 바꾸기 + 열람·정정·삭제·처리정지 안내 */
+function ProfileForm({ onClose, onWithdraw }: { onClose: () => void; onWithdraw: () => void }) {
   const { session, profile, updateNickname } = useAuth();
   const { lang, t } = useLang();
   const [nick, setNick] = useState(profile?.nickname ?? '');
@@ -53,39 +106,65 @@ function ProfileForm({ onClose }: { onClose: () => void }) {
   const [err, setErr] = useState('');
   const [ok, setOk] = useState(false);
   return (
-    <form
-      className="space-y-4 p-6"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setErr('');
-        setOk(false);
-        const spam = spamReason(nick, lang);
-        if (spam) return setErr(spam);
-        setBusy(true);
-        try {
-          await updateNickname(nick);
-          setOk(true);
-        } catch (e2) {
-          setErr(e2 instanceof Error ? e2.message : t('auth.nickFail'));
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[20px] font-bold tracking-tight">{t('auth.me')}</h2>
-        <CloseButton onClick={onClose} />
-      </div>
-      <p className="text-[15px] text-ink-3">{session?.user.email}</p>
-      <Field label={t('auth.nick')} hint={t('auth.nickHintMe')}>
-        <Input required minLength={2} maxLength={16} value={nick} onChange={(e) => setNick(e.target.value)} />
-      </Field>
-      {err && <Note tone="error">{err}</Note>}
-      {ok && <Note tone="ok">{t('auth.nickChanged')}</Note>}
-      <Button type="submit" disabled={busy || nick.trim() === profile?.nickname} className="w-full">
-        {busy ? t('common.saving') : t('auth.saveNick')}
-      </Button>
-    </form>
+    <div className="space-y-6 p-6">
+      <form
+        className="space-y-4"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setErr('');
+          setOk(false);
+          const spam = spamReason(nick, lang);
+          if (spam) return setErr(spam);
+          setBusy(true);
+          try {
+            await updateNickname(nick);
+            setOk(true);
+          } catch (e2) {
+            setErr(e2 instanceof Error ? e2.message : t('auth.nickFail'));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-[20px] font-bold tracking-tight">{t('auth.me')}</h2>
+          <CloseButton onClick={onClose} />
+        </div>
+        <p className="text-[15px] text-ink-3">
+          {t('rights.email')} · {session?.user.email}
+        </p>
+        <Field label={t('auth.nick')} hint={t('auth.nickHintMe')}>
+          <Input required minLength={2} maxLength={16} value={nick} onChange={(e) => setNick(e.target.value)} />
+        </Field>
+        {err && <Note tone="error">{err}</Note>}
+        {ok && <Note tone="ok">{t('auth.nickChanged')}</Note>}
+        <Button type="submit" disabled={busy || nick.trim() === profile?.nickname} className="w-full">
+          {busy ? t('common.saving') : t('auth.saveNick')}
+        </Button>
+      </form>
+      <section className="space-y-2 border-t border-line pt-5 text-[13px] leading-relaxed text-ink-3">
+        <h3 className="text-[15px] font-semibold text-ink-2">{t('rights.title')}</h3>
+        <ul className="space-y-1">
+          <li>{t('rights.view')}</li>
+          <li>{t('rights.fix')}</li>
+          <li>{t('rights.delete')}</li>
+          <li>{t('rights.stop', { email: CONTACT_EMAIL })}</li>
+        </ul>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <a
+            href={langPath(PRIVACY_PATH, lang)}
+            target="_blank"
+            rel="noopener"
+            className="py-3 text-ink-2 underline underline-offset-2 hover:no-underline"
+          >
+            {t('rights.policy')}
+          </a>
+          <button type="button" onClick={onWithdraw} className="min-h-11 text-ink-3 underline underline-offset-2 hover:text-ink">
+            {t('withdraw.open')}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -99,6 +178,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
+  const [consent, setConsent] = useState(emptyConsent);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [info, setInfo] = useState('');
@@ -260,7 +340,12 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
                 return;
               }
               if (password.length < 8) throw new Error(t('auth.pw8'));
-              const r = await signUp(email.trim(), password, nickname);
+              if (!requiredOk(consent)) throw new Error(t('consent.need'));
+              const r = await signUp(email.trim(), password, nickname, {
+                policy_version: POLICY_VERSION,
+                agreed_at: new Date().toISOString(),
+                age14: true,
+              });
               track('sign_up', { result: r });
               if (r === 'signed_in') onClose();
               else if (r === 'check_email') setMode('sent');
@@ -289,9 +374,12 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
             />
           </Field>
 
-          {err && <Note tone="error">{err}</Note>}
+          {mode === 'up' && <SignupConsent value={consent} onChange={setConsent} />}
 
-          <Button type="submit" disabled={busy} className="w-full">
+          {err && <Note tone="error">{err}</Note>}
+          {mode === 'up' && !requiredOk(consent) && <p className="text-[13px] text-ink-3">{t('consent.need')}</p>}
+
+          <Button type="submit" disabled={busy || (mode === 'up' && !requiredOk(consent))} className="w-full">
             {busy ? t('common.processing') : mode === 'in' ? t('auth.login') : t('auth.signupSubmit')}
           </Button>
 
