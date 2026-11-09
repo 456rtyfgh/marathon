@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session } from '@supabase/supabase-js';
 import { supabase, hasSupabase } from './supabase';
 import type { Profile } from './types';
+import { CONTACT_EMAIL, POLICY_VERSION, type ConsentRecord } from './policy';
 import { useLang, translate as tr, type Lang } from '../i18n';
 
 export type SignUpResult = 'signed_in' | 'check_email' | 'already_exists';
@@ -16,7 +17,8 @@ interface AuthState {
   justConfirmed: boolean;
   clearFlags: () => void;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, nickname: string) => Promise<SignUpResult>;
+  /** consent 는 가입 화면의 동의 기록 — user_metadata 에 닉네임과 같이 남는다 */
+  signUp: (email: string, password: string, nickname: string, consent: ConsentRecord) => Promise<SignUpResult>;
   resendConfirm: (email: string) => Promise<void>;
   sendReset: (email: string) => Promise<void>;
   /** 메일로 받은 숫자 코드로 인증 (링크가 안 열리거나 다른 기기에서 메일을 볼 때) */
@@ -25,6 +27,12 @@ interface AuthState {
   /** 닉네임 바꾸기 (2~16자, 광고·운영진 사칭 금지는 서버가 확인) */
   updateNickname: (nickname: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** 로그인했고 user_metadata.policy_version 이 지금 처리방침 버전과 다르면 true (개정 안내를 띄운다) */
+  policyNoticeDue: boolean;
+  /** 개정 안내 확인(재동의 포함) 기록 */
+  ackPolicy: () => Promise<void>;
+  /** 회원 탈퇴: delete_my_account RPC 가 성공하면 이 기기에서 로그아웃. 실패하면 throw 하고 로그인 상태를 그대로 둔다 */
+  deleteAccount: () => Promise<void>;
 }
 
 const noop = async () => {};
@@ -43,6 +51,9 @@ const Ctx = createContext<AuthState>({
   updatePassword: noop,
   updateNickname: noop,
   signOut: noop,
+  policyNoticeDue: false,
+  ackPolicy: noop,
+  deleteAccount: noop,
 });
 
 export const useAuth = () => useContext(Ctx);
@@ -57,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [recovering, setRecovering] = useState(false);
   const [justConfirmed, setJustConfirmed] = useState(false);
+  // 안내를 확인한 버전 — 저장한 메타데이터가 세션에 늦게 들어와도 이번 화면에서는 다시 띄우지 않는다
+  const [ackedVersion, setAckedVersion] = useState('');
 
   useEffect(() => {
     if (!hasSupabase || !supabase) {
@@ -140,13 +153,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await need().auth.signInWithPassword({ email, password });
       if (error) throw new Error(translate(error.message));
     },
-    async signUp(email, password, nickname) {
+    async signUp(email, password, nickname, consent) {
       const nick = nickname.trim();
       if (nick.length < 2 || nick.length > 16) throw new Error(t('authErr.nickLen'));
       const { data, error } = await need().auth.signUp({
         email,
         password,
-        options: { data: { nickname: nick }, emailRedirectTo: redirectTo() },
+        options: { data: { nickname: nick, ...consent }, emailRedirectTo: redirectTo() },
       });
       if (error) throw new Error(translate(error.message));
       // 메일 인증을 켜두면 이미 있는 이메일도 오류 없이 빈 identities 로 돌아온다.
@@ -202,6 +215,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async signOut() {
       if (!supabase) return;
       await supabase.auth.signOut();
+    },
+    policyNoticeDue:
+      !!session?.user && session.user.user_metadata?.policy_version !== POLICY_VERSION && ackedVersion !== POLICY_VERSION,
+    async ackPolicy() {
+      const { error } = await need().auth.updateUser({ data: { policy_version: POLICY_VERSION, agreed_at: new Date().toISOString() } });
+      if (error) throw new Error(translate(error.message));
+      // 저장된 뒤에만 표시한다 — 먼저 표시하면 재동의 저장이 실패해도 안내 창이 사라져 오류를 못 보고 동의도 안 남는다
+      // (안내만일 때 실패하면 PolicyNotice 가 직접 닫으므로 이번 화면에서는 다시 뜨지 않는다)
+      setAckedVersion(POLICY_VERSION);
+    },
+    async deleteAccount() {
+      const sb = need();
+      if (!session?.user) throw new Error(t('authErr.needLogin'));
+      const { error } = await sb.rpc('delete_my_account');
+      if (error) {
+        // 함수가 아직 DB 에 없을 때(0011 실행 전)는 메일로 받는다고 안내한다
+        const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message);
+        throw new Error(t(missing ? 'withdraw.unavailable' : 'withdraw.failed', { email: CONTACT_EMAIL }));
+      }
+      // 계정이 이미 없어 서버 로그아웃은 실패하므로 이 기기의 세션만 지운다
+      await sb.auth.signOut({ scope: 'local' });
+      setProfile(null);
     },
   };
 

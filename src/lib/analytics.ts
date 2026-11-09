@@ -103,21 +103,53 @@ function source(): string {
   }
 }
 
+/* ── GA 거부 (처리방침 쿠키 섹션의 [GA 끄기/켜기]) ─────────────────
+ * 고르지 않았거나(null) 허용이면 지금처럼 불러오고, 거부면 불러오지 않는다. 자체 집계는 쿠키가 없어 그대로. */
+const CONSENT_KEY = 'mc:ga-consent';
+export type AnalyticsConsent = 'granted' | 'denied' | null; // null = 아직 안 고름
+
+export function getAnalyticsConsent(): AnalyticsConsent {
+  try {
+    const v = localStorage.getItem(CONSENT_KEY);
+    return v === 'granted' || v === 'denied' ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+const gaAllowed = () => gaOn && getAnalyticsConsent() !== 'denied';
+
+function loadGa() {
+  if (!gaOn) return;
+  // 이미 불러온 탭에서 다시 켜면 멈춰 둔 수집만 다시 켠다
+  if (window.gtag) return window.gtag('consent', 'update', { analytics_storage: 'granted' });
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function gtag() {
+    // eslint-disable-next-line prefer-rest-params
+    window.dataLayer!.push(arguments);
+  };
+  window.gtag('js', new Date());
+  window.gtag('config', GA_ID, { anonymize_ip: true });
+  const s = document.createElement('script');
+  s.async = true;
+  s.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
+  document.head.appendChild(s);
+}
+
+/** granted 면 그 자리에서 GA 를 불러오고, denied 면 이 탭에서는 수집을 멈추고 다음 방문부터 불러오지 않는다 */
+export function setAnalyticsConsent(v: 'granted' | 'denied') {
+  try {
+    localStorage.setItem(CONSENT_KEY, v);
+  } catch {
+    /* 저장 못 하면 이번 탭에만 적용 */
+  }
+  if (v === 'granted') loadGa();
+  else window.gtag?.('consent', 'update', { analytics_storage: 'denied' });
+}
+
 export function initAnalytics() {
   if (typeof window === 'undefined') return;
-  if (gaOn && !window.gtag) {
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = function gtag() {
-      // eslint-disable-next-line prefer-rest-params
-      window.dataLayer!.push(arguments);
-    };
-    window.gtag('js', new Date());
-    window.gtag('config', GA_ID, { anonymize_ip: true });
-    const s = document.createElement('script');
-    s.async = true;
-    s.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
-    document.head.appendChild(s);
-  }
+  if (gaAllowed()) loadGa();
   // 방문은 탭 하나(세션)당 한 번만 센다
   try {
     if (!sessionStorage.getItem('mc:visit')) {
@@ -134,11 +166,11 @@ export function initAnalytics() {
 }
 
 export function track(name: string, params: Params = {}) {
-  if (gaOn) window.gtag?.('event', name, params);
+  if (gaAllowed()) window.gtag?.('event', name, params);
   toStat(name, params);
 }
 
 /** 대회 상세(/r/…)를 연 것도 한 페이지로 센다 */
 export function pageView(title: string) {
-  if (gaOn) window.gtag?.('event', 'page_view', { page_location: location.href, page_title: title });
+  if (gaAllowed()) window.gtag?.('event', 'page_view', { page_location: location.href, page_title: title });
 }

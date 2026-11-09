@@ -31,6 +31,8 @@ import { track, pageView } from './lib/analytics';
 import { langPath, useLang, type Key } from './i18n';
 import { DISCIPLINE_TEXT, ENTRY_TEXT, fmtCount, fmtMonth } from './i18n/format';
 import { countryName, raceName, whereText } from './i18n/names';
+import { PRIVACY_PATH, TERMS_PATH } from './lib/policy';
+import { LEGAL } from './legal/strings';
 
 // 상세·요청·관리 패널은 열 때만 필요하므로 첫 화면 번들에서 뺀다 (목록이 뜬 뒤 미리 받아 둔다 —
 // 처음 열 때 받으면, 탭을 열어 둔 채 새로 배포된 뒤에는 옛 청크가 없어 화면 전체가 깨진다)
@@ -890,17 +892,28 @@ function Main() {
         <footer className="border-t border-line">
           <div className="mx-auto max-w-6xl px-4 py-8 text-[13px] leading-relaxed text-ink-3 sm:px-6">
             <p className="max-w-[70ch]">{t('footer.1')}</p>
-            <p className="mt-2 max-w-[70ch]">{t('footer.2')}</p>
+            <p className="mt-2 max-w-[70ch]">
+              {t('footer.2')}{' '}
+              <a href={`${langPath(PRIVACY_PATH, lang)}#cookies`} className="py-3 underline underline-offset-2 hover:no-underline">
+                {LEGAL.more[lang]}
+              </a>
+            </p>
             <p className="mt-2 max-w-[70ch]">
               {t('footer.contact')}{' '}
               <a href="mailto:marathon82@kakao.com" className="py-3 underline underline-offset-2 hover:no-underline">
                 marathon82@kakao.com
               </a>
             </p>
-            <p className="mt-2 max-w-[70ch]">
-              {t('footer.notice')}{' '}
-              <a href={langPath('/terms', lang)} className="py-3 underline underline-offset-2 hover:no-underline">
-                {t('footer.terms')}
+            <p className="mt-2 max-w-[70ch]">{t('footer.notice')}</p>
+            <p className="mt-2 flex flex-wrap gap-x-6">
+              <a
+                href={langPath(PRIVACY_PATH, lang)}
+                className="inline-flex min-h-11 items-center font-bold text-ink-2 underline underline-offset-2 hover:no-underline sm:min-h-9"
+              >
+                {LEGAL.privacy[lang]}
+              </a>
+              <a href={langPath(TERMS_PATH, lang)} className="inline-flex min-h-11 items-center underline underline-offset-2 hover:no-underline sm:min-h-9">
+                {LEGAL.terms[lang]}
               </a>
             </p>
           </div>
