@@ -114,6 +114,7 @@ function toItem(r: Record<string, unknown>): PostListItem | null {
     like_count: Number(r.like_count) || 0,
     edited: r.edited === true,
     state,
+    hidden_until: typeof r.hidden_until === 'string' ? r.hidden_until : null,
   };
 }
 

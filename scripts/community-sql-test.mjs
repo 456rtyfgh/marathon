@@ -297,6 +297,11 @@ await throws('비관리자: 처리 거절', () => as(B, () => q(`select public.a
   ok('임시조치 글은 목록에 temp_hidden(제목·닉네임 null)', li?.state === 'temp_hidden' && li.title === null && li.nickname === null);
   const da = await detail(ANON, P2);
   ok('임시조치 글 상세: 자리만', da.post.state === 'temp_hidden' && da.post.title === null);
+  // 표 행은 Date, jsonb 는 문자열로 온다 → 밀리초로 맞춰 비교
+  const ms = (v) => (v instanceof Date ? v.getTime() : Date.parse(v));
+  const until = ms(t.hidden_until);
+  ok('임시조치 기한: 목록·상세에 hidden_until', ms(li?.hidden_until) === until && ms(da.post.hidden_until) === until);
+  ok('보이는 글은 hidden_until null', (await list(ANON)).filter((x) => x.state === 'visible').every((x) => x.hidden_until === null));
   ok('임시조치는 신고함에 남음', (await as(ADM, () => one(`select public.admin_community_reports() as r`))).r.some((x) => x.target_id === P2 && x.hidden_reason === 'rights'));
   await as(ADM, () => q(`select public.admin_community_action('post', $1, 'dismiss')`, [P2]));
   ok('dismiss → 상태 그대로', (await postRow(P2)).hidden_reason === 'rights');

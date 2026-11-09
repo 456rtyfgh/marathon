@@ -111,6 +111,9 @@ const api = (path, headers = SAME, deps = {}, init = {}) =>
   ok(c.url === `${m.PUBLIC_SB.url}/rest/v1/rpc/community_list`, 'rpc/community_list 호출');
   ok(c.init.headers.apikey === m.PUBLIC_SB.key && !c.init.headers.Authorization, '공개 키(anon), Authorization 없음');
   ok(c.body.p_race === 'seoul-2027' && c.body.p_cat === 'free' && c.body.p_before_at === null && c.body.p_limit === 20, 'RPC 인자');
+  const until = '2026-12-09T01:02:03.123456+00:00';
+  const th = await (await api('/api/community', SAME, { fetch: fakeFetch([row(1, { state: 'temp_hidden', title: null, hidden_until: until })]) })).json();
+  ok(th.items[0].hidden_until === until && j.items[0].hidden_until === null, '임시조치 기한(hidden_until) 전달, 없으면 null');
 }
 {
   const rows = Array.from({ length: 20 }, (_, i) => row(i + 1));

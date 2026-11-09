@@ -615,17 +615,20 @@ create policy reports_insert_own on public.reports for insert to authenticated w
 -- ── [9] 읽기 RPC ────────────────────────────────────────────────────────────────────
 -- 목록 (워커 /api/community 가 anon 으로 부른다). 본문·user_id 없음. visible + 임시조치(제목·닉네임 비움)만.
 -- 지운 글('삭제된 글입니다')은 공개 목록에 빈 줄로 늘어놓지 않고 글 상세·공유 링크·내 글에서만 보인다.
+-- hidden_until: 임시조치 글의 '(~M월 D일까지)' 표시용 (반환 꼴이 바뀌면 create or replace 가 안 되므로 먼저 지운다)
+drop function if exists public.community_list(text, text, timestamptz, uuid, int);
 create or replace function public.community_list(
   p_race text default null, p_cat text default null,
   p_before_at timestamptz default null, p_before_id uuid default null, p_limit int default 20)
 returns table (id uuid, race_id text, category text, title text, nickname text, created_at timestamptz,
-               comment_count int, like_count int, edited boolean, state text)
+               comment_count int, like_count int, edited boolean, state text, hidden_until timestamptz)
 language sql stable security definer set search_path = public as $$
   select p.id, p.race_id, p.category,
          case when p.status = 'visible' then p.title end,
          case when p.status = 'visible' then p.nickname end,
          p.created_at, p.comment_count, p.like_count, p.edited,
-         public.community_state(p.status, p.hidden_reason)
+         public.community_state(p.status, p.hidden_reason),
+         case when p.status = 'hidden' then p.hidden_until end
     from public.posts p
    where (p.status = 'visible' or (p.status = 'hidden' and p.hidden_reason = 'rights'))
      and (p_race is null or p.race_id = p_race)
@@ -676,6 +679,7 @@ begin
       'created_at', p.created_at, 'updated_at', p.updated_at,
       'comment_count', p.comment_count, 'like_count', p.like_count, 'edited', p.edited,
       'state', st,
+      'hidden_until', case when st = 'temp_hidden' or (st = 'hidden' and (own or adm)) then p.hidden_until end,
       'body', case when show and not locked then p.body end,
       'mine', own,
       'liked', uid is not null and exists (select 1 from public.post_likes l where l.post_id = p.id and l.user_id = uid)),
@@ -686,9 +690,10 @@ revoke execute on function public.community_post(uuid) from public;
 grant execute on function public.community_post(uuid) to anon, authenticated;
 
 -- 내 글 (상태 그대로, 20개씩). 지운 글은 제목이 비어 있어 null.
+drop function if exists public.community_my_posts(timestamptz, uuid);
 create or replace function public.community_my_posts(p_before_at timestamptz default null, p_before_id uuid default null)
 returns table (id uuid, race_id text, category text, title text, nickname text, created_at timestamptz,
-               comment_count int, like_count int, edited boolean, state text)
+               comment_count int, like_count int, edited boolean, state text, hidden_until timestamptz)
 language plpgsql stable security definer set search_path = public as $$
 declare uid uuid := auth.uid();
 begin
@@ -697,7 +702,8 @@ begin
   end if;
   return query
   select p.id, p.race_id, p.category, nullif(p.title, ''), p.nickname, p.created_at,
-         p.comment_count, p.like_count, p.edited, public.community_state(p.status, p.hidden_reason)
+         p.comment_count, p.like_count, p.edited, public.community_state(p.status, p.hidden_reason),
+         case when p.status = 'hidden' then p.hidden_until end
     from public.posts p
    where p.user_id = uid
      and (p_before_at is null

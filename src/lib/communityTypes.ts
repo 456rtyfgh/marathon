@@ -27,6 +27,8 @@ export interface PostListItem {
   like_count: number;
   edited: boolean;
   state: PostState;
+  /** 임시조치(temp_hidden)·숨김이 끝나는 때 — '(~M월 D일까지)' 표시용. 그 밖에는 null(또는 없음) */
+  hidden_until?: string | null;
 }
 export interface PostListResponse {
   items: PostListItem[];
