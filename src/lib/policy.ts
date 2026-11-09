@@ -37,8 +37,8 @@ export interface CollectionItem {
 /** 회원가입 */
 export const COLLECT_MEMBER: CollectionItem = {
   purpose: {
-    ko: '회원 확인과 로그인, 후기·대회 요청의 작성자 표시, 가입 확인·비밀번호 재설정 메일 발송',
-    en: 'Identifying you and signing you in, showing you as the author of reviews and race requests, and sending sign-up confirmation and password reset emails',
+    ko: '회원 확인과 로그인, 후기·대회 요청·러닝톡 글·댓글의 작성자 표시, 가입 확인·비밀번호 재설정 메일 발송',
+    en: 'Identifying you and signing you in, showing you as the author of reviews, race requests and Run Talk posts and comments, and sending sign-up confirmation and password reset emails',
   },
   items: {
     ko: '이메일, 비밀번호(암호화해 저장), 닉네임 / 자동 생성: 가입·인증·최근 로그인 시각',
@@ -49,8 +49,8 @@ export const COLLECT_MEMBER: CollectionItem = {
     en: 'Until you delete your account. It is destroyed immediately when you do.',
   },
   refusal: {
-    ko: '동의하지 않을 수 있습니다. 동의하지 않으면 회원가입을 할 수 없어 후기 작성·대회 요청을 쓸 수 없고, 대회 일정 보기와 일정 알림 신청은 가입 없이 그대로 쓸 수 있습니다.',
-    en: "You may refuse. If you do, you can't create an account, so you can't write reviews or send race requests. Browsing races and signing up for date alerts still work without an account.",
+    ko: '동의하지 않을 수 있습니다. 동의하지 않으면 회원가입을 할 수 없어 후기 작성·대회 요청·러닝톡 글·댓글을 쓸 수 없고, 대회 일정 보기와 일정 알림 신청은 가입 없이 그대로 쓸 수 있습니다.',
+    en: "You may refuse. If you do, you can't create an account, so you can't write reviews, send race requests, or post on Run Talk. Browsing races and signing up for date alerts still work without an account.",
   },
 };
 

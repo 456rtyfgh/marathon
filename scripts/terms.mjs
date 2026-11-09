@@ -85,7 +85,7 @@ const SECTIONS = {
     {
       id: 'signup',
       h: '제6조 (회원가입)',
-      body: `<p>대회 일정 보기와 일정 알림 신청은 회원가입 없이 쓸 수 있습니다. 회원 계정은 후기 작성과 대회 추가 요청에만 필요합니다.</p>
+      body: `<p>대회 일정 보기와 일정 알림 신청은 회원가입 없이 쓸 수 있습니다. 회원 계정은 후기 작성, 대회 추가 요청, 러닝톡(게시판)에 필요합니다.</p>
 <ol>
 <li>만 14세 이상이고 이 약관과 개인정보 수집·이용에 동의하면 가입할 수 있습니다.</li>
 <li>실제로 쓰는 이메일로 가입하고, 그 메일로 확인하면 가입이 끝납니다. 다른 사람의 이메일로 가입할 수 없습니다.</li>
@@ -104,7 +104,7 @@ const SECTIONS = {
       id: 'nickname',
       h: '제8조 (닉네임)',
       body: `<ol>
-<li>닉네임은 후기와 대회 요청의 작성자로 표시됩니다. 2~16자이고 다른 회원과 겹치지 않아야 합니다.</li>
+<li>닉네임은 후기·대회 요청과 러닝톡 글·댓글의 작성자로 표시됩니다. 2~16자이고 다른 회원과 겹치지 않아야 합니다.</li>
 <li>운영자로 오해할 수 있는 이름(관리자·운영자·마라톤 캘린더 등), 다른 사람을 사칭하는 이름, 욕설·광고성 이름은 쓸 수 없습니다. 이런 닉네임은 바꾸도록 요청하거나 운영자가 바꿀 수 있습니다.</li>
 </ol>`,
     },
@@ -112,9 +112,9 @@ const SECTIONS = {
       id: 'posts',
       h: '제9조 (게시물)',
       body: `<ol>
-<li>후기와 대회 요청의 책임은 작성한 회원에게 있습니다. 사실이 아닌 내용, 욕설·비방, 광고, 다른 사람의 권리를 침해하는 내용은 올릴 수 없습니다.</li>
+<li>후기·대회 요청과 러닝톡 글·댓글(이하 “게시물”)의 책임은 작성한 회원에게 있습니다. 사실이 아닌 내용, 욕설·비방, 광고, 다른 사람의 권리를 침해하는 내용은 올릴 수 없습니다.</li>
 <li>전화번호·주소처럼 다른 사람의 개인정보를 올려서는 안 됩니다.</li>
-<li>자기 후기는 언제든 지울 수 있습니다. 이 약관을 어긴 게시물은 운영자가 알리지 않고 가리거나 지울 수 있습니다.</li>
+<li>자기 후기와 러닝톡 글·댓글은 언제든 지울 수 있습니다. 이 약관을 어긴 게시물은 운영자가 알리지 않고 가리거나 지울 수 있습니다(러닝톡은 제12조).</li>
 </ol>`,
     },
     {
@@ -122,15 +122,28 @@ const SECTIONS = {
       h: '제10조 (회원 탈퇴와 게시물 처리)',
       body: `<ol>
 <li>회원은 언제든 ‘내 정보’에서 탈퇴할 수 있으며, 기다리는 기간은 없습니다.</li>
-<li>탈퇴하면 계정·이메일·닉네임을 즉시 파기하고 작성한 후기도 함께 삭제합니다. 대회 추가 요청·조기 마감 제보는 모든 이용자를 위한 대회 정보라서 작성자 표시 없이 남습니다. 탈퇴는 되돌릴 수 없습니다.</li>
+<li>탈퇴하면 계정·이메일·닉네임을 즉시 파기하고 작성한 후기와 러닝톡 글·댓글·좋아요·신고도 함께 삭제합니다. 탈퇴한 회원의 러닝톡 글에 달린 다른 회원의 댓글도 그 글과 함께 삭제됩니다. 대회 추가 요청·조기 마감 제보는 모든 이용자를 위한 대회 정보라서 작성자 표시 없이 남습니다. 탈퇴는 되돌릴 수 없습니다.</li>
 </ol>`,
     },
     {
       id: 'restriction',
       h: '제11조 (이용 제한)',
       body: `<ol>
-<li>이 약관을 되풀이해 어기거나 스팸을 올리거나 서비스 운영을 방해하면 글쓰기를 제한하거나 계정을 삭제할 수 있습니다. 급한 경우가 아니면 먼저 이메일로 이유를 알립니다.</li>
+<li>이 약관을 되풀이해 어기거나 스팸을 올리거나 서비스 운영을 방해하면 글쓰기를 제한하거나 계정을 삭제할 수 있습니다. 급한 경우가 아니면 먼저 이메일로 이유를 알립니다. 다만 러닝톡의 신고 자동 숨김과 글쓰기 정지는 제12조에 따라 먼저 알리지 않고 할 수 있습니다.</li>
 <li>제한에 이의가 있으면 ${mail} 로 알려 주세요.</li>
+</ol>`,
+    },
+    {
+      id: 'community',
+      h: '제12조 (러닝톡 게시물)',
+      body: `<p>러닝톡은 회원이 대회 질문·동행·크루·대회 정보 등을 나누는 게시판입니다. 제9조가 그대로 적용되고, 아래 내용을 더합니다.</p>
+<ol>
+<li>공개 범위: 글의 제목·카테고리·연결한 대회·닉네임·작성일·댓글 수는 누구나 볼 수 있고 검색 서비스에 노출될 수 있습니다. 글 본문과 댓글은 메일 인증을 마친 회원에게만 보입니다. 글쓰기·댓글·좋아요·신고도 메일 인증을 마친 회원만 할 수 있습니다.</li>
+<li>금지 내용: 제9조의 내용과 함께 상업 광고·홍보, 같은 내용을 되풀이해 올리는 도배, 메신저 아이디·단축 주소 등 외부 연락 유도, 불법 정보, 다른 사람을 사칭하는 글은 올릴 수 없습니다. 광고·도배를 막기 위해 외부 링크는 글 하나에 1개까지, 짧은 시간·하루에 올릴 수 있는 글과 댓글 수에 한도가 있습니다.</li>
+<li>운영자 조치: 운영자는 이 약관을 어긴 글·댓글을 숨기거나 삭제할 수 있습니다. 서로 다른 회원 3명이 신고한 글·댓글은 자동으로 숨겨지고, 운영자가 확인한 뒤 다시 보이게 하거나 삭제합니다. 되풀이해 어기면 글쓰기를 1일·7일 동안 또는 영구히 정지할 수 있습니다.</li>
+<li>임시조치: 글·댓글 때문에 사생활 침해나 명예훼손 등 권리를 침해당했다는 사람이 소명과 함께 삭제를 요청하면, 운영자는 「정보통신망 이용촉진 및 정보보호 등에 관한 법률」 제44조의2에 따라 그 게시물을 최대 30일 동안 임시로 가릴 수 있습니다. 작성자는 그 기간에 ${mail} 로 다시 보이게 해 달라고 요청(이의 제기)할 수 있고, 운영자는 양쪽 주장을 보고 복구하거나 삭제합니다.</li>
+<li>저작권: 글·댓글의 저작권은 작성한 회원에게 있습니다. 회원은 사이트가 그 게시물을 사이트 안에 보여 주고, 검색 서비스에 노출되도록 제목 등 공개 범위의 정보를 표시하는 것을 허락합니다. 사이트는 이 범위를 넘어 게시물을 쓰지 않습니다.</li>
+<li>삭제: 회원은 자기 글·댓글을 언제든 지울 수 있습니다. 지운 글은 제목·본문을 바로 비우고 ‘삭제된 글’ 자리만 남깁니다.</li>
 </ol>`,
     },
     {
@@ -189,7 +202,7 @@ const SECTIONS = {
     {
       id: 'signup',
       h: 'Article 6 (Signing up)',
-      body: `<p>You can browse races and sign up for date alerts without an account. An account is only needed to write reviews and send race requests.</p>
+      body: `<p>You can browse races and sign up for date alerts without an account. An account is needed to write reviews, send race requests, and use Run Talk (the community board).</p>
 <ol>
 <li>You can sign up if you are 14 or older and agree to these terms and to the collection and use of your personal information.</li>
 <li>Sign up with an email address you actually use; the account is created once you confirm it. One person may use only their own email.</li>
@@ -208,7 +221,7 @@ const SECTIONS = {
       id: 'nickname',
       h: 'Article 8 (Nickname)',
       body: `<ol>
-<li>Your nickname is shown as the author of your reviews and race requests. It must be 2–16 characters and not already taken.</li>
+<li>Your nickname is shown as the author of your reviews, race requests, and Run Talk posts and comments. It must be 2–16 characters and not already taken.</li>
 <li>You may not use a nickname that impersonates the operator (such as “admin” or “Marathon Calendar”), impersonates someone else, or is offensive or promotional. We may ask you to change such a nickname, or change it for you.</li>
 </ol>`,
     },
@@ -216,9 +229,9 @@ const SECTIONS = {
       id: 'posts',
       h: 'Article 9 (What you post)',
       body: `<ol>
-<li>You are responsible for the reviews and race requests you post. Do not post anything false, insulting, promotional, or that infringes someone else’s rights.</li>
+<li>You are responsible for the reviews, race requests and Run Talk posts and comments (“posts”) you publish. Do not post anything false, insulting, promotional, or that infringes someone else’s rights.</li>
 <li>Do not post anyone’s personal information, such as phone numbers or addresses.</li>
-<li>You can delete your own reviews at any time. We may hide or delete posts that break these rules without notice.</li>
+<li>You can delete your own reviews and Run Talk posts and comments at any time. We may hide or delete posts that break these rules without notice (see Article 12 for Run Talk).</li>
 </ol>`,
     },
     {
@@ -226,15 +239,28 @@ const SECTIONS = {
       h: 'Article 10 (Deleting your account)',
       body: `<ol>
 <li>You can delete your account at any time from “My account”. There is no waiting period.</li>
-<li>When you do, your account, email and nickname are destroyed immediately, and your reviews are deleted with them. Race requests and sold-out reports you sent stay without an author name, because they are race information for everyone. This cannot be undone.</li>
+<li>When you do, your account, email and nickname are destroyed immediately, and your reviews and Run Talk posts, comments, likes and reports are deleted with them. Other members’ comments on your Run Talk posts are deleted along with those posts. Race requests and sold-out reports you sent stay without an author name, because they are race information for everyone. This cannot be undone.</li>
 </ol>`,
     },
     {
       id: 'restriction',
       h: 'Article 11 (Restricting use)',
       body: `<ol>
-<li>If you repeatedly break these terms, post spam, or interfere with the service, we may limit your ability to post or delete your account. Except in urgent cases, we will tell you the reason by email first.</li>
+<li>If you repeatedly break these terms, post spam, or interfere with the service, we may limit your ability to post or delete your account. Except in urgent cases, we will tell you the reason by email first. However, on Run Talk, automatic hiding after reports and posting suspensions may happen without prior notice under Article 12.</li>
 <li>If you disagree with a restriction, email us at ${mail}.</li>
+</ol>`,
+    },
+    {
+      id: 'community',
+      h: 'Article 12 (Run Talk posts)',
+      body: `<p>Run Talk is a board where members ask about races, find running buddies and crews, and share race information. Article 9 applies in full, with the following additions.</p>
+<ol>
+<li>Who can see what: a post’s title, category, linked race, nickname, date and comment count are visible to everyone and may appear in search results. The text of posts and comments is shown only to members who have confirmed their email. Posting, commenting, liking and reporting are also limited to members who have confirmed their email.</li>
+<li>Not allowed: in addition to Article 9, commercial ads or promotion, posting the same thing repeatedly (spam), steering people to outside contacts such as messenger IDs or short links, illegal content, and impersonating others. To keep out ads and spam, a post may contain at most one external link, and there are limits on how many posts and comments you can make in a short time and per day.</li>
+<li>What we may do: we may hide or delete posts and comments that break these terms. A post or comment reported by three different members is hidden automatically, and we review it and then restore or delete it. If you break the rules repeatedly, we may suspend your posting for 1 day, 7 days or permanently.</li>
+<li>Temporary measures: if someone claims, with supporting reasons, that a post or comment violates their rights (for example their privacy or reputation) and asks for it to be removed, we may hide it temporarily for up to 30 days under Article 44-2 of the Act on Promotion of Information and Communications Network Utilization and Information Protection. During that time the author can ask us at ${mail} to restore it (an objection); we consider both sides and then restore or delete it.</li>
+<li>Copyright: you keep the copyright in your posts and comments. You allow the Site to show them on the Site and to display the publicly visible information, such as the title, so they can appear in search results. The Site does not use your posts beyond this.</li>
+<li>Deleting: you can delete your own posts and comments at any time. A deleted post has its title and text cleared right away, leaving only a “deleted” placeholder.</li>
 </ol>`,
     },
     {
@@ -255,7 +281,7 @@ const TEXT = {
   ko: {
     title: '이용약관 | 마라톤 캘린더',
     h1: '이용약관',
-    desc: '마라톤 캘린더 이용약관: 대회 정보 데이터베이스의 권리와 자동 수집·무단 복제·재배포 금지, 위반 시 조치, 회원 가입·계정·게시물·탈퇴.',
+    desc: '마라톤 캘린더 이용약관: 대회 정보 데이터베이스의 권리와 자동 수집·무단 복제·재배포 금지, 위반 시 조치, 회원 가입·계정·게시물·러닝톡·탈퇴.',
     site: '마라톤 캘린더',
     home: '/',
     back: '전체 일정·검색',
@@ -264,7 +290,7 @@ const TEXT = {
   en: {
     title: 'Terms of Use | Marathon Calendar',
     h1: 'Terms of Use',
-    desc: 'Marathon Calendar Terms of Use: rights in the race database, the ban on automated collection, unauthorized copying and redistribution, measures against violations, and accounts, posts and account deletion.',
+    desc: 'Marathon Calendar Terms of Use: rights in the race database, the ban on automated collection, unauthorized copying and redistribution, measures against violations, and accounts, posts, Run Talk and account deletion.',
     site: 'Marathon Calendar',
     home: '/en/',
     back: 'All races & search',
