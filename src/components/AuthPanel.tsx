@@ -9,6 +9,7 @@ import { CONTACT_EMAIL, POLICY_VERSION, PRIVACY_PATH, emptyConsent, requiredOk }
 import { SignupConsent } from './SignupConsent';
 import { WithdrawForm } from './WithdrawForm';
 import { PolicyNotice } from './PolicyNotice';
+import MemberPanel from './MemberPanel';
 
 export function AuthBar({ onOpen }: { onOpen: () => void }) {
   const { session, profile, signOut, policyNoticeDue, recovering } = useAuth();
@@ -143,6 +144,7 @@ function ProfileForm({ onClose, onWithdraw }: { onClose: () => void; onWithdraw:
           {busy ? t('common.saving') : t('auth.saveNick')}
         </Button>
       </form>
+      <MemberPanel />
       <section className="border-t border-line pt-5 text-[13px] leading-relaxed">
         <h3 className="text-[15px] font-semibold text-ink">{t('rights.title')}</h3>
         <ul className="mt-3 space-y-2">
@@ -233,6 +235,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
         <h2 className="text-[20px] font-bold tracking-tight">{titles[mode]}</h2>
         <CloseButton onClick={onClose} />
       </div>
+      {(mode === 'in' || mode === 'up') && <p className="-mt-3 mb-5 text-[13px] leading-relaxed text-ink-3">{t('member.perks')}</p>}
 
       {(mode === 'sent' || mode === 'forgot_sent') && (
         <div className="space-y-4">

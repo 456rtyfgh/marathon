@@ -37,20 +37,20 @@ export interface CollectionItem {
 /** 회원가입 */
 export const COLLECT_MEMBER: CollectionItem = {
   purpose: {
-    ko: '회원 확인과 로그인, 후기·대회 요청의 작성자 표시, 가입 확인·비밀번호 재설정 메일 발송',
-    en: 'Identifying you and signing you in, showing you as the author of reviews and race requests, and sending sign-up confirmation and password reset emails',
+    ko: '회원 확인과 로그인, 후기·대회 요청의 작성자 표시, 가입 확인·비밀번호 재설정 메일 발송, 회원 기능(캘린더 파일 받기, 저장한 대회를 기기 사이에 맞추기, 내 일정 캘린더 구독, 저장한 대회 접수 알림, 내 참가 기록)',
+    en: 'Identifying you and signing you in, showing you as the author of reviews and race requests, sending sign-up confirmation and password reset emails, and member features (calendar file downloads, saved races across devices, your calendar feed, entry alerts for saved races, your race log)',
   },
   items: {
-    ko: '이메일, 비밀번호(암호화해 저장), 닉네임 / 자동 생성: 가입·인증·최근 로그인 시각',
-    en: 'Email, password (stored encrypted), nickname / Created automatically: sign-up, confirmation and last sign-in times',
+    ko: '이메일, 비밀번호(암호화해 저장), 닉네임 / 자동 생성: 가입·인증·최근 로그인 시각 / 회원 기능을 쓰면: 저장한 대회, 접수·참가 기록(종목·완주 기록), 캘린더 구독 토큰(되돌릴 수 없는 해시로 저장), 저장한 대회 알림 설정',
+    en: 'Email, password (stored encrypted), nickname / Created automatically: sign-up, confirmation and last sign-in times / If you use member features: saved races, races you entered or ran (distance and finish time), calendar feed token (stored as a one-way hash), saved-race alert setting',
   },
   retention: {
     ko: '회원 탈퇴 때까지. 탈퇴하면 즉시 파기합니다.',
     en: 'Until you delete your account. It is destroyed immediately when you do.',
   },
   refusal: {
-    ko: '동의하지 않을 수 있습니다. 동의하지 않으면 회원가입을 할 수 없어 후기 작성·대회 요청을 쓸 수 없고, 대회 일정 보기와 일정 알림 신청은 가입 없이 그대로 쓸 수 있습니다.',
-    en: "You may refuse. If you do, you can't create an account, so you can't write reviews or send race requests. Browsing races and signing up for date alerts still work without an account.",
+    ko: '동의하지 않을 수 있습니다. 동의하지 않으면 회원가입을 할 수 없어 후기 작성·대회 요청, 캘린더 파일 받기·일정 알림 신청과 회원 기능을 쓸 수 없고, 대회 일정 보기는 가입 없이 그대로 쓸 수 있습니다.',
+    en: "You may refuse. If you do, you can't create an account, so you can't write reviews, send race requests, download calendar files, sign up for date alerts or use member features. Browsing races still works without an account.",
   },
 };
 

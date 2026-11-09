@@ -7,10 +7,11 @@
  *  - /r/대회id.json : 앱이 대회를 열 때 받는 상세(전체 필드·패키지·여행사·경비). 우리 사이트 안에서 부른 것만.
  *  - /d/<hash>.json : 앱의 대회 목록 파일(목록 필드만). 우리 사이트 안에서 부른 것만. 전체 파일(/d/f-…)은 늘 404.
  *  - /data.json     : 예전 주소 — 404 (원본은 빌드 입력일 뿐 내보내지 않는다).
- *  - /cal/대회id.ics: 캘린더 일정 파일 (아이폰 사파리는 열자마자 '캘린더에 추가'). ?lang=en 이면 영어.
+ *  - /cal/대회id.ics: 캘린더 일정 파일. 로그인 회원만(Authorization: Bearer, worker/memberCal.ts). ?lang=en 이면 영어.
+ *  - /cal/u/토큰.ics: 회원의 '내 일정 구독' 캘린더 (저장한 대회 전부, worker/memberCal.ts).
  *  - /api/admin/ga  : 관리 화면 GA 분석 숫자 (관리자만, worker/gaRoute.ts). 그 밖 /api/* 는 404.
  */
-import { raceIcs, type CalKind } from '../src/lib/ics';
+import { calRoute, feedRoute } from './memberCal';
 import { PROVINCE_NAME, provinceOf } from '../src/lib/places';
 import type { Lang } from '../src/i18n/lang.ts';
 import { DIST_TEXT, ENTRY_TEXT, fmtDate, fmtMoney, fmtMonth } from '../src/i18n/format.ts';
@@ -588,24 +589,19 @@ export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
   // 대회 주소는 끝 슬래시 없는 꼴 하나로 (canonical 과 같게, 언어 접두는 그대로)
   if (m?.[3]) return Response.redirect(`${url.origin}${m[1] ? '/en' : ''}/r/${m[2]}${url.search}`, 301);
   if (m) return withRaceMeta(req, env, m[2], m[1] ? 'en' : 'ko');
-  const c = url.pathname.match(/^\/cal\/([a-z0-9-]{2,40})\.ics$/);
-  if (c) {
-    const race = await raceById(req, env, c[1]).catch(() => undefined);
-    const lang: Lang = url.searchParams.get('lang') === 'en' ? 'en' : 'ko';
-    if (!race) return new Response(lang === 'en' ? 'Race not found.' : '대회를 찾지 못했습니다.', { status: 404 });
-    const allowed: CalKind[] = ['race', 'open', 'close'];
-    const kinds = (url.searchParams.get('e') ?? 'race,open,close')
-      .split(',')
-      .filter((k): k is CalKind => allowed.includes(k as CalKind));
-    const ics = raceIcs(race, `${SITE}${lang === 'en' ? '/en' : ''}/r/${race.id}`, kinds.length ? kinds : allowed, lang);
-    return new Response(ics, {
-      headers: {
-        'Content-Type': 'text/calendar; charset=utf-8',
-        'Content-Disposition': `inline; filename="${race.id}.ics"`,
-        'Cache-Control': 'public, max-age=600',
-        'X-Content-Type-Options': 'nosniff',
-      },
-    });
+  const racePage = (id: string, lang: Lang) => `${SITE}${lang === 'en' ? '/en' : ''}/r/${id}`;
+  const feed = url.pathname.match(/^\/cal\/u\/([^/]{1,200})\.ics$/);
+  if (feed) {
+    const findRaces = async (ids: string[]) => {
+      const { byId } = await loadRaces(req, env);
+      return ids.flatMap((id) => {
+        const race = byId.get(id);
+        return race ? [{ race, cancelled: isCancelled(race) }] : [];
+      });
+    };
+    return feedRoute(req, env, feed[1], findRaces, racePage);
   }
+  const c = url.pathname.match(/^\/cal\/([a-z0-9-]{2,40})\.ics$/);
+  if (c) return calRoute(req, env, c[1], (id) => raceById(req, env, id), racePage);
   return env.ASSETS.fetch(req);
 }

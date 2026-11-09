@@ -100,6 +100,7 @@ function Destroy() {
       <ul>
         <li>회원 탈퇴: 계정·이메일·닉네임을 즉시 파기하고, 작성한 후기도 함께 삭제합니다. 대회 추가 요청·조기 마감 제보는 작성자 표시(닉네임) 없이 남습니다.</li>
         <li>회원 탈퇴 때 가입 이메일과 같은 주소로 신청한 대회 일정 알림도 함께 삭제합니다.</li>
+        <li>회원 탈퇴 때 저장한 대회, 접수·참가 기록, 캘린더 구독 토큰, 저장한 대회 알림 설정도 함께 삭제하며, 구독 주소는 그때부터 열리지 않습니다.</li>
         <li>보유기간이 끝났거나 목적을 이룬 정보는 지체 없이 데이터베이스에서 되살릴 수 없게 삭제합니다.</li>
         <li>법령에 따로 보관하라는 정보는 없습니다. 생기면 이 방침에 항목과 기간을 적습니다.</li>
       </ul>
@@ -110,6 +111,7 @@ function Destroy() {
       <ul>
         <li>When you delete your account, your account, email and nickname are destroyed immediately and your reviews are deleted with them. Race requests and sold-out reports stay without an author name (nickname).</li>
         <li>Date alerts signed up with the same email as your account are deleted at the same time.</li>
+        <li>Your saved races, entered and finished races, calendar feed token and saved-race alert setting are deleted with your account, and your feed link stops working.</li>
         <li>Information whose retention period has ended or whose purpose is fulfilled is deleted from the database without delay so it cannot be recovered.</li>
         <li>No law currently requires us to keep any of it. If one does, we will list the items and period here.</li>
       </ul>
@@ -124,7 +126,8 @@ function Alerts() {
       <h2>3. 일정 알림 메일</h2>
       <p>
         알림 메일은 직접 고른 대회의 접수 시작·마감을 알려 주는 정보성 메일이며 광고를 보내지 않습니다. 구독을 해지하거나 이메일을 지우려면 신청한
-        이메일 주소를 적어 <Mail /> 로 보내 주세요. 확인 후 바로 삭제합니다.
+        이메일 주소를 적어 <Mail /> 로 보내 주세요. 확인 후 바로 삭제합니다. 저장한 대회 알림은 ‘내 정보’의 ‘저장한 대회 알림’에서 바로 끌 수
+        있습니다.
       </p>
     </section>
   ) : (
@@ -132,7 +135,8 @@ function Alerts() {
       <h2>3. Alert emails</h2>
       <p>
         Alert emails only tell you when entry opens or closes for races you picked; we do not send advertising. To unsubscribe or have your
-        email deleted, write to <Mail /> from (or naming) the address you signed up with. We delete it as soon as we confirm.
+        email deleted, write to <Mail /> from (or naming) the address you signed up with. We delete it as soon as we confirm. Saved-race
+        alerts can be turned off right away under “Saved race alerts” in your account.
       </p>
     </section>
   );
@@ -214,7 +218,8 @@ function Cookies() {
       <p>
         방문 통계를 내려고 Google Analytics 를 쓰며, 이때 Google 의 쿠키(_ga 등)가 브라우저에 저장됩니다. 쿠키에는 이름이나 이메일처럼 누구인지
         알 수 있는 정보를 담지 않습니다. 로그인 상태·언어·저장한 대회 같은 사이트 기능용 값은 쿠키가 아니라 브라우저 저장소(localStorage)에
-        두며 서버로 보내지 않습니다(로그인 정보 제외).
+        둡니다. 로그인하지 않으면 저장한 대회·접수 표시는 이 브라우저에만 있고 서버로 보내지 않습니다. 회원은 저장한 대회·접수 표시를 계정에
+        저장해 다른 기기에서도 같게 보여 줍니다(로그인할 때 이 브라우저의 저장분을 계정으로 옮깁니다).
       </p>
       <p>방문 통계를 원하지 않으면 다음 방법으로 끌 수 있으며, 꺼도 사이트를 쓰는 데 지장이 없습니다.</p>
       <ul>
@@ -235,7 +240,9 @@ function Cookies() {
       <p>
         We use Google Analytics for visit statistics, which stores Google cookies (such as _ga) in your browser. They contain nothing that
         identifies you, such as your name or email. Values the site needs to work — sign-in, language, saved races — are kept in browser
-        storage (localStorage), not cookies, and are not sent to our servers (except sign-in).
+        storage (localStorage), not cookies. If you are not signed in, saved races and entry marks stay in this browser and are not sent to
+        our servers. Members’ saved races and entry marks are stored in their account so they match on every device (signing in moves
+        what this browser saved into the account).
       </p>
       <p>If you don’t want visit statistics, you can turn them off in these ways; the site works the same either way.</p>
       <ul>

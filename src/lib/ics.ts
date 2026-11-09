@@ -59,19 +59,46 @@ const nextDay = (iso: string) => {
   return d.toISOString().slice(0, 10).replace(/-/g, '');
 };
 
-/** 하루 종일 일정 .ics. 접수 시작·마감에는 하루 전 알림을 단다. (워커에서도 그대로 쓴다) */
-export function raceIcs(
-  race: Pick<Race, 'id' | 'name_ko' | 'city_ko' | 'country_ko' | 'official_url' | 'race_date' | 'entry_opens' | 'entry_closes' | 'sold_out_on'> & {
-    entry_confidence?: string | null;
-    name_en?: string | null;
-    country_code?: string | null;
-  },
+/** .ics 를 만드는 데 필요한 대회 칸 (화면의 Race, 워커의 데이터 파일 행 모두) */
+export type IcsRace = Pick<
+  Race,
+  'id' | 'name_ko' | 'city_ko' | 'country_ko' | 'official_url' | 'race_date' | 'entry_opens' | 'entry_closes' | 'sold_out_on'
+> & {
+  entry_confidence?: string | null;
+  name_en?: string | null;
+  country_code?: string | null;
+};
+
+const icsStamp = () => new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+const icsEsc = (s: string) => s.replace(/\\/g, '\\\\').replace(/[,;]/g, (m) => '\\' + m).replace(/\n/g, '\\n');
+
+/** 대회 하나의 VEVENT 줄들. prefix 는 제목 앞에 붙는 말('(취소) ' 등) */
+function eventLines(
+  race: IcsRace,
+  events: { kind: CalKind; date: string }[],
   pageUrl: string,
-  kinds: CalKind[] = ['race', 'open', 'close'],
-  lang: Lang = 'ko',
-): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-  const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/[,;]/g, (m) => '\\' + m).replace(/\n/g, '\\n');
+  lang: Lang,
+  stamp: string,
+  prefix = '',
+): string[] {
+  return events.flatMap((e) => [
+    'BEGIN:VEVENT',
+    `UID:${race.id}-${e.kind}-${e.date}@marathon-calendar`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART;VALUE=DATE:${ymd(e.date)}`,
+    `DTEND;VALUE=DATE:${nextDay(e.date)}`,
+    `SUMMARY:${icsEsc(prefix + title(race, e.kind, lang))}`,
+    `DESCRIPTION:${icsEsc(details(race, pageUrl, lang))}`,
+    `URL:${pageUrl}`,
+    ...(e.kind !== 'race'
+      ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsEsc(prefix + title(race, e.kind, lang))}`, 'TRIGGER:-P1D', 'END:VALARM']
+      : []),
+    'END:VEVENT',
+  ]);
+}
+
+/** 하루 종일 일정 .ics. 접수 시작·마감에는 하루 전 알림을 단다. (워커에서도 그대로 쓴다) */
+export function raceIcs(race: IcsRace, pageUrl: string, kinds: CalKind[] = ['race', 'open', 'close'], lang: Lang = 'ko'): string {
   const events = calDates(race).filter((e) => kinds.includes(e.kind));
   const lines = [
     'BEGIN:VCALENDAR',
@@ -79,21 +106,37 @@ export function raceIcs(
     `PRODID:-//marathon-calendar//${lang}`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    `X-WR-CALNAME:${esc(nameOf(race, lang))}`,
-    ...events.flatMap((e) => [
-      'BEGIN:VEVENT',
-      `UID:${race.id}-${e.kind}-${e.date}@marathon-calendar`,
-      `DTSTAMP:${stamp}`,
-      `DTSTART;VALUE=DATE:${ymd(e.date)}`,
-      `DTEND;VALUE=DATE:${nextDay(e.date)}`,
-      `SUMMARY:${esc(title(race, e.kind, lang))}`,
-      `DESCRIPTION:${esc(details(race, pageUrl, lang))}`,
-      `URL:${pageUrl}`,
-      ...(e.kind !== 'race'
-        ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(title(race, e.kind, lang))}`, 'TRIGGER:-P1D', 'END:VALARM']
-        : []),
-      'END:VEVENT',
-    ]),
+    `X-WR-CALNAME:${icsEsc(nameOf(race, lang))}`,
+    ...eventLines(race, events, pageUrl, lang, icsStamp()),
+    'END:VCALENDAR',
+  ];
+  return lines.join('\r\n') + '\r\n';
+}
+
+const FEED_NAME: Record<Lang, string> = { ko: '마라톤 캘린더 — 내 일정', en: 'Marathon Calendar — My races' };
+const CANCEL_PREFIX: Record<Lang, string> = { ko: '(취소) ', en: '(Cancelled) ' };
+
+/**
+ * 회원의 '내 일정 구독' 캘린더(/cal/u/<토큰>.ics, 워커). 저장한 대회 전부를 캘린더 하나로 —
+ * 각 대회는 calDates 규칙 그대로(UID 도 raceIcs 와 같다), 취소된 대회는 대회 날만 '(취소)' 를 붙여 남긴다.
+ * 캘린더 앱이 6시간마다 다시 받게 REFRESH-INTERVAL·X-PUBLISHED-TTL 을 단다.
+ */
+export function feedIcs(items: { race: IcsRace; cancelled?: boolean }[], pageUrl: (id: string) => string, lang: Lang = 'ko'): string {
+  const stamp = icsStamp();
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    `PRODID:-//marathon-calendar//${lang}`,
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${icsEsc(FEED_NAME[lang])}`,
+    'REFRESH-INTERVAL;VALUE=DURATION:PT6H',
+    'X-PUBLISHED-TTL:PT6H',
+    ...items.flatMap(({ race, cancelled }) =>
+      cancelled
+        ? eventLines(race, [{ kind: 'race', date: race.race_date }], pageUrl(race.id), lang, stamp, CANCEL_PREFIX[lang])
+        : eventLines(race, calDates(race), pageUrl(race.id), lang, stamp),
+    ),
     'END:VCALENDAR',
   ];
   return lines.join('\r\n') + '\r\n';
@@ -132,14 +175,36 @@ export function openOutside(url: string) {
 }
 
 /**
- * 아이폰·맥·기본 캘린더용 .ics. 파일을 내려받게 하지 않고 서버 주소(text/calendar)로 열어서
- * 아이폰 사파리는 바로 '캘린더에 추가' 화면이 뜬다.
+ * 회원용 .ics 받기: /cal/<id>.ics 를 로그인 토큰(Authorization: Bearer)과 함께 fetch 해서 파일로 내려받게 한다.
+ * 서버가 401 이면 'unauthorized'(로그인이 끝났거나 만료 — 화면이 로그인 안내를 다시 띄운다).
+ * 카카오톡 안 브라우저는 파일을 못 여니 받지 않고 'kakao' (화면이 기본 브라우저로 열기를 안내한다).
  */
-export function openIcs(race: Race, kinds: CalKind[], lang: Lang = 'ko') {
-  const url = `${location.origin}/cal/${encodeURIComponent(race.id)}.ics?e=${kinds.join(',')}${lang === 'en' ? '&lang=en' : ''}`;
-  if (isKakao()) {
-    location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(url)}`;
-    return;
+export async function downloadIcs(
+  race: Pick<Race, 'id'>,
+  kinds: CalKind[],
+  lang: Lang,
+  accessToken: string,
+): Promise<'ok' | 'unauthorized' | 'kakao' | 'error'> {
+  if (isKakao()) return 'kakao';
+  const url = `/cal/${encodeURIComponent(race.id)}.ics?e=${kinds.join(',')}${lang === 'en' ? '&lang=en' : ''}`;
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' });
+  } catch {
+    return 'error';
   }
-  location.href = url;
+  if (res.status === 401) return 'unauthorized';
+  if (!res.ok) return 'error';
+  const blob = new Blob([await res.text()], { type: 'text/calendar;charset=utf-8' });
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = `${race.id}.ics`;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // 바로 지우면 일부 브라우저(사파리)가 받기 전에 주소가 사라진다
+  setTimeout(() => URL.revokeObjectURL(href), 60_000);
+  return 'ok';
 }
