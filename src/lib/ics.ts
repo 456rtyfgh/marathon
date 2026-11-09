@@ -175,19 +175,6 @@ export function openOutside(url: string) {
 }
 
 /**
- * 아이폰·맥·기본 캘린더용 .ics. 파일을 내려받게 하지 않고 서버 주소(text/calendar)로 열어서
- * 아이폰 사파리는 바로 '캘린더에 추가' 화면이 뜬다.
- */
-export function openIcs(race: Race, kinds: CalKind[], lang: Lang = 'ko') {
-  const url = `${location.origin}/cal/${encodeURIComponent(race.id)}.ics?e=${kinds.join(',')}${lang === 'en' ? '&lang=en' : ''}`;
-  if (isKakao()) {
-    location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(url)}`;
-    return;
-  }
-  location.href = url;
-}
-
-/**
  * 회원용 .ics 받기: /cal/<id>.ics 를 로그인 토큰(Authorization: Bearer)과 함께 fetch 해서 파일로 내려받게 한다.
  * 서버가 401 이면 'unauthorized'(로그인이 끝났거나 만료 — 화면이 로그인 안내를 다시 띄운다).
  * 카카오톡 안 브라우저는 파일을 못 여니 받지 않고 'kakao' (화면이 기본 브라우저로 열기를 안내한다).

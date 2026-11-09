@@ -145,6 +145,10 @@ const merged = (await q(`select * from public.merge_favorites(array['r-a', 'r-b'
 ok(JSON.stringify(merged) === JSON.stringify(['r-a', 'r-b']), 'A: merge_favorites — 없는 대회 무시, 중복 없음', JSON.stringify(merged));
 await db.exec(`insert into public.user_races (race_id, status) values ('r-old', 'finished')`);
 await db.exec(`update public.user_races set distance = '풀', distance_km = 42.195, finish_sec = 14400 where race_id = 'r-old'`);
+const touched = (await q(`select created_at, updated_at from public.user_races where race_id = 'r-old'`))[0];
+ok(+touched.updated_at > +touched.created_at, 'A: 기록 고치면 updated_at 이 서버 시각으로 바뀜', JSON.stringify(touched));
+e = await err(`update public.user_races set updated_at = '2000-01-01' where race_id = 'r-old'`);
+ok(/permission denied/.test(e ?? ''), 'A: updated_at 직접 고치기 거부', e ?? '바뀜');
 await db.exec(`insert into public.user_races (race_id, status, distance, distance_km, finish_sec) values ('r-a', 'finished', '하프', 21.0975, 6000)`);
 e = await err(`insert into public.user_races (race_id, status, finish_sec) values ('r-b', 'registered', 3600)`);
 ok(/user_races_finish_only/.test(e ?? ''), 'A: 접수 상태에 기록 넣기 거부 (check)', e ?? '들어감');
