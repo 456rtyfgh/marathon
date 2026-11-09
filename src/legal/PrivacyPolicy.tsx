@@ -155,6 +155,7 @@ function Processors() {
         ['Google LLC (policies.google.com)', 'Visit statistics (Google Analytics)', 'United States'],
         ['[ ]', 'Sending race date alert emails', '[ ]'],
       ];
+  const head = ko ? ['받는 자', '맡기는 일', '이전되는 나라'] : ['Recipient', 'Task', 'Country'];
   return (
     <section id="processors">
       <h2>{ko ? '4. 제3자 제공·처리 위탁·국외 이전' : '4. Sharing, processors and transfers abroad'}</h2>
@@ -163,20 +164,25 @@ function Processors() {
           ? '이용자의 개인정보를 제3자에게 제공하지 않습니다. 법령에 근거가 있거나 수사기관이 법에 정한 절차로 요구하는 경우만 예외입니다. 사이트 운영을 위해 아래 업체에 처리를 맡기며, 이 업체들의 서버가 국외에 있어 정보가 국외로 이전됩니다.'
           : 'We do not give your personal information to third parties, except where the law allows it or investigators request it through legal procedures. We use the processors below to run the site; their servers are outside Korea, so your information is transferred abroad.'}
       </p>
-      <table>
+      {/* data-stack: 좁은 화면에서 줄마다 상자로 쌓고 칸 이름(data-label)을 위에 붙인다 (LegalPage 의 STACK) */}
+      <table data-stack="">
         <thead>
           <tr>
-            <th scope="col">{ko ? '받는 자' : 'Recipient'}</th>
-            <th scope="col">{ko ? '맡기는 일' : 'Task'}</th>
-            <th scope="col">{ko ? '이전되는 나라' : 'Country'}</th>
+            {head.map((h) => (
+              <th key={h} scope="col">
+                {h}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map(([who, what, where]) => (
-            <tr key={who + what}>
-              <td>{who}</td>
-              <td>{what}</td>
-              <td>{where}</td>
+          {rows.map((row) => (
+            <tr key={row[0] + row[1]}>
+              {row.map((cell, i) => (
+                <td key={i} data-label={head[i]}>
+                  {cell}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>

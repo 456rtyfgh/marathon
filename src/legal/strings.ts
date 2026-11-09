@@ -15,6 +15,10 @@ export const LEGAL = {
   change: { ko: '내용', en: 'Change' },
   contact: { ko: '문의', en: 'Contact' },
   switchLang: { ko: 'Switch to English', en: '한국어로 보기' },
+  /** 조항 목차 (본문 위 접힘 / 넓은 화면은 옆에 고정) */
+  toc: { ko: '목차', en: 'Contents' },
+  /** 제목 옆 링크 아이콘의 접근성 이름. 뒤에 조항 제목이 붙는다 */
+  anchor: { ko: '조항 링크:', en: 'Link to section:' },
 } satisfies Record<string, L>;
 
 export const pick = (l: L, lang: Lang) => l[lang];
