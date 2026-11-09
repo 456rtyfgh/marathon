@@ -430,20 +430,20 @@ function Main() {
 
       <header className="sticky top-0 z-30 border-b border-line bg-bg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <a href={langPath('/', lang)} className="flex items-center">
+          <a href={langPath('/', lang)} className="flex h-11 items-center">
             <Logo />
           </a>
           <nav className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => openRequest('header')}
-              className="hidden h-8 items-center rounded-ctl px-3 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink sm:inline-flex"
+              className="hidden h-9 items-center rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink sm:inline-flex"
             >
               {t('header.request')}
             </button>
             {profile?.is_admin && (
               <button
                 onClick={() => setShowAdmin(true)}
-                className="inline-flex h-8 items-center rounded-ctl px-3 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink"
+                className="inline-flex h-11 items-center rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink sm:h-9"
               >
                 {t('header.admin')}
               </button>
@@ -457,7 +457,7 @@ function Main() {
               }}
               aria-label={t('lang.switch')}
               lang={lang === 'ko' ? 'en' : 'ko'}
-              className="inline-flex h-8 items-center rounded-ctl px-3 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink"
+              className="inline-flex h-11 items-center rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink sm:h-9"
             >
               <span>
                 <span className={lang === 'en' ? 'text-ink' : undefined}>EN</span>
@@ -475,7 +475,7 @@ function Main() {
           <div className="mx-auto max-w-6xl px-4 pt-4 sm:px-6">
             <div className="flex items-center justify-between gap-3 rounded-box bg-accent px-4 py-3 text-on-accent">
               <span className="text-[15px] font-semibold">{t('app.confirmed')}</span>
-              <button onClick={auth.clearFlags} aria-label={t('common.close')} className="grid size-8 place-items-center rounded-ctl hover:bg-on-accent/10">
+              <button onClick={auth.clearFlags} aria-label={t('common.close')} className="-my-2 grid size-11 place-items-center rounded-ctl hover:bg-on-accent/10 sm:size-9">
                 <X size={16} weight="bold" />
               </button>
             </div>
@@ -483,12 +483,12 @@ function Main() {
         )}
 
         {/* 소개 + 현황판 */}
-        <section className="mx-auto grid max-w-6xl gap-8 px-4 pt-10 pb-8 sm:px-6 md:grid-cols-[1fr_auto] md:items-end md:pt-14 md:pb-10">
+        <section className="mx-auto grid max-w-6xl gap-8 px-4 pt-8 pb-8 sm:px-6 md:grid-cols-[1fr_auto] md:items-end md:pt-12 md:pb-12">
           <div>
             <h1 className="text-[34px] leading-[1.12] font-extrabold tracking-[-0.03em] sm:text-[46px]">
               {t('site.name')}
             </h1>
-            <p className="mt-4 max-w-[42ch] text-[16px] leading-relaxed text-balance text-ink-2 sm:text-[17px]">
+            <p className="mt-4 max-w-[42ch] text-[15px] leading-relaxed text-balance text-ink-2 sm:text-[17px]">
               {remote === 'loading' ? t('app.lead') : t('app.leadCount', { kr: fmtCount(stats.kr, lang), abroad: fmtCount(stats.abroad, lang) })}</p>
           </div>
 
@@ -512,16 +512,16 @@ function Main() {
 
         {/* 요즘 인기: 최근 7일 조회·저장이 많은 대회 */}
         {hotList.length >= 3 && (
-          <section className="mx-auto max-w-6xl px-4 pb-6 sm:px-6" aria-label={t('hot.aria')}>
+          <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6" aria-label={t('hot.aria')}>
             <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-[15px] font-bold">{t('hot.title')}</h2>
+              <h2 className="text-[17px] font-bold">{t('hot.title')}</h2>
               <button
                 onClick={() => {
                   setSort('views');
                   track('filter', { name: 'sort', value: 'views' });
                   document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
                 }}
-                className="text-[13px] font-semibold text-ink-3 underline underline-offset-4 hover:text-ink"
+                className="-my-3 inline-flex min-h-11 items-center text-[13px] font-semibold whitespace-nowrap text-ink-3 underline underline-offset-4 hover:text-ink"
               >
                 {t('hot.all')}
               </button>
@@ -534,9 +534,9 @@ function Main() {
                   <li key={r.id} className="w-[11.5rem] shrink-0 sm:w-auto">
                     <button
                       onClick={() => openRace(r)}
-                      className="flex h-full w-full flex-col items-start gap-1 rounded-box bg-surface px-3.5 py-3 text-left transition hover:bg-sunken"
+                      className="flex h-full w-full flex-col items-start gap-1 rounded-box bg-surface px-4 py-3 text-left transition-colors hover:bg-sunken"
                     >
-                      <span className="num text-[13px] font-bold text-ink-3">{t('hot.rank', { n: i + 1 })}</span>
+                      <span className="num text-[13px] font-semibold text-ink-3">{t('hot.rank', { n: i + 1 })}</span>
                       <span className="line-clamp-2 text-[15px] leading-snug font-bold">{raceName(r, lang)}</span>
                       <span className="text-[13px] text-ink-3">
                         {t('date.md', { m: p.m, d: p.d, mon: p.mon })} ·{' '}
@@ -548,15 +548,15 @@ function Main() {
                             ? r.city_ko.split(' ')[0]
                             : r.country_ko}
                       </span>
-                      <span className="mt-auto text-[12px] text-ink-3">
+                      <span className="mt-auto pt-1 text-[12px] text-ink-3">
                         {t('views.pre')}
-                        <span className="num text-[13px]">{shortCount(st?.views ?? 0, lang)}</span>
+                        <span className="num">{shortCount(st?.views ?? 0, lang)}</span>
                         {t('views.post', { count: st?.views ?? 0 })}
                         {(st?.saves ?? 0) > 0 && (
                           <>
                             {t('saves.sep')}
                             {t('saves.pre')}
-                            <span className="num text-[13px]">{shortCount(st!.saves!, lang)}</span>
+                            <span className="num">{shortCount(st!.saves!, lang)}</span>
                             {t('saves.post', { count: st!.saves! })}
                           </>
                         )}
@@ -571,7 +571,7 @@ function Main() {
 
         {/* 도구 막대 */}
         <div className="border-y border-line bg-bg sm:sticky sm:top-14 sm:z-20">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-2.5 sm:px-6">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
             <div role="radiogroup" aria-label={t('scope.aria')} className="grid w-full grid-cols-3 rounded-ctl bg-sunken p-1 sm:inline-flex sm:w-auto">
               {(
                 [
@@ -590,7 +590,7 @@ function Main() {
                     setPlaces([]);
                     if (s !== scope) track('filter', { name: 'scope', value: s });
                   }}
-                  className={`flex h-9 items-center gap-1.5 rounded-[4px] px-3 sm:h-8 text-[14px] font-semibold transition ${
+                  className={`flex h-11 items-center justify-center gap-2 rounded-[4px] px-3 text-[15px] font-semibold whitespace-nowrap transition-colors sm:h-8 sm:justify-start ${
                     scope === s ? 'bg-surface text-ink shadow-[0_1px_2px_var(--shadow)]' : 'text-ink-3 hover:text-ink'
                   }`}
                 >
@@ -611,16 +611,16 @@ function Main() {
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder={t('search.placeholder')}
-                  className="h-10 w-full rounded-ctl border border-line bg-surface pr-3 pl-9 text-[15px] outline-none transition placeholder:text-ink-3 focus:border-ink"
+                  className="h-11 w-full rounded-ctl border border-line bg-surface pr-3 pl-9 text-[16px] outline-none transition-colors placeholder:text-ink-3 focus:border-ink sm:h-10 sm:text-[15px]"
                 />
               </label>
             </form>
             {/* 휴대폰은 헤더 버튼이 숨겨져 있어 검색창 바로 밑에 (PC 는 바로 위 헤더 버튼이 같은 역할) */}
-            <p className="order-first -mt-0.5 flex w-full items-baseline justify-end gap-1.5 text-[13px] text-ink-3 sm:hidden">
+            <p className="order-first -mt-1 flex w-full items-center justify-end gap-2 text-[13px] text-ink-3 sm:hidden">
               {t('request.missing')}
               <button
                 onClick={() => openRequest('search')}
-                className="-my-2 py-2 font-semibold text-ink-2 underline underline-offset-4 hover:text-ink"
+                className="-my-3 inline-flex min-h-11 items-center font-semibold whitespace-nowrap text-ink-2 underline underline-offset-4 hover:text-ink"
               >
                 {t('request.short')}
               </button>
@@ -635,7 +635,7 @@ function Main() {
                     setSort(e.target.value as Sort);
                     track('filter', { name: 'sort', value: e.target.value });
                   }}
-                  className="h-10 appearance-none rounded-ctl border border-line bg-surface pr-9 pl-3 text-[14px] font-semibold outline-none focus:border-ink"
+                  className="h-11 appearance-none rounded-ctl border border-line bg-surface pr-9 pl-3 text-[16px] font-semibold outline-none focus:border-ink sm:h-10 sm:text-[15px]"
                 >
                   <option value="entry">{t('sort.entry')}</option>
                   <option value="race_date">{t('sort.race_date')}</option>
@@ -653,7 +653,7 @@ function Main() {
                     setFavOnly((v) => !v);
                   }}
                   aria-pressed={favOnly}
-                  className={`inline-flex h-10 items-center gap-1.5 rounded-ctl border px-3 text-[14px] font-semibold transition ${
+                  className={`inline-flex h-11 items-center gap-2 rounded-ctl border px-3 text-[15px] font-semibold whitespace-nowrap transition-colors sm:h-10 ${
                     favOnly ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
                   }`}
                 >
@@ -670,7 +670,7 @@ function Main() {
                   }}
                   aria-pressed={regOnly}
                   title={t('reg.title')}
-                  className={`inline-flex h-10 items-center gap-1.5 rounded-ctl border px-3 text-[14px] font-semibold transition ${
+                  className={`inline-flex h-11 items-center gap-2 rounded-ctl border px-3 text-[15px] font-semibold whitespace-nowrap transition-colors sm:h-10 ${
                     regOnly ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
                   }`}
                 >
@@ -683,7 +683,7 @@ function Main() {
               <button
                 onClick={() => setFiltersOpen((v) => !v)}
                 aria-expanded={filtersOpen}
-                className={`inline-flex h-10 items-center gap-2 rounded-ctl border px-3 text-[14px] font-semibold transition ${
+                className={`inline-flex h-11 items-center gap-2 rounded-ctl border px-3 text-[15px] font-semibold whitespace-nowrap transition-colors sm:h-10 ${
                   filtersOpen || activeFilters ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
                 }`}
               >
@@ -758,10 +758,10 @@ function Main() {
                       max={24}
                       value={maxFlight}
                       onChange={(e) => setMaxFlight(Number(e.target.value))}
-                      className="w-40"
+                      className="h-11 w-40 sm:h-10"
                       aria-label={t('filter.flightAria')}
                     />
-                    <span className="num text-[16px] font-semibold">{maxFlight >= 24 ? t('filter.noLimit') : t('filter.hours', { n: maxFlight })}</span>
+                    <span className="num text-[15px] font-semibold">{maxFlight >= 24 ? t('filter.noLimit') : t('filter.hours', { n: maxFlight })}</span>
                   </FilterGroup>
                 )}
               </div>
@@ -773,7 +773,7 @@ function Main() {
         {mapSection}
 
         {/* 목록 */}
-        <section id="list" className="mx-auto max-w-6xl scroll-mt-32 px-1 pb-16 sm:px-2">
+        <section id="list" className="mx-auto max-w-6xl scroll-mt-32 pb-16 sm:px-6">
           <ResultsAnnouncer query={dq.trim()} count={shown} suggestions={suggestions.length} loading={remote === 'loading'} />
           {remote === 'loading' ? (
             <div className="space-y-px pt-8" aria-busy="true" aria-label={t('list.loading')}>
@@ -782,27 +782,27 @@ function Main() {
               ))}
             </div>
           ) : shown === 0 ? (
-            <div id={RESULTS_EMPTY_ID} className="scroll-mt-32 px-3 py-20 text-center">
+            <div id={RESULTS_EMPTY_ID} className="scroll-mt-32 px-4 py-20 text-center">
               <p className="text-[17px] font-semibold">{dq.trim() ? t('list.notFound', { q: dq.trim() }) : t('list.noMatch')}</p>
-              <p className="mx-auto mt-1.5 max-w-[34ch] text-[15px] break-keep text-balance text-ink-2">
+              <p className="mx-auto mt-2 max-w-[34ch] text-[15px] break-keep text-balance text-ink-2">
                 {t('list.emptyHelp')}
               </p>
               <div className="mt-5 flex justify-center gap-3">
                 <button
                   onClick={() => openRequest(dq.trim() ? 'empty_search' : 'empty')}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-ink px-4 text-sm font-semibold text-bg hover:opacity-85"
+                  className="inline-flex h-11 items-center gap-2 rounded-ctl bg-ink px-4 text-[15px] font-semibold whitespace-nowrap text-bg hover:opacity-85 sm:h-10"
                 >
                   <Plus size={14} weight="bold" aria-hidden />
                   {t('header.request')}
                 </button>
-                <button onClick={reset} className="h-10 rounded-ctl bg-sunken px-4 text-sm font-semibold hover:bg-line">
+                <button onClick={reset} className="h-11 rounded-ctl bg-sunken px-4 text-[15px] font-semibold whitespace-nowrap hover:bg-line sm:h-10">
                   {dq.trim() ? t('list.clearAll') : t('list.clearFilters')}
                 </button>
               </div>
               {suggestions.length > 0 && (
                 <div className="mt-12 text-left">
-                  <h2 className="pb-2 text-[17px] font-bold tracking-tight sm:px-2">{t('list.didYouMean')}</h2>
-                  <ul className="-mx-3 divide-y divide-line border-y border-line">
+                  <h2 className="pb-2 text-[17px] font-bold tracking-tight">{t('list.didYouMean')}</h2>
+                  <ul className="-mx-4 divide-y divide-line border-t border-line">
                     {suggestions.map((r) => (
                       <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} registered={reg.has(r.id)} onOpen={openRace} />
                     ))}
@@ -813,16 +813,16 @@ function Main() {
           ) : (
             visible.map((g, i) => (
               <div key={g.key} className="pt-8">
-                <div className="flex items-baseline justify-between gap-3 px-3 pb-2 sm:px-5">
+                <div className="flex items-baseline justify-between gap-3 px-4 pb-2">
                   <h2 className="flex items-baseline gap-2">
-                    <span className="text-[19px] font-extrabold tracking-tight">{g.title}</span>
-                    <span className="num text-[18px] font-semibold text-ink-3">{fmtCount(g.total, lang)}</span>
+                    <span className="text-[20px] font-bold tracking-tight">{g.title}</span>
+                    <span className="num text-[20px] font-semibold text-ink-3">{fmtCount(g.total, lang)}</span>
                   </h2>
                   {/* 하단 안내까지 내려가지 않아도 보이게 첫 묶음 제목 줄에 (헤더 버튼은 휴대폰에서 숨김) */}
                   {i === 0 && (
                     <button
                       onClick={() => openRequest('list')}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-ctl px-2 py-1 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink"
+                      className="-my-3 -mr-2 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-ctl px-2 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink"
                     >
                       <Plus size={14} weight="bold" aria-hidden />
                       <span>
@@ -832,13 +832,13 @@ function Main() {
                     </button>
                   )}
                 </div>
-                <ul className="divide-y divide-line border-y border-line">
+                <ul className="divide-y divide-line border-t border-line">
                   {g.races.map((r) => (
                     <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} registered={reg.has(r.id)} onOpen={openRace} />
                   ))}
                 </ul>
                 {g.races.length < g.total && (
-                  <div className="px-3 pt-3 sm:px-5">
+                  <div className="px-4 pt-3">
                     <MoreButton left={g.total - g.races.length} onClick={() => showMore(g.key, g.races.length)} />
                   </div>
                 )}
@@ -847,17 +847,17 @@ function Main() {
           )}
 
           {pastRaces.length > 0 && (
-            <div className="px-3 pt-10 sm:px-5">
+            <div className="px-4 pt-10">
               <button
                 onClick={() => setShowPast((v) => !v)}
                 aria-expanded={showPast}
-                className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-ink-3 hover:text-ink"
+                className="-my-3 inline-flex min-h-11 items-center gap-2 text-[15px] font-semibold text-ink-3 hover:text-ink"
               >
                 {t(showPast ? 'past.hide' : 'past.show', { n: fmtCount(pastRaces.length, lang) })}
                 <CaretDown size={14} className={showPast ? 'rotate-180' : ''} />
               </button>
               {showPast && (
-                <ul className="mt-3 divide-y divide-line border-y border-line opacity-70">
+                <ul className="-mx-4 mt-3 divide-y divide-line border-t border-line opacity-70">
                   {pastRaces.slice(0, pastLimit).map((r) => (
                     <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} registered={reg.has(r.id)} onOpen={openRace} />
                   ))}
@@ -874,12 +874,12 @@ function Main() {
         <section className="border-t border-line">
           <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-12 sm:px-6 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-[22px] font-extrabold tracking-tight">{t('bottom.title')}</h2>
-              <p className="mt-1 text-[15px] text-ink-2">{t('bottom.text')}</p>
+              <h2 className="text-[20px] font-bold tracking-tight">{t('bottom.title')}</h2>
+              <p className="mt-2 text-[15px] text-ink-2">{t('bottom.text')}</p>
             </div>
             <button
               onClick={() => openRequest('bottom')}
-              className="h-11 shrink-0 self-start rounded-ctl bg-accent px-5 text-[15px] font-bold text-on-accent transition hover:brightness-95 active:translate-y-px md:self-auto"
+              className="h-11 shrink-0 self-start rounded-ctl bg-accent px-5 text-[15px] font-bold whitespace-nowrap text-on-accent transition hover:brightness-95 active:translate-y-px md:self-auto"
             >
               {t('header.request')}
             </button>
@@ -892,7 +892,7 @@ function Main() {
             <p className="mt-2 max-w-[70ch]">{t('footer.2')}</p>
             <p className="mt-2 max-w-[70ch]">
               {t('footer.contact')}{' '}
-              <a href="mailto:marathon82@kakao.com" className="underline underline-offset-2 hover:no-underline">
+              <a href="mailto:marathon82@kakao.com" className="py-3 underline underline-offset-2 hover:no-underline">
                 marathon82@kakao.com
               </a>
             </p>
@@ -980,21 +980,23 @@ function Stat({
     <button
       onClick={onClick}
       aria-pressed={active}
-      className={`flex flex-col items-start px-4 py-3.5 text-left transition ${
+      className={`flex flex-col items-start justify-between gap-2 px-4 py-4 text-left transition-colors ${
         active ? 'bg-ink text-bg' : hot ? 'bg-accent text-on-accent hover:brightness-95' : 'bg-surface hover:bg-sunken'
       }`}
     >
-      <span className={`text-[13px] ${active ? 'opacity-75' : hot ? 'opacity-85' : 'text-ink-3'}`}>{label}</span>
-      <span className="num mt-1 text-[40px] leading-none font-bold">{value}</span>
+      {/* 라벨이 두 줄(영어)이어도 숫자는 세 칸 모두 아래쪽에 같은 선으로 */}
+      <span className={`text-[13px] leading-snug ${active ? 'opacity-75' : hot ? 'opacity-85' : 'text-ink-3'}`}>{label}</span>
+      <span className="num text-[34px] leading-none font-bold sm:text-[40px]">{value}</span>
     </button>
   );
 }
 
 function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 shrink-0 text-[13px] font-semibold text-ink-3">{label}</span>
-      {children}
+    // 칩이 두 줄이 돼도 둘째 줄이 라벨 밑이 아니라 칩 칸에서 시작하게
+    <div className="grid grid-cols-[4rem_1fr] items-start gap-x-2">
+      <span className="flex h-11 items-center text-[13px] font-semibold text-ink-3 sm:h-10">{label}</span>
+      <div className="flex min-h-11 flex-wrap items-center gap-2 sm:min-h-10">{children}</div>
     </div>
   );
 }
@@ -1004,11 +1006,11 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
     <button
       onClick={onClick}
       aria-pressed={on}
-      className={`inline-flex h-10 items-center gap-1 rounded-ctl px-3 text-[14px] sm:h-8 font-semibold transition active:translate-y-px ${
+      className={`inline-flex h-11 items-center gap-1 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition-colors active:translate-y-px sm:h-10 ${
         on ? 'bg-ink text-bg' : 'bg-surface text-ink-2 hover:bg-sunken hover:text-ink'
       }`}
     >
-      {on && <Check size={13} weight="bold" />}
+      {on && <Check size={14} weight="bold" />}
       {children}
     </button>
   );
