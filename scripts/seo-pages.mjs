@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import {
   ORIGIN, ENTRY, LANDINGS, countries, countryPath, esc, fmt, headLinks, isCancelled, isEntryOpen, ldJson, monthLabel, monthPath, months, races, svgSize, today,
   upcoming, whereOf, yearPath, years,
-  LANDINGS_EN, SITE_NAME_EN, countryNameEn, distEn, enPath, entryEn, fmtEn, monthLabelEn, raceNameEn, whereEn, yearsEn,
+  LANDINGS_EN, SITE_NAME_EN, countryNameEn, distEn, enPath, entryEn, fmtEn, inCountryEn, monthLabelEn, raceNameEn, whereEn, yearsEn,
 } from './seo-lib.mjs';
 
 const DIST_LABEL = { 풀: '풀코스', 하프: '하프' };
@@ -475,6 +475,7 @@ for (const c of countries) {
   for (const r of up) byM.set(r.race_date.slice(0, 7), [...(byM.get(r.race_date.slice(0, 7)) ?? []), r]);
   const ys = yearsEn([...new Set(up.map((r) => r.race_date.slice(0, 4)))]);
   const name = countryLabelEn(c);
+  const inName = inCountryEn(name);
   const trail = c.races.filter((r) => r.discipline === 'trail').length;
   const koPath = countryPath(c.code);
   const body = [
@@ -490,11 +491,11 @@ for (const c of countries) {
     enPath(koPath),
     pageEn({
       koPath,
-      title: `Marathons in ${name}${ys ? ` ${ys}` : ''} — Race Dates & Registration | ${SITE_NAME_EN}`,
-      description: `Dates, cities, distances, registration open and close dates, and official websites for ${num(c.races.length)} marathon${trail ? ' and trail' : ''} races in ${name}.${etcEn(up)}`.slice(0, 160),
-      h1: `Marathons in ${name}${ys ? ` ${ys}` : ''}`,
-      lead: `${num(up.length)} upcoming races in ${name}, sorted by date${trail ? ` (including ${num(trail)} trail races)` : ''}. Select a race to see its entry type, fee and official website.`,
-      crumbs: crumbsEn(enPath(koPath), `Marathons in ${name}`),
+      title: `Marathons in ${inName}${ys ? ` ${ys}` : ''} — Race Dates & Registration | ${SITE_NAME_EN}`,
+      description: `Dates, cities, distances, registration open and close dates, and official websites for ${num(c.races.length)} marathon${trail ? ' and trail' : ''} races in ${inName}.${etcEn(up)}`.slice(0, 160),
+      h1: `Marathons in ${inName}${ys ? ` ${ys}` : ''}`,
+      lead: `${num(up.length)} upcoming races in ${inName}, sorted by date${trail ? ` (including ${num(trail)} trail races)` : ''}. Select a race to see its entry type, fee and official website.`,
+      crumbs: crumbsEn(enPath(koPath), `Marathons in ${inName}`),
       body,
       list: c.races,
     }),

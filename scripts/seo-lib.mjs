@@ -102,6 +102,9 @@ export const fmtEn = (iso) => fmtDate(iso, 'en');
 export const monthLabelEn = (ym) => fmtMonth(ym, 'en');
 export const whereEn = (r) => whereText(r, 'en');
 export const countryNameEn = (code) => countryName(code, code, 'en');
+/** 'in …' 뒤에 쓸 나라 이름: 'the United States'·'the Netherlands' 처럼 관사가 붙는 나라만 the (worker/site.ts 의 inCountryEn 과 같게) */
+const THE_COUNTRY = /^(United |Netherlands$|Philippines$|Maldives$|Bahamas$|Gambia$|Dominican Republic$|Czech Republic$|Central African Republic$)|Islands$/;
+export const inCountryEn = (name) => (THE_COUNTRY.test(name) ? `the ${name}` : name);
 export const ENTRY_EN = ENTRY_TEXT.en;
 export const distEn = (r) => (r.distances ?? []).map(DIST_TEXT.en).join(', ');
 /** 연도 묶음 '2026–2027' (하나면 그대로) */

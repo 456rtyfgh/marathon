@@ -240,7 +240,10 @@ const fmtEn = (iso: string) => fmtDate(iso, 'en');
 const whereEn = (r: RaceMeta) => whereText({ country_code: r.country_code ?? '', city_ko: r.city_ko, country_ko: r.country_ko }, 'en');
 const distTextEn = (r: RaceMeta) => (r.distances ?? []).map(DIST_TEXT.en).join(', ');
 const entryHowEn = (r: RaceMeta) => (ENTRY_TEXT.en as Record<string, string>)[r.entry_type] ?? '';
-const countryCrumbEn = (r: RaceMeta) => `Marathons in ${countryName(r.country_code, r.country_ko, 'en')}`;
+/** 'in …' 뒤에 쓸 나라 이름: 관사가 붙는 나라만 'the United States' 처럼 (scripts/seo-lib.mjs 의 inCountryEn 과 같게) */
+const THE_COUNTRY = /^(United |Netherlands$|Philippines$|Maldives$|Bahamas$|Gambia$|Dominican Republic$|Czech Republic$|Central African Republic$)|Islands$/;
+const inCountryEn = (name: string) => (THE_COUNTRY.test(name) ? `the ${name}` : name);
+const countryCrumbEn = (r: RaceMeta) => `Marathons in ${inCountryEn(countryName(r.country_code, r.country_ko, 'en'))}`;
 const feeTextEn = (r: RaceMeta) =>
   r.entry_fee == null ? '' : r.entry_fee_currency ? fmtMoney(r.entry_fee, r.entry_fee_currency, 'en') : r.entry_fee.toLocaleString('en-US');
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -270,7 +273,7 @@ const raceLiEn = (x: RaceMeta) =>
 
 function relatedHtmlEn(r: RaceMeta, list: RaceMeta[], today: string): string {
   const pv = r.country_code === 'KR' ? provinceOf(r) : null;
-  const areaName = r.country_code === 'KR' ? (pv ? provinceName(pv, 'en') : undefined) : countryName(r.country_code, r.country_ko, 'en');
+  const areaName = r.country_code === 'KR' ? (pv ? provinceName(pv, 'en') : undefined) : inCountryEn(countryName(r.country_code, r.country_ko, 'en'));
   const { kr, area, month, ym, y, cpath } = relatedPick(r, list, today, !!areaName);
   const monthName = fmtMonth(ym, 'en');
   const links: [string, string][] = [
