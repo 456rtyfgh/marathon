@@ -126,8 +126,12 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
                   <div className="flex items-start justify-between gap-3">
                     <span className="line-clamp-2 min-w-0 text-[15px] leading-snug font-semibold">
                       {r.race_name}
+                      {/* 이름 뒤 여백은 공백 글자로: 다음 줄로 넘어가도 들여쓰기가 생기지 않는다 */}
                       {(r.country || r.race_month) && (
-                        <span className="ml-2 font-normal whitespace-nowrap text-ink-3">{[r.country, r.race_month].filter(Boolean).join(', ')}</span>
+                        <>
+                          {' '}
+                          <span className="font-normal whitespace-nowrap text-ink-3">{[r.country, r.race_month].filter(Boolean).join(', ')}</span>
+                        </>
                       )}
                     </span>
                     <span
