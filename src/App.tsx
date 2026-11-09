@@ -600,7 +600,7 @@ function Main() {
               ))}
             </div>
 
-            <form role="search" onSubmit={onSearchSubmit} className="order-first w-full sm:order-none sm:w-auto sm:flex-1">
+            <form role="search" onSubmit={onSearchSubmit} className="order-first w-full lg:order-none lg:w-auto lg:flex-1">
               <label className="relative block">
                 <span className="sr-only">{t('search.label')}</span>
                 <MagnifyingGlass size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-3" />
@@ -626,7 +626,8 @@ function Main() {
               </button>
             </p>
 
-            <div className="flex w-full items-center justify-end gap-2 sm:ml-0 sm:w-auto">
+            {/* 1024px 아래(태블릿)는 검색이 첫 줄 전체, 범위·정렬·필터가 둘째 줄 — 한 줄에 다 넣으면 검색칸이 너무 좁다 */}
+            <div className="flex w-full items-center justify-end gap-2 sm:ml-auto sm:w-auto lg:ml-0">
               <label className="relative">
                 <span className="sr-only">{t('sort.label')}</span>
                 <select
@@ -773,7 +774,7 @@ function Main() {
         {mapSection}
 
         {/* 목록 */}
-        <section id="list" className="mx-auto max-w-6xl scroll-mt-32 pb-16 sm:px-6">
+        <section id="list" className="mx-auto max-w-6xl scroll-mt-32 pb-16 sm:scroll-mt-44 sm:px-6 lg:scroll-mt-32">
           <ResultsAnnouncer query={dq.trim()} count={shown} suggestions={suggestions.length} loading={remote === 'loading'} />
           {remote === 'loading' ? (
             <div className="space-y-px pt-8" aria-busy="true" aria-label={t('list.loading')}>
@@ -782,7 +783,7 @@ function Main() {
               ))}
             </div>
           ) : shown === 0 ? (
-            <div id={RESULTS_EMPTY_ID} className="scroll-mt-32 px-4 py-20 text-center">
+            <div id={RESULTS_EMPTY_ID} className="scroll-mt-32 px-4 py-20 text-center sm:scroll-mt-44 lg:scroll-mt-32">
               <p className="text-[17px] font-semibold">{dq.trim() ? t('list.notFound', { q: dq.trim() }) : t('list.noMatch')}</p>
               <p className="mx-auto mt-2 max-w-[34ch] text-[15px] break-keep text-balance text-ink-2">
                 {t('list.emptyHelp')}

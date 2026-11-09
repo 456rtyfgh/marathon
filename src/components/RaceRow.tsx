@@ -72,9 +72,9 @@ function RaceRow({
           <span className="text-[12px] text-ink-3">{t('date.weekday', { w: p.w })}</span>
         </div>
 
-        {/* 대회명 (최대 두 줄, 표는 이름 끝에 붙어 같이 줄바꿈) */}
+        {/* 대회명 (최대 세 줄 — 영어 긴 이름도 거의 다 보이게, 표는 이름 끝에 붙어 같이 줄바꿈) */}
         <div className="min-w-0">
-          <div className="line-clamp-2 text-[17px] leading-snug">
+          <div className="line-clamp-3 text-[17px] leading-snug">
             <h3 className={`inline font-bold tracking-tight ${cancelled ? 'text-ink-2' : 'text-ink'}`}>{raceName(race, lang)}</h3>
             {favorite && (
               <BookmarkSimple size={14} weight="fill" className="ml-2 inline-block align-[-1px] text-ink" aria-label={t('row.saved')} />
