@@ -100,6 +100,11 @@ export const en: Record<Key, string> & Partial<Record<`${Key}_one`, string>> = {
     'Dates and registration windows can change at the organizer’s discretion. Anything marked “expected” is our estimate based on past editions, so always check the official website before you sign up. Costs are rough estimates. Reviews from other sites are links only, and the authors keep the copyright.',
   'footer.2': "We use Google Analytics for visit statistics. We never send anything that identifies you, such as your name or email.",
   'footer.contact': 'Contact',
+  'footer.notice':
+    '© 2026 Marathon Calendar. Race information is a database we research and verify ourselves and is protected by copyright law and other laws. Automated collection, unauthorized copying and redistribution are prohibited.',
+  'footer.terms': 'Terms of Use',
+  'detail.loading': 'Loading race details',
+  'detail.loadError': "Couldn't load race details. Please try again shortly.",
   'panel.race': 'Race details',
   'panel.login': 'Log in',
   'app.loadError': "Couldn't load the race list. Please refresh in a moment.",

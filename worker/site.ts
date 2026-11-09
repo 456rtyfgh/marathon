@@ -1,9 +1,12 @@
 /**
  * 마라톤 캘린더 사이트 (Cloudflare Pages, 주소 marathon82.com)
- * 정적 파일(첫 화면, 대회 목록 /data/<해시>.json …)은 Pages 가 함수 없이 바로 내보낸다 — 방문이 몰려도 함수·DB 를 거의 안 쓴다.
+ * 정적 파일(첫 화면, 목록 페이지 …)은 Pages 가 함수 없이 바로 내보낸다 — 방문이 몰려도 함수·DB 를 거의 안 쓴다.
  * 여기 함수는 _routes.json 으로 아래 경로에서만 돈다.
  *  - /r/대회id      : 공유 링크. 대회별 제목·설명(og 태그), 검색엔진용 본문, 구조화 데이터를 넣는다.
  *  - /en/r/대회id   : 같은 내용의 영어판 (영어 첫 화면 dist/en/index.html 을 바탕으로).
+ *  - /r/대회id.json : 앱이 대회를 열 때 받는 상세(전체 필드·패키지·여행사·경비). 우리 사이트 안에서 부른 것만.
+ *  - /d/<hash>.json : 앱의 대회 목록 파일(목록 필드만). 우리 사이트 안에서 부른 것만. 전체 파일(/d/f-…)은 늘 404.
+ *  - /data.json     : 예전 주소 — 404 (원본은 빌드 입력일 뿐 내보내지 않는다).
  *  - /cal/대회id.ics: 캘린더 일정 파일 (아이폰 사파리는 열자마자 '캘린더에 추가'). ?lang=en 이면 영어.
  */
 import { raceIcs, type CalKind } from '../src/lib/ics';
@@ -11,6 +14,13 @@ import { PROVINCE_NAME, provinceOf } from '../src/lib/places';
 import type { Lang } from '../src/i18n/lang.ts';
 import { DIST_TEXT, ENTRY_TEXT, fmtDate, fmtMoney, fmtMonth } from '../src/i18n/format.ts';
 import { cityName, countryName, provinceName, whereText } from '../src/i18n/names.ts';
+import { BLOCKED_TEXT, DATA_NOTICE, noticeHtml } from '../src/lib/notice.ts';
+
+// 목록·전체 파일 주소 (scripts/pages.mjs 가 esbuild define 으로 넣는다 — scripts/data-split.mjs)
+declare const __LIST_PATH__: string;
+declare const __FULL_PATH__: string;
+const LIST_PATH = typeof __LIST_PATH__ === 'string' ? __LIST_PATH__ : '';
+const FULL_PATH = typeof __FULL_PATH__ === 'string' ? __FULL_PATH__ : '';
 
 // 사이트 전체 CSP (public/_headers 의 값과 같게 유지)
 export const CSP = [
@@ -30,10 +40,6 @@ export const CSP = [
 /** 대표 주소. pages.dev 로 들어온 공유 링크는 여기로 영구 이동한다. */
 export const SITE = 'https://marathon82.com';
 const OLD_HOST = 'marathoncalendar.pages.dev';
-
-// 대회 목록 주소 — 빌드 때 scripts/pages.mjs 가 /data/<해시>.json 을 넣는다(없으면 예전 주소)
-declare const __DATA_PATH__: string | undefined;
-const DATA_PATH = typeof __DATA_PATH__ === 'string' ? __DATA_PATH__ : '/data.json';
 
 export interface SiteEnv {
   ASSETS: { fetch: (req: Request | string) => Promise<Response> };
@@ -229,6 +235,7 @@ ${r.name_en ? `<p>${esc(r.name_en)}</p>` : ''}
 ${note ? `<p>${esc(note)}</p>` : ''}
 ${httpUrl(r.official_url) ? `<p><a href="${esc(httpUrl(r.official_url))}" rel="nofollow noopener">공식 홈페이지</a></p>` : ''}
 ${related}
+${noticeHtml('ko')}
 </main>`;
 }
 
@@ -333,6 +340,7 @@ ${cancelled ? '<p><strong>Cancelled</strong> — The organizer has cancelled (su
 ${note ? `<p>${esc(note)}</p>` : ''}
 ${httpUrl(r.official_url) ? `<p><a href="${esc(httpUrl(r.official_url))}" rel="nofollow noopener">Official website</a></p>` : ''}
 ${related}
+${noticeHtml('en')}
 </main>`;
 }
 
@@ -411,14 +419,21 @@ function eventLd(r: RaceMeta, url: string, desc: string, lang: Lang = 'ko') {
   return [ev, bc];
 }
 
-// 워커 인스턴스마다 대회 목록을 10분 동안 기억해 둔다
-let cache: { at: number; byId: Map<string, RaceMeta>; list: RaceMeta[] } | null = null;
+interface FullData {
+  races: RaceMeta[];
+  packages?: { race_id: string; agency_id: string }[];
+  agencies?: { id: string }[];
+  costs?: { race_id: string }[];
+}
+// 워커 인스턴스마다 전체 파일(/d/f-<hash>.json)을 10분 동안 기억해 둔다
+let cache: { at: number; byId: Map<string, RaceMeta>; list: RaceMeta[]; full: FullData } | null = null;
 async function loadRaces(req: Request, env: Env) {
   if (!cache || Date.now() - cache.at > 600_000) {
-    const r = await env.ASSETS.fetch(new URL(DATA_PATH, req.url).toString());
-    if (!r.ok) throw new Error(`${DATA_PATH} ${r.status}`);
-    const j = (await r.json()) as { races: RaceMeta[] };
-    cache = { at: Date.now(), byId: new Map(j.races.map((x) => [x.id, x])), list: j.races };
+    if (!FULL_PATH) throw new Error('no full data path');
+    const r = await env.ASSETS.fetch(new URL(FULL_PATH, req.url).toString());
+    if (!r.ok) throw new Error(`full data ${r.status}`);
+    const j = (await r.json()) as FullData;
+    cache = { at: Date.now(), byId: new Map(j.races.map((x) => [x.id, x])), list: j.races, full: j };
   }
   return cache;
 }
@@ -487,12 +502,84 @@ async function withRaceMeta(req: Request, env: Env, id: string, lang: Lang = 'ko
 }
 
 
+/**
+ * 우리 사이트 안에서 부른 요청인지 (데이터 파일 무단 수집 막기). Referer·Sec-Fetch-Site 는 위조할 수 있어
+ * 손쉬운 수집을 막는 정도다 — 본 방어는 Cloudflare 봇 차단·속도 제한. UA 로 검색엔진을 따로 통과시키지 않는다
+ * (검색엔진은 프리렌더 HTML 로 본문을 받고, JS 를 실행하는 구글 렌더러는 페이지 안 fetch 라 일반 방문자처럼 통과).
+ * Sec-Fetch-Site 가 없는 옛 브라우저는 Referer 만으로 본다.
+ */
+function sameSite(req: Request): boolean {
+  const sfs = req.headers.get('Sec-Fetch-Site');
+  if (sfs && sfs !== 'same-origin') return false;
+  const ref = req.headers.get('Referer');
+  if (!ref) return false;
+  let origin: string;
+  try {
+    origin = new URL(ref).origin;
+  } catch {
+    return false;
+  }
+  // 미리보기(xxx.pages.dev)·로컬 주소는 자기 주소와 같으면 통과
+  return origin === SITE || origin === new URL(req.url).origin;
+}
+
+const blocked = () =>
+  new Response(BLOCKED_TEXT, {
+    status: 403,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' },
+  });
+const notFound = () =>
+  new Response('Not found', {
+    status: 404,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' },
+  });
+const json = (body: BodyInit | null, status = 200) =>
+  new Response(body, {
+    status,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': status === 200 ? 'private, max-age=300' : 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+
+/** 대회 하나의 상세: 전체 필드 + 그 대회 패키지·여행사 + 그 나라 경비 기준 (CostCalculator 의 costFor 와 같은 규칙) */
+async function raceDetailJson(req: Request, env: Env, id: string): Promise<Response> {
+  let data: Awaited<ReturnType<typeof loadRaces>>;
+  try {
+    data = await loadRaces(req, env);
+  } catch {
+    return json(JSON.stringify({ _notice: DATA_NOTICE, error: 'unavailable' }), 503);
+  }
+  const race = data.byId.get(id);
+  if (!race) return json(JSON.stringify({ _notice: DATA_NOTICE, error: 'not_found' }), 404);
+  return json(
+    JSON.stringify({
+      _notice: DATA_NOTICE,
+      race,
+      packages: (data.full.packages ?? []).filter((p) => p.race_id === race.id),
+      // 여행사는 전부(몇 곳뿐) — 패키지가 없는 대회도 여행사 탭이 여행사 목록을 보인다 (PackageTable)
+      agencies: data.full.agencies ?? [],
+      costs: (data.full.costs ?? []).filter((c) => c.race_id === race.country_code),
+    }),
+  );
+}
+
 export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
   const url = new URL(req.url);
+  if (url.pathname === '/data.json') return notFound();
+  if (url.pathname.startsWith('/d/')) {
+    if (!LIST_PATH || url.pathname !== LIST_PATH) return notFound();
+    if (!sameSite(req)) return blocked();
+    const r = await env.ASSETS.fetch(new URL(LIST_PATH, req.url).toString());
+    if (!r.ok) return notFound();
+    // 정적 파일 응답 헤더(public/_headers 의 공개 캐시 규칙 등)가 섞이지 않게 새로 만든다
+    return json(r.body);
+  }
+  const dj = url.pathname.match(/^\/r\/([a-z0-9-]{2,40})\.json$/);
+  if (dj) return sameSite(req) ? raceDetailJson(req, env, dj[1]) : blocked();
   // 예전 주소로 연 공유 링크는 대표 주소로 (미리보기 주소 xxx.marathoncalendar.pages.dev 는 그대로)
   if (url.hostname === OLD_HOST) return Response.redirect(SITE + url.pathname + url.search, 301);
-  // 예전 고정 목록 주소는 없앴다 — Pages 캐시에 남은 옛 파일이 나가지 않게 함수에서 막는다
-  if (url.pathname === '/data.json') return new Response('Not found. 대회 정보의 무단 수집·복제를 금지합니다.', { status: 404, headers: { 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' } });
   const m = url.pathname.match(/^\/(en\/)?r\/([a-z0-9-]{2,40})(\/?)$/);
   // 대회 주소는 끝 슬래시 없는 꼴 하나로 (canonical 과 같게, 언어 접두는 그대로)
   if (m?.[3]) return Response.redirect(`${url.origin}${m[1] ? '/en' : ''}/r/${m[2]}${url.search}`, 301);

@@ -11,6 +11,7 @@ import {
   upcoming, whereOf, yearPath, years,
   LANDINGS_EN, SITE_NAME_EN, countryNameEn, distEn, enPath, entryEn, fmtEn, inCountryEn, monthLabelEn, raceNameEn, whereEn, yearsEn,
 } from './seo-lib.mjs';
+import { noticeHtml } from '../src/lib/notice.ts';
 
 const DIST_LABEL = { 풀: '풀코스', 하프: '하프' };
 const SYMBOL = svgSize('/brand/symbol.svg', 32);
@@ -94,7 +95,7 @@ ${ldJson(itemList)}
 <p class="lead">${esc(lead)}</p>
 ${body}
 </main>
-<footer><a href="/">마라톤 캘린더</a> — 국내·해외 마라톤·트레일러닝 대회 일정과 접수 기간. 날짜·접수 기간은 바뀔 수 있으니 공식 홈페이지에서 한 번 더 확인하세요.<br>문의 <a href="mailto:marathon82@kakao.com">marathon82@kakao.com</a></footer>
+<footer><a href="/">마라톤 캘린더</a> — 국내·해외 마라톤·트레일러닝 대회 일정과 접수 기간. 날짜·접수 기간은 바뀔 수 있으니 공식 홈페이지에서 한 번 더 확인하세요.<br>문의 <a href="mailto:marathon82@kakao.com">marathon82@kakao.com</a>${noticeHtml('ko')}</footer>
 </body>
 </html>
 `;
@@ -391,7 +392,7 @@ ${ldJson(itemList)}
 <p class="lead">${esc(lead)}</p>
 ${body}
 </main>
-<footer><a href="/en/">${SITE_NAME_EN}</a> — Marathon and trail race dates and registration windows in Korea and worldwide. Dates and registration windows can change, so double-check on the official website.<br>Contact <a href="mailto:marathon82@kakao.com">marathon82@kakao.com</a></footer>
+<footer><a href="/en/">${SITE_NAME_EN}</a> — Marathon and trail race dates and registration windows in Korea and worldwide. Dates and registration windows can change, so double-check on the official website.<br>Contact <a href="mailto:marathon82@kakao.com">marathon82@kakao.com</a>${noticeHtml('en')}</footer>
 </body>
 </html>
 `;

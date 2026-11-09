@@ -9,3 +9,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** 목록 파일 주소 /d/<hash>.json (vite.config.ts 의 define, scripts/data-split.mjs) */
+declare const __DATA_LIST_URL__: string;

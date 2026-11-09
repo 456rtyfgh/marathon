@@ -1,3 +1,7 @@
+# © 2026 마라톤 캘린더. 대회 정보는 직접 조사·검증한 데이터베이스로 저작권법 등으로 보호됩니다. 자동 수집·무단 복제·재배포를 금지합니다.
+# 이용약관: https://marathon82.com/terms
+# © 2026 Marathon Calendar. Race information is a database we research and verify ourselves and is protected by copyright law and other laws. Automated collection, unauthorized copying and redistribution are prohibited.
+# Terms of Use: https://marathon82.com/en/terms
 User-agent: *
 Allow: /
 
