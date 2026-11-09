@@ -33,7 +33,8 @@ export default function Comments({ comments, ...ctx }: Ctx & { comments: Comment
         {s.cTitle} <span className="num font-semibold text-ink-3">{count}</span>
       </h3>
       {top.length === 0 ? (
-        <p className="text-[15px] text-ink-3">{s.cNone}</p>
+        // 댓글을 달 수 없는 글(임시조치·숨김)에는 '첫 댓글을 남겨 보세요' 를 보이지 않는다
+        ctx.open && <p className="text-[15px] text-ink-3">{s.cNone}</p>
       ) : (
         <ul className="divide-y divide-line border-y border-line">
           {top.map((c) => (

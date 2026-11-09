@@ -127,6 +127,8 @@ function item(p: MPost, v: Viewer): PostListItem {
     like_count: p.like_count,
     edited: p.edited,
     state: p.state,
+    // 서버처럼 임시조치 기한(작성 30일 뒤로 흉내)
+    hidden_until: p.state === 'temp_hidden' ? new Date(Date.parse(p.created_at) + 30 * 864e5).toISOString() : null,
   };
 }
 

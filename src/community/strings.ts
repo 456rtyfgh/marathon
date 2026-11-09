@@ -238,6 +238,19 @@ export function fmtWhen(iso: string, lang: Lang): string {
   return d.toLocaleDateString(locale, { timeZone: tz, month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
 }
 
+/** 글 자리 문구. 임시조치는 기한을 붙인다: '… (~12월 9일까지)' / '… (until Dec 9)' */
+export function stateLabel(p: { state: PostState; hidden_until?: string | null }, lang: Lang): string {
+  const text = (lang === 'ko' ? ko : en).stateText[p.state];
+  const d = p.state === 'temp_hidden' && p.hidden_until ? new Date(p.hidden_until) : null;
+  if (!d || !Number.isFinite(d.getTime())) return text;
+  const opt = { timeZone: 'Asia/Seoul', month: lang === 'ko' ? 'numeric' : 'short', day: 'numeric' } as const;
+  if (lang === 'ko') {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('ko-KR', opt).formatToParts(d).map((x) => [x.type, x.value]));
+    return `${text} (~${parts.month}월 ${parts.day}일까지)`;
+  }
+  return `${text} (until ${d.toLocaleDateString('en-US', opt)})`;
+}
+
 /** 정지 기한 글자 ('infinity' 는 null) */
 export function fmtBan(until: string, lang: Lang): string | null {
   const d = new Date(until);

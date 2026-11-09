@@ -4,7 +4,7 @@
 import { ChatCircle, Heart } from '@phosphor-icons/react';
 import { useLang } from '../i18n';
 import type { PostListItem } from '../lib/communityTypes';
-import { fmtWhen, useS } from './strings';
+import { fmtWhen, stateLabel, useS } from './strings';
 
 export default function PostList({
   items,
@@ -50,7 +50,7 @@ export default function PostList({
                       {s.myState[p.state]}
                     </span>
                   )}
-                  <span className="line-clamp-2 [overflow-wrap:anywhere] inline">{gone ? s.stateText[p.state] : p.title}</span>
+                  <span className="line-clamp-2 [overflow-wrap:anywhere] inline">{gone ? stateLabel(p, lang) : p.title}</span>
                 </span>
               </span>
               <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 pl-0.5 text-[13px] text-ink-3">

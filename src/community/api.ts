@@ -134,6 +134,7 @@ const toItem = (r: PostListItem): PostListItem => ({
   like_count: r.like_count ?? 0,
   edited: !!r.edited,
   state: r.state,
+  hidden_until: r.hidden_until ?? null,
 });
 const page = (rows: PostListItem[]): PostListResponse => {
   const items = rows.map(toItem);

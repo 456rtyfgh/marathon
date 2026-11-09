@@ -15,7 +15,7 @@ import Comments from './Comments';
 import { GateNote, LockedNotice } from './MembersGate';
 import PostForm from './PostForm';
 import ReportDialog from './ReportDialog';
-import { fmtWhen, useS } from './strings';
+import { fmtWhen, stateLabel, useS } from './strings';
 
 export default function PostDetail({
   id,
@@ -136,7 +136,7 @@ export default function PostDetail({
       <header>
         <span className="inline-flex h-6 items-center rounded-tag border border-line px-2 text-[12px] font-semibold text-ink-2">{s.cat[p.category]}</span>
         <h3 className={`mt-2 text-[22px] leading-snug font-extrabold tracking-tight [overflow-wrap:anywhere] sm:text-[24px] ${gone ? 'text-ink-3' : ''}`}>
-          {gone || p.title == null ? s.stateText[p.state] : p.title}
+          {gone || p.title == null ? stateLabel(p, lang) : p.title}
         </h3>
         <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-ink-3">
           {race && !hideRace && <span className="font-semibold text-ink-2">{raceName(race, lang)}</span>}
