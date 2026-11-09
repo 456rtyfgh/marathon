@@ -27,16 +27,17 @@
 | 푸터 링크 | 했음. 처리방침(굵게)·이용약관, `footer.2` GA 문장 끝에 '자세히 보기 → /privacy#cookies'. i18n 키는 그대로 | `src/App.tsx`, `src/legal/strings.ts` |
 | 영어판 | 했음. `/en/...` 본문에 한글 없음(agent-browser 로 확인) | 위 파일 전부 |
 
-## 파트 A — 가입 동의·개정 안내·탈퇴·SQL (이 문서를 쓸 때 A 는 작업 중·커밋 전이라 파일 기준으로 적음)
+## 파트 A — 가입 동의·개정 안내·탈퇴·SQL (커밋 c7677a2·00134b5·77a97f4·e09da82 기준)
 
 | 항목 | 결과 | 파일 |
 |---|---|---|
-| 가입 동의(필수/선택 분리, 고지 4항목, 만 14세) | `SignupConsent` + `signUp(…, consent)` → `user_metadata` | `src/components/SignupConsent.tsx`, `src/lib/auth.tsx`, `src/components/AuthPanel.tsx` |
-| 기존 가입자 개정 안내 | `PolicyNotice`(재동의 없음, 안내만) | `src/components/PolicyNotice.tsx` |
-| 회원 탈퇴 | `WithdrawForm` → `rpc('delete_my_account')` | `src/components/WithdrawForm.tsx`, `supabase/migrations/0011_privacy.sql` |
-| 알림 구독 고지 | `COLLECT_ALERT` 한 줄 + 처리방침 링크 | `src/components/AlertForm.tsx` |
-
-※ 파트 A 커밋이 끝나면 이 표를 `git log` 기준으로 다시 확인할 것.
+| 공통 상수 | `POLICY_VERSION`·`RECONSENT_FROM`·`CONTACT_EMAIL`·경로·`REVISIONS`·`COLLECT_MEMBER`·`COLLECT_ALERT` (c7677a2) | `src/lib/policy.ts` |
+| 가입 동의(필수/선택 분리, 고지 4항목, 만 14세) | `SignupConsent`: [전체 동의] + 필수 3개(만 14세·수집·이용·약관), 선택 항목 없음. `signUp(…, consent)` → `user_metadata` (77a97f4) | `src/components/SignupConsent.tsx`, `src/lib/auth.tsx`, `src/components/AuthPanel.tsx` |
+| 기존 가입자 개정 안내 | `PolicyNotice`: `policy_version` 이 다르면 로그인 때 안내 한 번(재동의 없음) (77a97f4) | `src/components/PolicyNotice.tsx` |
+| 열람·정정·처리정지 안내 | 내 정보 화면에 가입 이메일·닉네임, 닉네임 변경, 처리정지는 문의 메일 (77a97f4) | `src/components/AuthPanel.tsx` |
+| 회원 탈퇴 | `WithdrawForm`: 가입 이메일을 그대로 입력해야 켜짐 → `rpc('delete_my_account')` → `signOut({ scope: 'local' })`. RPC 가 아직 없으면(PGRST202) 문의 메일 안내 (77a97f4) | `src/components/WithdrawForm.tsx`, `src/lib/auth.tsx` |
+| 탈퇴 SQL | `delete_my_account()` security definer: 대회 요청·조기 마감 제보의 `nickname`·`requested_by` 를 null, 같은 이메일 알림 구독 삭제, `auth.users` 삭제(프로필·후기는 cascade). authenticated 만 실행 (00134b5) — 처리방침 2항·약관 탈퇴 조항과 같은 내용 | `supabase/migrations/0011_privacy.sql` |
+| 알림 구독 고지 | `COLLECT_ALERT` 한 줄 + 처리방침 링크 (e09da82) | `src/components/AlertForm.tsx` |
 
 ## 남은 빈칸 `[ ]` (사이트에 공개되지 않아 채우지 않음)
 - 운영자·개인정보 보호책임자 이름 (`PrivacyPolicy.tsx` 9항) — 연락처는 `marathon82@kakao.com` 으로 채움

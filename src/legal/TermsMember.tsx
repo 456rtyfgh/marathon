@@ -52,7 +52,7 @@ export default function TermsMember() {
           <li>You can delete your account at any time from “My account”. There is no waiting period.</li>
           <li>
             When you do, your account, email and nickname are destroyed immediately, and your reviews are deleted with them. Race requests
-            you sent stay on the list without an author name, because they are about adding races for everyone. This cannot be undone.
+            and sold-out reports you sent stay without an author name, because they are race information for everyone. This cannot be undone.
           </li>
         </ul>
 
@@ -107,7 +107,7 @@ export default function TermsMember() {
       <ul>
         <li>회원은 언제든 ‘내 정보’에서 탈퇴할 수 있으며, 기다리는 기간은 없습니다.</li>
         <li>
-          탈퇴하면 계정·이메일·닉네임을 즉시 파기하고 작성한 후기도 함께 삭제합니다. 대회 추가 요청은 모든 이용자를 위한 대회 정보라서 작성자
+          탈퇴하면 계정·이메일·닉네임을 즉시 파기하고 작성한 후기도 함께 삭제합니다. 대회 추가 요청·조기 마감 제보는 모든 이용자를 위한 대회 정보라서 작성자
           표시 없이 남습니다. 탈퇴는 되돌릴 수 없습니다.
         </li>
       </ul>

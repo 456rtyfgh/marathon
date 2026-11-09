@@ -99,7 +99,7 @@ function Destroy() {
     <section id="destroy">
       <h2>2. 파기</h2>
       <ul>
-        <li>회원 탈퇴: 계정·이메일·닉네임을 즉시 파기하고, 작성한 후기도 함께 삭제합니다. 대회 추가 요청은 작성자 표시(닉네임) 없이 남습니다.</li>
+        <li>회원 탈퇴: 계정·이메일·닉네임을 즉시 파기하고, 작성한 후기도 함께 삭제합니다. 대회 추가 요청·조기 마감 제보는 작성자 표시(닉네임) 없이 남습니다.</li>
         <li>회원 탈퇴 때 가입 이메일과 같은 주소로 신청한 대회 일정 알림도 함께 삭제합니다.</li>
         <li>보유기간이 끝났거나 목적을 이룬 정보는 지체 없이 데이터베이스에서 되살릴 수 없게 삭제합니다.</li>
         <li>법령에 따로 보관하라는 정보는 없습니다. 생기면 이 방침에 항목과 기간을 적습니다.</li>
@@ -109,7 +109,7 @@ function Destroy() {
     <section id="destroy">
       <h2>2. Destruction</h2>
       <ul>
-        <li>When you delete your account, your account, email and nickname are destroyed immediately and your reviews are deleted with them. Race requests stay without an author name (nickname).</li>
+        <li>When you delete your account, your account, email and nickname are destroyed immediately and your reviews are deleted with them. Race requests and sold-out reports stay without an author name (nickname).</li>
         <li>Date alerts signed up with the same email as your account are deleted at the same time.</li>
         <li>Information whose retention period has ended or whose purpose is fulfilled is deleted from the database without delay so it cannot be recovered.</li>
         <li>No law currently requires us to keep any of it. If one does, we will list the items and period here.</li>
