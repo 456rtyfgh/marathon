@@ -11,7 +11,7 @@ import { WithdrawForm } from './WithdrawForm';
 import { PolicyNotice } from './PolicyNotice';
 
 export function AuthBar({ onOpen }: { onOpen: () => void }) {
-  const { session, profile, signOut, policyNoticeDue } = useAuth();
+  const { session, profile, signOut, policyNoticeDue, recovering } = useAuth();
   const { t } = useLang();
   const [editing, setEditing] = useState(false);
   const [view, setView] = useState<'me' | 'withdraw'>('me');
@@ -79,8 +79,9 @@ export function AuthBar({ onOpen }: { onOpen: () => void }) {
             <ProfileForm onClose={close} onWithdraw={() => setView('withdraw')} />
           ))}
       </Panel>
+      {/* 비밀번호 재설정 링크로 들어온 동안은 재설정 창과 겹치지 않게 미룬다(재설정 창을 닫으면 뜬다) */}
       <Panel
-        open={policyNoticeDue && !noticeClosed && !editing}
+        open={policyNoticeDue && !noticeClosed && !editing && !recovering}
         onClose={() => setNoticeClosed(true)}
         label={t('policyNotice.title')}
         variant="sheet"
