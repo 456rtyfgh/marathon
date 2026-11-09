@@ -85,7 +85,7 @@ const SECTIONS = {
     {
       id: 'signup',
       h: '제6조 (회원가입)',
-      body: `<p>대회 일정 보기와 일정 알림 신청은 회원가입 없이 쓸 수 있습니다. 회원 계정은 후기 작성과 대회 추가 요청에만 필요합니다.</p>
+      body: `<p>대회 일정 보기는 회원가입 없이 쓸 수 있습니다. 캘린더 파일 받기·일정 알림 신청·후기 작성·대회 추가 요청과 저장한 대회 동기화·내 일정 캘린더 구독·내 기록 같은 회원 기능에는 회원 계정이 필요합니다.</p>
 <ol>
 <li>만 14세 이상이고 이 약관과 개인정보 수집·이용에 동의하면 가입할 수 있습니다.</li>
 <li>실제로 쓰는 이메일로 가입하고, 그 메일로 확인하면 가입이 끝납니다. 다른 사람의 이메일로 가입할 수 없습니다.</li>
@@ -189,7 +189,7 @@ const SECTIONS = {
     {
       id: 'signup',
       h: 'Article 6 (Signing up)',
-      body: `<p>You can browse races and sign up for date alerts without an account. An account is only needed to write reviews and send race requests.</p>
+      body: `<p>You can browse races without an account. An account is needed to download calendar files, sign up for date alerts, write reviews, send race requests, and use member features such as saved races across devices, your calendar feed and your race log.</p>
 <ol>
 <li>You can sign up if you are 14 or older and agree to these terms and to the collection and use of your personal information.</li>
 <li>Sign up with an email address you actually use; the account is created once you confirm it. One person may use only their own email.</li>
