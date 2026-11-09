@@ -551,13 +551,13 @@ function Main() {
                       <span className="mt-auto text-[12px] text-ink-3">
                         {t('views.pre')}
                         <span className="num text-[13px]">{shortCount(st?.views ?? 0, lang)}</span>
-                        {t('views.post')}
+                        {t('views.post', { count: st?.views ?? 0 })}
                         {(st?.saves ?? 0) > 0 && (
                           <>
                             {t('saves.sep')}
                             {t('saves.pre')}
                             <span className="num text-[13px]">{shortCount(st!.saves!, lang)}</span>
-                            {t('saves.post')}
+                            {t('saves.post', { count: st!.saves! })}
                           </>
                         )}
                       </span>

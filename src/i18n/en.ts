@@ -34,8 +34,10 @@ export const en: Record<Key, string> & Partial<Record<`${Key}_one`, string>> = {
   'hot.rank': '#{n}',
   'views.pre': '',
   'views.post': ' views',
+  'views.post_one': ' view',
   'saves.pre': '',
   'saves.post': ' saves',
+  'saves.post_one': ' save',
   'saves.sep': ' · ',
 
   'scope.aria': 'Korea or overseas',

@@ -103,7 +103,7 @@ function RaceRow({
                   <Eye size={13} />
                   {t('views.pre')}
                   <span className="num text-[14px]">{shortCount(rating.views!, lang)}</span>
-                  {t('views.post')}
+                  {t('views.post', { count: rating.views! })}
                 </span>
               )}
               {(rating.saves ?? 0) > 0 && (
@@ -111,7 +111,7 @@ function RaceRow({
                   <CalendarCheck size={13} />
                   {t('saves.pre')}
                   <span className="num text-[14px]">{shortCount(rating.saves!, lang)}</span>
-                  {t('saves.post')}
+                  {t('saves.post', { count: rating.saves! })}
                 </span>
               )}
             </p>
