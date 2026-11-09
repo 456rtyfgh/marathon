@@ -80,13 +80,13 @@ export function Button({ tone = 'primary', size = 'md', className = '', ...rest 
     danger: 'bg-sunken text-ink hover:bg-line underline decoration-ink-3 underline-offset-4',
   };
   const sizes = {
-    sm: 'h-9 px-3 text-[13px]',
-    md: 'h-10 px-4 text-sm',
+    sm: 'h-11 px-3 text-[15px] sm:h-9',
+    md: 'h-11 px-4 text-[15px] sm:h-10',
   };
   return (
     <button
       {...rest}
-      className={`inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-ctl font-semibold transition active:translate-y-px disabled:pointer-events-none disabled:opacity-40 ${tones[tone]} ${sizes[size]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-ctl font-semibold transition active:translate-y-px disabled:pointer-events-none disabled:opacity-40 ${tones[tone]} ${sizes[size]} ${className}`}
     />
   );
 }
@@ -98,7 +98,7 @@ export function MoreButton({ left, onClick, className = '' }: { left: number; on
     <button
       type="button"
       onClick={onClick}
-      className={`h-9 rounded-ctl bg-sunken px-3 text-[14px] font-semibold transition hover:bg-line active:translate-y-px ${className}`}
+      className={`h-11 rounded-ctl bg-sunken px-4 text-[15px] font-semibold whitespace-nowrap transition hover:bg-line active:translate-y-px sm:h-10 ${className}`}
     >
       {t('more.label')} <span className="font-normal text-ink-2">(<span className="num">{fmtCount(left, lang)}</span>{t('more.leftPost')})</span>
     </button>
@@ -121,10 +121,10 @@ export function Field({
   wide?: boolean;
 }) {
   return (
-    <label className={`flex flex-col gap-1.5 ${wide ? 'sm:col-span-2' : ''}`}>
+    <label className={`flex flex-col gap-2 ${wide ? 'sm:col-span-2' : ''}`}>
       <span className="text-[13px] font-semibold text-ink-2">
         {label}
-        {hint && <span className="ml-1.5 font-normal text-ink-3">{hint}</span>}
+        {hint && <span className="ml-2 font-normal text-ink-3">{hint}</span>}
       </span>
       {children}
       {error && <span className="text-[13px] text-ink">{error}</span>}
@@ -133,7 +133,8 @@ export function Field({
 }
 
 export const inputCls =
-  'h-10 w-full rounded-ctl border border-line bg-surface px-3 text-[15px] text-ink outline-none transition placeholder:text-ink-3 focus:border-ink disabled:opacity-50';
+  // 높이는 min-h 로: textarea 가 h-auto 를 덧붙여 쓰므로 고정 높이를 두지 않는다. 휴대폰 16px = iOS 확대 방지
+  'min-h-11 w-full rounded-ctl border border-line bg-surface px-3 text-[16px] text-ink outline-none transition placeholder:text-ink-3 focus:border-ink disabled:opacity-50 sm:min-h-10 sm:text-[15px]';
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${inputCls} ${props.className ?? ''}`} />;
@@ -151,14 +152,14 @@ export function Tabs<T extends string>({
   items: [T, ReactNode][];
 }) {
   return (
-    <div role="tablist" className="flex gap-5 overflow-x-auto border-b border-line px-5 sm:px-7">
+    <div role="tablist" className="flex gap-4 overflow-x-auto border-b border-line px-5 sm:gap-5 sm:px-7">
       {items.map(([id, label]) => (
         <button
           key={id}
           role="tab"
           aria-selected={value === id}
           onClick={() => onChange(id)}
-          className={`-mb-px shrink-0 border-b-2 py-3 text-[15px] font-semibold transition ${
+          className={`-mb-px h-12 shrink-0 border-b-2 text-[15px] font-semibold whitespace-nowrap transition ${
             value === id ? 'border-ink text-ink' : 'border-transparent text-ink-3 hover:text-ink-2'
           }`}
         >
@@ -177,5 +178,5 @@ export function Note({ tone = 'info', children }: { tone?: 'info' | 'ok' | 'erro
     ok: 'bg-accent text-on-accent',
     error: 'bg-sunken text-ink border-l-2 border-ink',
   }[tone];
-  return <p className={`rounded-ctl px-3 py-2.5 text-sm leading-relaxed ${cls}`}>{children}</p>;
+  return <p className={`rounded-ctl px-3 py-3 text-[15px] leading-relaxed ${cls}`}>{children}</p>;
 }
