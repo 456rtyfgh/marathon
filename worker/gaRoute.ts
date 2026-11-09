@@ -12,7 +12,7 @@ import { fetchRealtime, fetchReport, GaFail, parseServiceAccount } from './ga';
 declare const __SUPABASE_URL__: string;
 declare const __SUPABASE_ANON_KEY__: string;
 // 공개 값(브라우저에도 들어 있는 publishable key) — 빌드 환경의 예전 anon 키가 꺼져 있어도 관리자 확인이 되게 이것을 먼저 쓴다
-const PUBLIC_SB = { url: 'https://zhwmfvkwtmakieatlqtz.supabase.co', key: 'sb_publishable_uOBwP5-BbK7keBuq3gsMAg_Oil1yg6O' };
+export const PUBLIC_SB = { url: 'https://zhwmfvkwtmakieatlqtz.supabase.co', key: 'sb_publishable_uOBwP5-BbK7keBuq3gsMAg_Oil1yg6O' };
 const BUILT_SB_URL = PUBLIC_SB.url || (typeof __SUPABASE_URL__ === 'string' ? __SUPABASE_URL__ : '');
 const BUILT_SB_KEY = PUBLIC_SB.key || (typeof __SUPABASE_ANON_KEY__ === 'string' ? __SUPABASE_ANON_KEY__ : '');
 

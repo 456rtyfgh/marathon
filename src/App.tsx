@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, CheckSquare, Plus } from '@phosphor-icons/react';
+import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, CheckSquare, Plus, ChatsCircle } from '@phosphor-icons/react';
 import type { Race, EntryType, Region, Discipline } from './lib/types';
 import { DISCIPLINES } from './lib/types';
 import { loadDataset, emptyDataset, type Dataset } from './lib/data';
@@ -34,6 +34,7 @@ import { DISCIPLINE_TEXT, ENTRY_TEXT, fmtCount, fmtMonth } from './i18n/format';
 import { countryName, raceName, whereText } from './i18n/names';
 import { PRIVACY_PATH, TERMS_PATH } from './lib/policy';
 import { LEGAL } from './legal/strings';
+import { COMMUNITY_NAV, COMMUNITY_PATH, isCommunityPath, stripCommunityQuery } from './community/route';
 
 // 상세·요청·관리 패널은 열 때만 필요하므로 첫 화면 번들에서 뺀다 (목록이 뜬 뒤 미리 받아 둔다 —
 // 처음 열 때 받으면, 탭을 열어 둔 채 새로 배포된 뒤에는 옛 청크가 없어 화면 전체가 깨진다)
@@ -43,6 +44,8 @@ const loadRequestPanel = () => import('./components/RequestPanel');
 const RaceDetail = lazy(loadRaceDetail);
 const AdminPanel = lazy(loadAdminPanel);
 const RequestPanel = lazy(loadRequestPanel);
+const loadCommunityPage = () => import('./community/CommunityPage');
+const CommunityPage = lazy(loadCommunityPage);
 
 // 지난 대회 '더 보기' 한 번에 붙이는 수
 const PAGE = 80;
@@ -115,6 +118,12 @@ function Main() {
   const [pendingAction, setPendingAction] = useState<{ raceId: string; action: GateAction } | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
+  // 러닝톡: /community… 주소로 들어오거나 상단 메뉴를 누르면 연다
+  const [talkOpen, setTalkOpen] = useState(() => isCommunityPath(location.pathname));
+  const closeTalk = () => {
+    stripCommunityQuery();
+    setTalkOpen(false);
+  };
 
   const reload = (live = false) =>
     loadDataset({ live }).then((d) => {
@@ -130,6 +139,8 @@ function Main() {
       // 미리 받기가 실패해도(오프라인 등) 열 때 다시 받으므로 여기서는 조용히 넘긴다
       loadRaceDetail().catch(() => {});
       loadRequestPanel().catch(() => {});
+      loadCommunityPage().catch(() => {});
+      import('./community/MyPosts').catch(() => {}); // 내 정보(AuthPanel)가 lazy 로 여는 것
       if (profile?.is_admin) loadAdminPanel().catch(() => {});
     }, 1500);
     return () => clearTimeout(t);
@@ -181,7 +192,7 @@ function Main() {
   }, [data, remote, deepLinked]);
 
   useEffect(() => {
-    if (!deepLinked) return;
+    if (!deepLinked || (!selected && talkOpen)) return; // 러닝톡 주소는 CommunityPage 가 맡는다
     const u = new URL(location.href);
     u.searchParams.delete('r');
     u.pathname = langPath(selected ? `/r/${selected.id}` : '/', lang);
@@ -189,7 +200,7 @@ function Main() {
     document.title = selected
       ? t('title.race', { name: raceName(selected, lang), year: selected.race_date.slice(0, 4) })
       : t('title.home');
-  }, [selected, deepLinked, lang, t]);
+  }, [selected, deepLinked, lang, t, talkOpen]);
 
   // 조회 기록은 대회를 열 때만 (언어를 바꿔 제목만 바뀔 때는 남기지 않는다). 제목은 위 효과가 먼저 바꾼다
   useEffect(() => {
@@ -468,6 +479,21 @@ function Main() {
             <Logo />
           </a>
           <nav className="flex items-center gap-1 sm:gap-2">
+            <a
+              href={langPath(COMMUNITY_PATH, lang)}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+                e.preventDefault();
+                history.pushState(null, '', langPath(COMMUNITY_PATH, lang));
+                setTalkOpen(true);
+              }}
+              aria-label={COMMUNITY_NAV[lang]}
+              className="inline-flex size-11 items-center justify-center rounded-ctl text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink sm:h-9 sm:w-auto sm:px-3"
+            >
+              {/* 휴대폰은 머리말 자리가 꽉 차서 아이콘만 (글자는 sm 부터) */}
+              <ChatsCircle size={20} className="sm:hidden" aria-hidden />
+              <span className="hidden sm:inline">{COMMUNITY_NAV[lang]}</span>
+            </a>
             <button
               onClick={() => openRequest('header')}
               className="hidden h-9 items-center rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink sm:inline-flex"
@@ -977,6 +1003,12 @@ function Main() {
             />
           </Suspense>
         )}
+      </Panel>
+
+      <Panel open={talkOpen} onClose={closeTalk} label={COMMUNITY_NAV[lang]}>
+        <Suspense fallback={null}>
+          {talkOpen && <CommunityPage races={data.races} onClose={closeTalk} onLogin={() => setAuthMode('in')} />}
+        </Suspense>
       </Panel>
 
       <Panel open={showRequest} onClose={() => setShowRequest(false)} label={t('header.request')}>

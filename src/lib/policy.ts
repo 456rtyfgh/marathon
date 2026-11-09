@@ -37,8 +37,8 @@ export interface CollectionItem {
 /** 회원가입 */
 export const COLLECT_MEMBER: CollectionItem = {
   purpose: {
-    ko: '회원 확인과 로그인, 후기·대회 요청의 작성자 표시, 가입 확인·비밀번호 재설정 메일 발송, 회원 기능(캘린더 파일 받기, 저장한 대회를 기기 사이에 맞추기, 내 일정 캘린더 구독, 저장한 대회 접수 알림, 내 참가 기록)',
-    en: 'Identifying you and signing you in, showing you as the author of reviews and race requests, sending sign-up confirmation and password reset emails, and member features (calendar file downloads, saved races across devices, your calendar feed, entry alerts for saved races, your race log)',
+    ko: '회원 확인과 로그인, 후기·대회 요청·러닝톡 글·댓글의 작성자 표시, 가입 확인·비밀번호 재설정 메일 발송, 회원 기능(캘린더 파일 받기, 저장한 대회를 기기 사이에 맞추기, 내 일정 캘린더 구독, 저장한 대회 접수 알림, 내 참가 기록)',
+    en: 'Identifying you and signing you in, showing you as the author of reviews, race requests and Run Talk posts and comments, sending sign-up confirmation and password reset emails, and member features (calendar file downloads, saved races across devices, your calendar feed, entry alerts for saved races, your race log)',
   },
   items: {
     ko: '이메일, 비밀번호(암호화해 저장), 닉네임 / 자동 생성: 가입·인증·최근 로그인 시각 / 회원 기능을 쓰면: 저장한 대회, 접수·참가 기록(종목·완주 기록), 캘린더 구독 토큰(되돌릴 수 없는 해시로 저장), 저장한 대회 알림 설정',
@@ -49,8 +49,8 @@ export const COLLECT_MEMBER: CollectionItem = {
     en: 'Until you delete your account. It is destroyed immediately when you do.',
   },
   refusal: {
-    ko: '동의하지 않을 수 있습니다. 동의하지 않으면 회원가입을 할 수 없어 후기 작성·대회 요청, 캘린더 파일 받기·일정 알림 신청과 회원 기능을 쓸 수 없고, 대회 일정 보기는 가입 없이 그대로 쓸 수 있습니다.',
-    en: "You may refuse. If you do, you can't create an account, so you can't write reviews, send race requests, download calendar files, sign up for date alerts or use member features. Browsing races still works without an account.",
+    ko: '동의하지 않을 수 있습니다. 동의하지 않으면 회원가입을 할 수 없어 후기 작성·대회 요청·러닝톡 글·댓글, 캘린더 파일 받기·일정 알림 신청과 회원 기능을 쓸 수 없고, 대회 일정 보기는 가입 없이 그대로 쓸 수 있습니다.',
+    en: "You may refuse. If you do, you can't create an account, so you can't write reviews, send race requests, post on Run Talk, download calendar files, sign up for date alerts or use member features. Browsing races still works without an account.",
   },
 };
 

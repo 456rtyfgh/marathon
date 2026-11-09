@@ -9,6 +9,7 @@ import {
 } from '../lib/data';
 import { entryStatusByDate, fmtDate, safeUrl, STATUS_LABEL, todayISO } from '../lib/util';
 import GaSection from './GaSection';
+import AdminCommunity from '../community/AdminCommunity';
 
 const EMPTY: Race = {
   id: '',
@@ -39,7 +40,7 @@ const EMPTY: Race = {
   elevation_gain: null,
 };
 
-type AdminTab = 'stats' | 'race' | 'reports' | 'ext' | 'members';
+type AdminTab = 'stats' | 'race' | 'reports' | 'ext' | 'members' | 'community';
 
 export default function AdminPanel({ races, onClose, onSaved }: { races: Race[]; onClose: () => void; onSaved: () => void }) {
   const [tab, setTab] = useState<AdminTab>('stats');
@@ -82,6 +83,7 @@ export default function AdminPanel({ races, onClose, onSaved }: { races: Race[];
           ['reports', '마감 제보'],
           ['ext', '다른 곳 후기 링크'],
           ['members', '회원'],
+          ['community', '커뮤니티'],
         ]}
       />
 
@@ -102,6 +104,7 @@ export default function AdminPanel({ races, onClose, onSaved }: { races: Race[];
         {tab === 'reports' && <SoldOutReports races={full ?? races} onSaved={saved} />}
         {tab === 'ext' && <ExtForm races={races} onSaved={onSaved} />}
         {tab === 'members' && <Members />}
+        {tab === 'community' && <AdminCommunity />}
       </div>
     </div>
   );

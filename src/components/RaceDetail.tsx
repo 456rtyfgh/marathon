@@ -33,6 +33,8 @@ import CostCalculator from './CostCalculator';
 import PackageTable from './PackageTable';
 import AlertForm from './AlertForm';
 import ReviewsTab from './ReviewsTab';
+import RaceTalkTab from '../community/RaceTalkTab';
+import { COMMUNITY_TEXT } from '../community/strings';
 import SimilarRaces from './SimilarRaces';
 import { Button, CloseButton, Field, Input, Note, Tabs, inputCls } from './ui';
 import MemberGate, { type OnLogin } from './MemberGate';
@@ -45,7 +47,7 @@ import type { RecordInput } from '../lib/registered';
 
 const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
 
-type Tab = 'overview' | 'reviews' | 'packages' | 'cost' | 'alert';
+type Tab = 'overview' | 'reviews' | 'talk' | 'packages' | 'cost' | 'alert';
 
 interface RaceDetailProps {
   race: Race;
@@ -376,6 +378,7 @@ function RaceDetailView({
           items={[
             ['overview', t('tab.overview')],
             ['reviews', reviewCount ? t('tab.reviewsN', { n: reviewCount }) : t('tab.reviews')],
+            ['talk', COMMUNITY_TEXT[lang].tab],
             ['packages', racePackages.length ? t('tab.packagesN', { n: racePackages.length }) : t('tab.packages')],
             ['cost', t('tab.cost')],
             ...(cancelled ? [] : ([['alert', t('tab.alert')]] as [Tab, string][])),
@@ -536,6 +539,7 @@ function RaceDetailView({
 
         {/* ReviewsTab 은 onClick={onLogin} 으로 바로 걸어 이벤트가 인자로 들어가므로 감싸서 넘긴다 */}
         {view === 'reviews' && <ReviewsTab race={race} onLogin={() => onLogin('in')} />}
+        {view === 'talk' && <RaceTalkTab race={race} onLogin={() => onLogin('in')} />}
         {view === 'packages' && <PackageTable packages={racePackages} agencies={agencies} />}
         {view === 'cost' && <CostCalculator race={race} costs={costs} />}
         {view === 'alert' && <AlertForm race={race} onLogin={onLogin} />}

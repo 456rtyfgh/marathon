@@ -10,6 +10,8 @@
  *  - /cal/대회id.ics: 캘린더 일정 파일. 로그인 회원만(Authorization: Bearer, worker/memberCal.ts). ?lang=en 이면 영어.
  *  - /cal/u/토큰.ics: 회원의 '내 일정 구독' 캘린더 (저장한 대회 전부, worker/memberCal.ts).
  *  - /api/admin/ga  : 관리 화면 GA 분석 숫자 (관리자만, worker/gaRoute.ts). 그 밖 /api/* 는 404.
+ *  - /api/community : 러닝톡 글 목록(제목 등만, 본문 없음). 우리 사이트 안에서 부른 것만 (worker/community.ts).
+ *  - /community, /community/<글id> (+ /en/…) : 러닝톡 목록·글의 검색엔진용 제목·구조화 데이터 (본문 없음, worker/community.ts).
  */
 import { calRoute, feedRoute } from './memberCal';
 import { PROVINCE_NAME, provinceOf } from '../src/lib/places';
@@ -18,6 +20,7 @@ import { DIST_TEXT, ENTRY_TEXT, fmtDate, fmtMoney, fmtMonth } from '../src/i18n/
 import { cityName, countryName, provinceName, whereText } from '../src/i18n/names.ts';
 import { BLOCKED_TEXT, DATA_NOTICE, noticeHtml } from '../src/lib/notice.ts';
 import { gaRoute, type GaEnv } from './gaRoute';
+import { communityApi, communityPage } from './community';
 
 // 목록·전체 파일 주소 (scripts/pages.mjs 가 esbuild define 으로 넣는다 — scripts/data-split.mjs)
 declare const __LIST_PATH__: string;
@@ -46,6 +49,8 @@ const OLD_HOST = 'marathoncalendar.pages.dev';
 
 export interface SiteEnv extends GaEnv {
   ASSETS: { fetch: (req: Request | string) => Promise<Response> };
+  /** 있으면 러닝톡이 공개 Supabase 대신 이 주소를 부른다 (로컬 확인용 — 배포 환경엔 없음) */
+  COMMUNITY_SUPABASE_URL?: string;
 }
 type Env = SiteEnv;
 
@@ -430,7 +435,7 @@ interface FullData {
 }
 // 워커 인스턴스마다 전체 파일(/d/f-<hash>.json)을 10분 동안 기억해 둔다
 let cache: { at: number; byId: Map<string, RaceMeta>; list: RaceMeta[]; full: FullData } | null = null;
-async function loadRaces(req: Request, env: Env) {
+export async function loadRaces(req: Request, env: Env) {
   if (!cache || Date.now() - cache.at > 600_000) {
     if (!FULL_PATH) throw new Error('no full data path');
     const r = await env.ASSETS.fetch(new URL(FULL_PATH, req.url).toString());
@@ -511,7 +516,7 @@ async function withRaceMeta(req: Request, env: Env, id: string, lang: Lang = 'ko
  * (검색엔진은 프리렌더 HTML 로 본문을 받고, JS 를 실행하는 구글 렌더러는 페이지 안 fetch 라 일반 방문자처럼 통과).
  * Sec-Fetch-Site 가 없는 옛 브라우저는 Referer 만으로 본다.
  */
-function sameSite(req: Request): boolean {
+export function sameSite(req: Request): boolean {
   const sfs = req.headers.get('Sec-Fetch-Site');
   if (sfs && sfs !== 'same-origin') return false;
   const ref = req.headers.get('Referer');
@@ -526,7 +531,7 @@ function sameSite(req: Request): boolean {
   return origin === SITE || origin === new URL(req.url).origin;
 }
 
-const blocked = () =>
+export const blocked = () =>
   new Response(BLOCKED_TEXT, {
     status: 403,
     headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' },
@@ -571,6 +576,7 @@ async function raceDetailJson(req: Request, env: Env, id: string): Promise<Respo
 export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
   const url = new URL(req.url);
   if (url.pathname === '/api/admin/ga') return gaRoute(req, env);
+  if (url.pathname === '/api/community') return communityApi(req, env);
   if (url.pathname.startsWith('/api/')) return json(JSON.stringify({ error: 'not_found', message: '없는 주소입니다.' }), 404);
   if (url.pathname === '/data.json') return notFound();
   if (url.pathname.startsWith('/d/')) {
@@ -589,6 +595,10 @@ export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
   // 대회 주소는 끝 슬래시 없는 꼴 하나로 (canonical 과 같게, 언어 접두는 그대로)
   if (m?.[3]) return Response.redirect(`${url.origin}${m[1] ? '/en' : ''}/r/${m[2]}${url.search}`, 301);
   if (m) return withRaceMeta(req, env, m[2], m[1] ? 'en' : 'ko');
+  const cm = url.pathname.match(/^\/(en\/)?community(?:\/([^/]+))?(\/?)$/);
+  // 러닝톡 주소도 끝 슬래시 없는 꼴 하나로
+  if (cm?.[3]) return Response.redirect(`${url.origin}${cm[1] ? '/en' : ''}/community${cm[2] ? `/${cm[2]}` : ''}${url.search}`, 301);
+  if (cm) return communityPage(req, env, cm[2] ?? null, cm[1] ? 'en' : 'ko');
   const racePage = (id: string, lang: Lang) => `${SITE}${lang === 'en' ? '/en' : ''}/r/${id}`;
   const feed = url.pathname.match(/^\/cal\/u\/([^/]{1,200})\.ics$/);
   if (feed) {

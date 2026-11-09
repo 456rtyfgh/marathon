@@ -6,6 +6,7 @@
 import { langPath, useLang } from '../i18n';
 import { COLLECT_ALERT, COLLECT_MEMBER, CONTACT_EMAIL, TERMS_PATH, type CollectionItem } from '../lib/policy';
 import { AnalyticsToggle } from '../components/AnalyticsToggle';
+import { PrivacyCommunity } from './PrivacyCommunity';
 
 const Mail = () => <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
 
@@ -71,6 +72,7 @@ function Collect() {
           : 'We collect only what these purposes need. If a purpose changes, we will tell you in advance and ask again where required.'}
       </p>
       <CollectTable item={COLLECT_MEMBER} title={ko ? '회원가입' : 'Accounts'} />
+      <PrivacyCommunity lang={lang} />
       <CollectTable item={COLLECT_ALERT} title={ko ? '대회 일정 알림(이메일)' : 'Race date alerts (email)'} />
       <h3>{ko ? '자동으로 생기는 정보' : 'Collected automatically'}</h3>
       {ko ? (
@@ -98,7 +100,7 @@ function Destroy() {
     <section id="destroy">
       <h2>2. 파기</h2>
       <ul>
-        <li>회원 탈퇴: 계정·이메일·닉네임을 즉시 파기하고, 작성한 후기도 함께 삭제합니다. 대회 추가 요청·조기 마감 제보는 작성자 표시(닉네임) 없이 남습니다.</li>
+        <li>회원 탈퇴: 계정·이메일·닉네임을 즉시 파기하고, 작성한 후기와 러닝톡 글·댓글(그 글에 달린 댓글 포함)·좋아요·신고도 함께 삭제합니다. 대회 추가 요청·조기 마감 제보는 작성자 표시(닉네임) 없이 남습니다.</li>
         <li>회원 탈퇴 때 가입 이메일과 같은 주소로 신청한 대회 일정 알림도 함께 삭제합니다.</li>
         <li>회원 탈퇴 때 저장한 대회, 접수·참가 기록, 캘린더 구독 토큰, 저장한 대회 알림 설정도 함께 삭제하며, 구독 주소는 그때부터 열리지 않습니다.</li>
         <li>보유기간이 끝났거나 목적을 이룬 정보는 지체 없이 데이터베이스에서 되살릴 수 없게 삭제합니다.</li>
@@ -109,7 +111,7 @@ function Destroy() {
     <section id="destroy">
       <h2>2. Destruction</h2>
       <ul>
-        <li>When you delete your account, your account, email and nickname are destroyed immediately and your reviews are deleted with them. Race requests and sold-out reports stay without an author name (nickname).</li>
+        <li>When you delete your account, your account, email and nickname are destroyed immediately and your reviews and Run Talk posts, comments (including comments on your posts), likes and reports are deleted with them. Race requests and sold-out reports stay without an author name (nickname).</li>
         <li>Date alerts signed up with the same email as your account are deleted at the same time.</li>
         <li>Your saved races, entered and finished races, calendar feed token and saved-race alert setting are deleted with your account, and your feed link stops working.</li>
         <li>Information whose retention period has ended or whose purpose is fulfilled is deleted from the database without delay so it cannot be recovered.</li>
