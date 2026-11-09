@@ -147,7 +147,12 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
                   </div>
                   {r.note && <p className="mt-1 text-[15px] text-ink-2">{r.note}</p>}
                   {r.admin_note && <p className="mt-1 text-[15px] text-ink">{t('req.answer', { a: r.admin_note })}</p>}
-                  {r.url && (
+                  {r.url && r.status !== 'added' && !profile?.is_admin ? (
+                    // 승인 전 요청의 주소는 누르는 링크로 두지 않는다 — 도메인 글자만
+                    hostOf(r.url) && (
+                      <span className="-my-2 inline-flex min-h-11 items-center text-[13px] text-ink-2">{hostOf(r.url)}</span>
+                    )
+                  ) : r.url && (
                     <a
                       href={safeUrl(r.url)}
                       target="_blank"
@@ -183,4 +188,10 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
       </div>
     </div>
   );
+}
+
+/** 링크로 만들지 않을 주소의 도메인 글자 (형식이 틀리면 빈 문자열) */
+function hostOf(url: string): string {
+  const u = safeUrl(url);
+  return u ? new URL(u).hostname : '';
 }

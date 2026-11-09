@@ -20,12 +20,14 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
   const [loadFailed, setLoadFailed] = useState(false);
   const [writing, setWriting] = useState(false);
 
+  // 글쓴이 id 는 로그인했을 때만 받는다 → 로그인 상태가 바뀌면 다시 받는다
+  const signedIn = !!session;
   const reload = () => {
     if (!hasSupabase) {
       setReviews([]);
       return;
     }
-    Promise.all([loadReviews(race.id), loadExternalReviews(race.id)])
+    Promise.all([loadReviews(race.id, signedIn), loadExternalReviews(race.id)])
       .then(([r, e]) => {
         setReviews(r);
         setExt(e);
@@ -36,9 +38,9 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
       });
   };
 
-  useEffect(reload, [race.id]);
+  useEffect(reload, [race.id, signedIn]);
 
-  const mine = reviews?.find((r) => r.user_id === session?.user.id) ?? null;
+  const mine = (session && reviews?.find((r) => r.user_id === session.user.id)) || null;
   const avg = reviews?.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
 
   return (
@@ -112,7 +114,7 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
                       .join(', ')}
                   </p>
                 )}
-                {(r.user_id === session?.user.id || profile?.is_admin) && (
+                {((session && r.user_id === session.user.id) || profile?.is_admin) && (
                   <button
                     onClick={async () => {
                       await deleteReview(r.id);

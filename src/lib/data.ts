@@ -18,7 +18,7 @@ export interface Dataset {
   packages: Package[];
   costs: CostBaseline[];
   ratings: RaceRating[];
-  /** static: CDN 의 /data.json (매일 갱신) · supabase: DB 직접 · none: 둘 다 실패 */
+  /** static: CDN 의 대회 목록 파일 (매일 갱신) · supabase: DB 직접 · none: 둘 다 실패 */
   source: 'static' | 'supabase' | 'none';
 }
 
@@ -28,8 +28,10 @@ const withTimeout = <T,>(p: Promise<T>, ms: number) =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 /**
- * 방문자가 많아도 DB 를 거의 안 쓰도록, 대회 목록은 배포 때(매일) 만든 정적 파일 /data.json 을
+ * 방문자가 많아도 DB 를 거의 안 쓰도록, 대회 목록은 배포 때(매일) 만든 정적 파일을
  * Cloudflare CDN 에서 받는다. 후기 별점만 DB 에서 가볍게 따로 받는다.
+ * 파일 주소는 배포마다 바뀌는 /data/<해시>.json — 첫 화면 HTML 의 미리받기 줄(scripts/prerender.mjs)에서 읽는다.
+ * 그 줄이 없으면(개발 서버) /data.json.
  * live=true (관리자 저장 직후 등) 면 DB 에서 바로 읽는다.
  */
 export async function loadDataset(opts: { live?: boolean } = {}): Promise<Dataset> {
@@ -39,7 +41,7 @@ export async function loadDataset(opts: { live?: boolean } = {}): Promise<Datase
   }
   try {
     const [res, ratings] = await Promise.all([
-      withTimeout(fetch('/data.json'), 8000),
+      withTimeout(fetch(dataPath()), 8000),
       withTimeout(loadRatings(), 3000).catch(() => [] as RaceRating[]),
     ]);
     if (res.ok) {
@@ -55,6 +57,9 @@ export async function loadDataset(opts: { live?: boolean } = {}): Promise<Datase
   }
   return emptyDataset();
 }
+
+const dataPath = () =>
+  document.querySelector<HTMLLinkElement>('link[rel="preload"][as="fetch"][href^="/data/"]')?.getAttribute('href') ?? '/data.json';
 
 /** 별점 + 조회·저장 수. 새 함수가 아직 없으면 별점만 받는다. */
 async function loadRatings(): Promise<RaceRating[]> {
@@ -110,15 +115,19 @@ async function loadRemote(): Promise<Dataset | null> {
 
 /* ── 후기 ───────────────────────────────────────────────── */
 
-export async function loadReviews(raceId: string): Promise<Review[]> {
+/** 공개 후기 칸. 글쓴이 id(user_id)는 로그인했을 때만 받는다('내 후기' 찾기용) */
+const REVIEW_COLS: string = 'id, race_id, nickname, rating, race_year, finish_time, body, course_rating, support_rating, value_rating, created_at, updated_at';
+
+export async function loadReviews(raceId: string, withOwner = false): Promise<Review[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('reviews')
-    .select('*')
+    .select(withOwner ? `${REVIEW_COLS}, user_id` : REVIEW_COLS)
     .eq('race_id', raceId)
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []) as Review[];
+  // 비로그인이면 user_id 칸이 없다
+  return (data ?? []) as unknown as Review[];
 }
 
 export interface ReviewInput {
@@ -192,7 +201,7 @@ export async function loadRaceRequests(): Promise<RaceRequest[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('race_requests')
-    .select('*')
+    .select('id, race_name, country, race_month, url, note, nickname, status, admin_note, created_at')
     .order('created_at', { ascending: false })
     .limit(200);
   if (error) throw new Error(error.message);
