@@ -1,4 +1,4 @@
-import { Fragment, memo } from 'react';
+import { Fragment, memo, type ReactNode } from 'react';
 import { CaretRight, Star, BookmarkSimple, Eye, CalendarCheck, Check } from '@phosphor-icons/react';
 import type { Race, RaceRating } from '../lib/types';
 import { dateParts, feeLabel, isDomestic, isTrail, statusLine, raceDayLine, TODAY, shortCount, mayFillEarly, isCancelled, expectedEntryText } from '../lib/util';
@@ -8,21 +8,25 @@ import { raceName, whereText } from '../i18n/names';
 
 const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
 
-/** ' · '·', ' 에서만 줄이 바뀌게 덩어리마다 nowrap ('조기\n마감 가능' 처럼 꺾이지 않게). 글자는 그대로 */
+/** ' · '·', ' 에서만 줄이 바뀌게 덩어리마다 한 덩이로 ('조기\n마감 가능' 처럼 꺾이지 않게). 글자는 그대로.
+ *  inline-block + max-w-full: 칸보다 긴 덩어리(`Northern Mariana Islands`)만 그 안에서 줄바꿈 — nowrap 이면 칸 밖으로 넘친다.
+ *  ','·' ·' 는 앞 덩어리 안에 둔다 — 따로 두면 줄 첫머리로 떨어진다 */
 function Chunks({ text }: { text: string }) {
-  return (
-    <>
-      {text.split(/(\s·\s|,\s)/).map((s, i) =>
-        i % 2 ? (
-          <Fragment key={i}>{s}</Fragment>
-        ) : s ? (
-          <span key={i} className="whitespace-nowrap">
-            {s}
-          </span>
-        ) : null,
-      )}
-    </>
-  );
+  const parts = text.split(/(\s·\s|,\s)/);
+  const out: ReactNode[] = [];
+  for (let i = 0; i < parts.length; i += 2) {
+    const sep = parts[i + 1] ?? '';
+    const mark = sep.trimEnd();
+    const body = parts[i] + mark;
+    if (body)
+      out.push(
+        <span key={i} className="inline-block max-w-full">
+          {body}
+        </span>,
+      );
+    if (sep) out.push(<Fragment key={`s${i}`}>{sep.slice(mark.length)}</Fragment>);
+  }
+  return <>{out}</>;
 }
 
 /** 제목 옆 작은 표(메이저·트레일·접수 완료·대회 취소) — 한 크기 */
@@ -56,6 +60,12 @@ function RaceRow({
   const cancelled = isCancelled(race);
   // 접수 일정이 확정 전(예상·미정)이면 '접수 미정' 아래 작게 예상 날짜만
   const expected = registered ? null : expectedEntryText(race, today, lang);
+  // 접수 방식 뒤에 붙는 ', 날짜 예상'·', 상승 n m' — 한 덩어리 글로 이어야 쉼표가 앞 말에 붙는다
+  const entryTail =
+    (race.date_confidence !== 'confirmed' ? t('row.dateExpected') : '') +
+    (trail && race.elevation_gain != null
+      ? t('row.gain', { n: race.elevation_gain.toLocaleString(lang === 'en' ? 'en-US' : 'ko-KR') })
+      : '');
 
   return (
     <li style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 104px' }}>
@@ -90,20 +100,15 @@ function RaceRow({
                 <>
                   {/* 휴대폰은 짧게 */}
                   <span className="sm:hidden">
-                    <Chunks text={t('row.fcfsShort')} />
+                    <Chunks text={t('row.fcfsShort') + entryTail} />
                   </span>
                   <span className="hidden sm:inline">
-                    <Chunks text={t('row.fcfsLong')} />
+                    <Chunks text={t('row.fcfsLong') + entryTail} />
                   </span>
                 </>
               ) : (
-                <Chunks text={ENTRY_TEXT[lang][race.entry_type]} />
+                <Chunks text={ENTRY_TEXT[lang][race.entry_type] + entryTail} />
               )}
-              {race.date_confidence !== 'confirmed' && <Chunks text={t('row.dateExpected')} />}
-              {trail &&
-                race.elevation_gain != null && (
-                  <Chunks text={t('row.gain', { n: race.elevation_gain.toLocaleString(lang === 'en' ? 'en-US' : 'ko-KR') })} />
-                )}
             </span>
           </p>
           {/* 부가 숫자: 작고 흐리게, 숫자도 같은 크기 */}
