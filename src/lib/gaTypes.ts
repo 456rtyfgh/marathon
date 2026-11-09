@@ -39,7 +39,7 @@ export interface GaRealtime {
 export interface GaReport {
   configured: true;
   range: GaRange;
-  /** 실제 조회한 기간 (속성 시간대 기준, 'YYYY-MM-DD'). 오늘은 빼고 어제까지 */
+  /** 실제 조회한 기간 (Asia/Seoul 기준, 'YYYY-MM-DD'). 오늘은 빼고 어제까지 */
   period: { start: string; end: string; prevStart: string; prevEnd: string };
   totals: GaTotals;
   daily: GaDay[];

@@ -144,12 +144,16 @@ interface DateRange {
   endDate: string;
 }
 
-/** 7d → 지금 7daysAgo~yesterday, 직전 14daysAgo~8daysAgo (오늘은 아직 덜 모여 뺀다) */
-export function rangeDates(range: GaRange): { cur: DateRange; prev: DateRange; days: number } {
+/**
+ * 서울 날짜 기준 'YYYY-MM-DD' 실제 날짜 (상대 표기 '7daysAgo' 를 쓰면 응답의 기간·일별 0 채우기와 하루 어긋날 수 있다).
+ * 7d → 지금 오늘-7~어제, 직전 오늘-14~오늘-8 (오늘은 아직 덜 모여 뺀다)
+ */
+export function rangeDates(range: GaRange, now: Date = new Date()): { cur: DateRange; prev: DateRange; days: number } {
   const n = RANGE_DAYS[range];
+  const today = ymdIn(now);
   return {
-    cur: { startDate: `${n}daysAgo`, endDate: 'yesterday' },
-    prev: { startDate: `${2 * n}daysAgo`, endDate: `${n + 1}daysAgo` },
+    cur: { startDate: addDays(today, -n), endDate: addDays(today, -1) },
+    prev: { startDate: addDays(today, -2 * n), endDate: addDays(today, -n - 1) },
     days: n,
   };
 }
@@ -157,8 +161,8 @@ export function rangeDates(range: GaRange): { cur: DateRange; prev: DateRange; d
 const m = (name: string) => ({ name });
 const byMetric = (metricName: string) => [{ metric: { metricName }, desc: true }];
 
-export function buildReportRequests(range: GaRange): object[] {
-  const { cur, prev, days } = rangeDates(range);
+export function buildReportRequests(range: GaRange, now: Date = new Date()): object[] {
+  const { cur, prev, days } = rangeDates(range, now);
   const one = [cur];
   return [
     // 1) 합계 — 지금·직전 두 기간 (응답 줄의 dateRange 차원이 'cur' / 'prev')
@@ -215,14 +219,15 @@ export function buildRealtimeRequests(): object[] {
 /** batchRunReports 는 한 번에 보고서 5개까지 */
 const BATCH = 5;
 
-export async function fetchReport(sa: ServiceAccount, range: GaRange, fetchFn: FetchFn = netFetch): Promise<GaReport> {
-  const reqs = buildReportRequests(range);
+export async function fetchReport(sa: ServiceAccount, range: GaRange, fetchFn: FetchFn = netFetch, now: Date = new Date()): Promise<GaReport> {
+  // 요청 날짜와 해석(기간·일별)이 같은 날을 보게 now 를 한 번만 정한다
+  const reqs = buildReportRequests(range, now);
   const chunks: object[][] = [];
   for (let i = 0; i < reqs.length; i += BATCH) chunks.push(reqs.slice(i, i + BATCH));
   // 토큰을 먼저 받아 두면 병렬 호출이 토큰을 두 번 받지 않는다
   await getAccessToken(sa, fetchFn);
   const batches = await Promise.all(chunks.map((requests) => callGa(sa, 'batchRunReports', { requests }, fetchFn)));
-  return parseReport(range, batches);
+  return parseReport(range, batches, now);
 }
 
 export async function fetchRealtime(sa: ServiceAccount, fetchFn: FetchFn = netFetch): Promise<GaRealtime> {
@@ -292,15 +297,15 @@ export function parseReport(range: GaRange, batches: unknown[], now: Date = new 
   const metric = (k: string) => ({ value: g(cur, k), prev: g(prev, k) });
   const perUser = (o: Record<string, number>) => (g(o, 'activeUsers') > 0 ? g(o, 'userEngagementDuration') / g(o, 'activeUsers') : 0);
 
-  // 일별: 기간 일수만큼 빈 날은 0. 끝 날은 서울 기준 어제 — GA 가 그보다 늦은 날을 주면(속성 시간대 차이) 그 날로
+  // 일별: 요청한 기간(rangeDates) 일수만큼, 빈 날은 0
   const byDate = new Map<string, GaDay>();
   for (const r of rowsOf(dailyRep)) {
     const date = fromGaDate(r.dims.date ?? '');
     byDate.set(date, { date, activeUsers: g(r.mets, 'activeUsers'), sessions: g(r.mets, 'sessions') });
   }
-  let end = addDays(ymdIn(now), -1);
-  for (const d of byDate.keys()) if (/^\d{4}-\d{2}-\d{2}$/.test(d) && d > end) end = d;
-  const start = addDays(end, -(n - 1));
+  const dates = rangeDates(range, now);
+  const start = dates.cur.startDate;
+  const end = dates.cur.endDate;
   const daily: GaDay[] = [];
   for (let i = 0; i < n; i++) {
     const date = addDays(start, i);
@@ -310,7 +315,7 @@ export function parseReport(range: GaRange, batches: unknown[], now: Date = new 
   return {
     configured: true,
     range,
-    period: { start, end, prevStart: addDays(start, -n), prevEnd: addDays(start, -1) },
+    period: { start, end, prevStart: dates.prev.startDate, prevEnd: dates.prev.endDate },
     totals: {
       activeUsers: metric('activeUsers'),
       newUsers: metric('newUsers'),

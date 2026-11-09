@@ -189,18 +189,36 @@ ga.resetTokenCache();
 }
 
 /* ── 3. 요청 조립 ─────────────────────────────────────── */
-for (const [range, n] of [['7d', 7], ['28d', 28], ['90d', 90]]) {
-  const reqs = ga.buildReportRequests(range);
+// 2026-11-09T15:30Z = 서울 11-10 00:30 → 오늘은 서울 날짜 11-10
+const FIXED = new Date('2026-11-09T15:30:00Z');
+{
+  const d = ga.rangeDates('7d', FIXED);
+  ok(
+    d.days === 7 && d.cur.startDate === '2026-11-03' && d.cur.endDate === '2026-11-09' && d.prev.startDate === '2026-10-27' && d.prev.endDate === '2026-11-02',
+    'rangeDates 7d: 서울 날짜 기준 (cur 11-03~11-09, prev 10-27~11-02)',
+  );
+}
+for (const [range, cur, prev] of [
+  ['7d', ['2026-11-03', '2026-11-09'], ['2026-10-27', '2026-11-02']],
+  ['28d', ['2026-10-13', '2026-11-09'], ['2026-09-15', '2026-10-12']],
+  ['90d', ['2026-08-12', '2026-11-09'], ['2026-05-14', '2026-08-11']],
+]) {
+  const reqs = ga.buildReportRequests(range, FIXED);
   const t = reqs[0];
   ok(
     reqs.length === 8 &&
-      t.dateRanges[0].startDate === `${n}daysAgo` &&
-      t.dateRanges[0].endDate === 'yesterday' &&
-      t.dateRanges[1].startDate === `${2 * n}daysAgo` &&
-      t.dateRanges[1].endDate === `${n + 1}daysAgo`,
+      t.dateRanges[0].startDate === cur[0] &&
+      t.dateRanges[0].endDate === cur[1] &&
+      t.dateRanges[1].startDate === prev[0] &&
+      t.dateRanges[1].endDate === prev[1],
     `요청 ${range}: 8개, 지금/직전 기간 날짜`,
   );
-  ok(reqs.slice(1).every((r) => r.dateRanges.length === 1 && r.dateRanges[0].startDate === `${n}daysAgo`), `요청 ${range}: 나머지는 지금 기간만`);
+  ok(
+    reqs.slice(1).every((r) => r.dateRanges.length === 1 && r.dateRanges[0].startDate === cur[0] && r.dateRanges[0].endDate === cur[1]),
+    `요청 ${range}: 나머지는 지금 기간만`,
+  );
+  const p = ga.parseReport(range, [], FIXED).period;
+  ok(p.start === cur[0] && p.end === cur[1] && p.prevStart === prev[0] && p.prevEnd === prev[1], `해석 ${range}: period = 요청 기간`);
 }
 {
   const reqs = ga.buildReportRequests('7d');
