@@ -904,11 +904,14 @@ function Main() {
                 marathon82@kakao.com
               </a>
             </p>
-            <p className="mt-2 flex gap-4">
-              <a href={langPath(PRIVACY_PATH, lang)} className="py-3 font-bold text-ink-2 underline underline-offset-2 hover:no-underline">
+            <p className="mt-2 flex flex-wrap gap-x-6">
+              <a
+                href={langPath(PRIVACY_PATH, lang)}
+                className="inline-flex min-h-11 items-center font-bold text-ink-2 underline underline-offset-2 hover:no-underline sm:min-h-9"
+              >
                 {LEGAL.privacy[lang]}
               </a>
-              <a href={langPath(TERMS_PATH, lang)} className="py-3 underline underline-offset-2 hover:no-underline">
+              <a href={langPath(TERMS_PATH, lang)} className="inline-flex min-h-11 items-center underline underline-offset-2 hover:no-underline sm:min-h-9">
                 {LEGAL.terms[lang]}
               </a>
             </p>
