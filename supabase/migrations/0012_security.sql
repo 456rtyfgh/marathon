@@ -19,13 +19,13 @@ begin;
 do $$
 declare
   want constant jsonb := jsonb_build_object(
-    'is_admin',        '065dbcd2c17f6a4da4ba7cc6b24dad9e',
+    'is_admin',        '8aa9d17520465deba452f7fa8ca5b337',
     'handle_new_user', 'd243814960eda3b38839c1f70d257ab2',
     'guard_review',    '94f948db109aa51f5d7d3b2ab9fdb4b1',
-    'guard_request',   '5fcb99f6724aff24395b63526e7dbc14',
+    'guard_request',   'a841a954adefadbd312c71054a3dc3d6',
     'guard_is_admin',  'c2ea438561222f3aaee14a892a9dd684',
-    'stat_hit',        'd9b55104137efab7cb9c5b61ae52ddc7',
-    'subscribe_alert', '5161a07dd27ea6bcad540ac103f26ca6');
+    'stat_hit',        '945d085124f5f16f2e36f19e4ccedee6',
+    'subscribe_alert', 'e29f0e1869dfea67621f33c4e66fa047');
   fn text; src text; bad text[] := '{}';
 begin
   for fn in select jsonb_object_keys(want) loop
@@ -208,15 +208,15 @@ declare r text; n int;
 begin
   r := coalesce(public.spam_reason(new.race_name), public.spam_reason(new.note), public.spam_reason(new.country));
   if r is not null then raise exception using message = r, errcode = 'P0001'; end if;
-  if new.url is not null and new.url !~* '^https?://[^\s<>"]+$' then
+  if new.url is not null and new.url <> '' and new.url !~* '^https?://[^\s<>"]+$' then
     raise exception using message = '홈페이지 주소는 http 또는 https 로 시작해야 합니다.', errcode = 'P0001';
   end if;
+  new.nickname := coalesce((select nickname from public.profiles where id = new.requested_by), new.nickname, '러너');
   if tg_op = 'INSERT' then
     -- 0012: H2 과거 날짜로 넣어 하루 5개 제한을 피하지 못하게
     new.created_at := now();
     new.status := 'pending';
     new.admin_note := null;
-    new.nickname := coalesce((select nickname from public.profiles where id = new.requested_by), '러너');
     select count(*) into n from public.race_requests where requested_by = new.requested_by and created_at > now() - interval '1 day';
     if n >= 5 then
       raise exception using message = '도배를 막기 위해 대회 추가 요청은 하루에 5개까지 할 수 있게 제한하고 있습니다. 내일 다시 요청해 주세요.', errcode = 'P0001';
@@ -294,7 +294,7 @@ begin
     end if;
   end if;
   if not public.rate_take('alert', 1, 20) then
-    raise exception '알림 신청이 너무 많습니다. 내일 다시 시도해 주세요.';
+    raise exception '도배를 막기 위해 알림 신청은 하루 20건까지 받고 있습니다. 내일 다시 신청해 주세요.';
   end if;
   if (select count(*) from public.alert_subscriptions where email = em) >= 50 then
     raise exception '한 이메일로는 대회 50개까지 알림을 받을 수 있습니다.';
