@@ -558,14 +558,13 @@ async function raceDetailJson(req: Request, env: Env, id: string): Promise<Respo
   }
   const race = data.byId.get(id);
   if (!race) return json(JSON.stringify({ _notice: DATA_NOTICE, error: 'not_found' }), 404);
-  const packages = (data.full.packages ?? []).filter((p) => p.race_id === race.id);
-  const agencyIds = new Set(packages.map((p) => p.agency_id));
   return json(
     JSON.stringify({
       _notice: DATA_NOTICE,
       race,
-      packages,
-      agencies: (data.full.agencies ?? []).filter((a) => agencyIds.has(a.id)),
+      packages: (data.full.packages ?? []).filter((p) => p.race_id === race.id),
+      // 여행사는 전부(몇 곳뿐) — 패키지가 없는 대회도 여행사 탭이 여행사 목록을 보인다 (PackageTable)
+      agencies: data.full.agencies ?? [],
       costs: (data.full.costs ?? []).filter((c) => c.race_id === race.country_code),
     }),
   );

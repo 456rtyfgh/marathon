@@ -103,14 +103,13 @@ async function loadRemoteDetail(id: string): Promise<RaceDetailData | null> {
   const r = await supabase!.from('races').select('*').eq('id', id).maybeSingle();
   if (r.error || !r.data) return null;
   const race = r.data as Race;
-  const [p, c] = await Promise.all([
+  // 여행사는 전부 — 패키지가 없는 대회도 여행사 탭이 여행사 목록을 보인다 (PackageTable)
+  const [p, a, c] = await Promise.all([
     supabase!.from('packages').select('*').eq('race_id', id),
+    supabase!.from('agencies').select('*'),
     supabase!.from('cost_baselines').select('*').eq('race_id', race.country_code),
   ]);
-  const packages = (p.data ?? []) as Package[];
-  const agencyIds = [...new Set(packages.map((x) => x.agency_id))];
-  const a = agencyIds.length ? await supabase!.from('agencies').select('*').in('id', agencyIds) : { data: [] };
-  return { race, packages, agencies: (a.data ?? []) as Agency[], costs: (c.data ?? []) as CostBaseline[] };
+  return { race, packages: (p.data ?? []) as Package[], agencies: (a.data ?? []) as Agency[], costs: (c.data ?? []) as CostBaseline[] };
 }
 
 /** DB 는 한 번에 최대 1000줄만 준다 — 대회가 그보다 많아 나눠 받는다 */

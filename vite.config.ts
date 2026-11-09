@@ -25,15 +25,13 @@ function devData(): Plugin {
         const { full } = readSplit();
         const race = full.races.find((r) => r.id === m[1]);
         if (!race) return send(404, JSON.stringify({ _notice: full._notice, error: 'not_found' }));
-        const packages = full.packages.filter((p) => p.race_id === race.id);
-        const agencyIds = new Set(packages.map((p) => p.agency_id));
         send(
           200,
           JSON.stringify({
             _notice: full._notice,
             race,
-            packages,
-            agencies: full.agencies.filter((a) => agencyIds.has(a.id)),
+            packages: full.packages.filter((p) => p.race_id === race.id),
+            agencies: full.agencies,
             costs: full.costs.filter((c) => c.race_id === race.country_code),
           }),
         );
