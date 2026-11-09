@@ -288,14 +288,14 @@ function MapSection({
 
   return (
     <section className="mx-auto max-w-6xl px-4 pt-4 sm:px-6" aria-label={t('map.aria')}>
-      <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
+      <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
         <button
           onClick={() => {
             setMapOpen((v) => !v);
             if (!mapOpen) track('map_open', { scope });
           }}
           aria-expanded={mapOpen}
-          className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-ctl border px-3 text-[14px] font-semibold transition sm:h-8 ${
+          className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-ctl border px-3 text-[15px] font-semibold transition-colors sm:h-10 ${
             mapOpen ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
           }`}
         >
@@ -308,7 +308,7 @@ function MapSection({
               .map((p) => (
                 <Chip key={p.id} on={places.includes(p.id)} onClick={() => toggle(p.id, !mapOpen)}>
                   {geo.names[p.id]}
-                  <span className="num ml-0.5 text-[14px] opacity-80">{geo.province[p.id]}</span>
+                  <span className="num ml-1 text-[15px] opacity-80">{geo.province[p.id]}</span>
                 </Chip>
               ))
           : (scope === 'abroad' ? OVERSEAS : REGIONS)
@@ -324,13 +324,13 @@ function MapSection({
                   }}
                 >
                   {REGION_TEXT[lang][r]}
-                  <span className="num ml-0.5 text-[14px] opacity-80">{geo.region[r]}</span>
+                  <span className="num ml-1 text-[15px] opacity-80">{geo.region[r]}</span>
                 </Chip>
               ))}
       </div>
 
       {zoneIds.length > 1 && (
-        <div className="-mx-4 mt-2 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
+        <div className="-mx-4 mt-2 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
           <span className="shrink-0 text-[13px] font-semibold text-ink-3">{t('map.country')}</span>
           {zoneIds
             // 아시아·유럽은 30개가 넘어 지도를 밀어내므로 대회 많은 순 앞쪽만 (고른 나라는 늘 보이게)
@@ -339,7 +339,7 @@ function MapSection({
               // 지도가 펼쳐져 있으면 그 나라로 확대되는 걸 보도록 스크롤하지 않는다
               <Chip key={c} on={has(c)} onClick={() => toggle(c, !mapOpen)}>
                 {geo.names[c]}
-                <span className="num ml-0.5 text-[14px] opacity-80">{geo.country[c]}</span>
+                <span className="num ml-1 text-[15px] opacity-80">{geo.country[c]}</span>
               </Chip>
             ))}
           {zoneIds.length > CHIP_LIMIT + 1 && (
@@ -347,7 +347,7 @@ function MapSection({
               type="button"
               onClick={() => setAllChips((v) => !v)}
               aria-expanded={allChips}
-              className="inline-flex h-10 items-center rounded-ctl px-2 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink sm:h-8"
+              className="inline-flex h-11 items-center rounded-ctl px-2 text-[15px] font-semibold text-ink-2 transition-colors hover:bg-sunken hover:text-ink sm:h-10"
             >
               {allChips ? t('map.less') : t('map.more', { n: zoneIds.length - CHIP_LIMIT })}
             </button>
@@ -356,14 +356,14 @@ function MapSection({
       )}
 
       {sub && subIds.length > 0 && (
-        <div className="-mx-4 mt-2 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
+        <div className="-mx-4 mt-2 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 [&>button]:shrink-0 [&>button]:whitespace-nowrap">
           <span className="shrink-0 text-[13px] font-semibold text-ink-3">{lang === 'en' ? t(`map.unit.${sub}` as const) : SUBREGIONS[sub].unit}</span>
           {subIds
             .filter((id, i) => allSubChips || i < CHIP_LIMIT || places.includes(id))
             .map((id) => (
               <Chip key={id} on={places.includes(id)} onClick={() => toggleSub(id, !mapOpen)}>
                 {geo.names[id]}
-                <span className="num ml-0.5 text-[14px] opacity-80">{geo.sub[sub]?.[id]}</span>
+                <span className="num ml-1 text-[15px] opacity-80">{geo.sub[sub]?.[id]}</span>
               </Chip>
             ))}
           {subIds.length > CHIP_LIMIT + 1 && (
@@ -371,7 +371,7 @@ function MapSection({
               type="button"
               onClick={() => setAllSubFor(allSubChips ? null : sub)}
               aria-expanded={allSubChips}
-              className="inline-flex h-10 items-center rounded-ctl px-2 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink sm:h-8"
+              className="inline-flex h-11 items-center rounded-ctl px-2 text-[15px] font-semibold text-ink-2 transition-colors hover:bg-sunken hover:text-ink sm:h-10"
             >
               {allSubChips ? t('map.less') : t('map.more', { n: subIds.length - CHIP_LIMIT })}
             </button>
@@ -390,7 +390,7 @@ function MapSection({
       )}
 
       {mapOpen && (
-        <div className="mt-3 rounded-box border border-line bg-surface p-1.5 sm:p-2">
+        <div className="mt-3 rounded-box border border-line bg-surface p-2">
           <Suspense fallback={<div className="aspect-[5/4] animate-pulse rounded-box bg-sunken sm:aspect-auto sm:h-[min(62vh,560px)]" />}>
             <MapView
               kind={scope === 'kr' ? 'kr' : (sub ?? 'world')}
@@ -404,7 +404,7 @@ function MapSection({
             />
           </Suspense>
           {scope !== 'kr' && places.includes('kr') && (
-            <p className="mt-2 px-1.5 text-[13px] text-ink-2">
+            <p className="mt-2 px-2 text-[13px] text-ink-2">
               {t('map.krPre')}
               {fmtCount(geo.country.kr ?? 0, lang)}
               {t('map.krPost', { count: geo.country.kr ?? 0 })}{' '}
@@ -420,7 +420,7 @@ function MapSection({
               </button>
             </p>
           )}
-          <p className="mt-2 flex flex-wrap justify-between gap-2 px-1.5 pb-1 text-[12px] text-ink-3">
+          <p className="mt-2 flex flex-wrap justify-between gap-x-4 gap-y-1 px-2 pb-1 text-[12px] text-ink-3">
             <span>
               {scope === 'kr'
                 ? t('map.hintKr')
@@ -461,11 +461,11 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
     <button
       onClick={onClick}
       aria-pressed={on}
-      className={`inline-flex h-10 items-center gap-1 rounded-ctl px-3 text-[14px] sm:h-8 font-semibold transition active:translate-y-px ${
+      className={`inline-flex h-11 items-center gap-1 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition-colors active:translate-y-px sm:h-10 ${
         on ? 'bg-ink text-bg' : 'bg-surface text-ink-2 hover:bg-sunken hover:text-ink'
       }`}
     >
-      {on && <Check size={13} weight="bold" />}
+      {on && <Check size={14} weight="bold" />}
       {children}
     </button>
   );

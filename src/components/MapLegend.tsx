@@ -11,7 +11,7 @@ export default function MapLegend({ max, selected = true }: { max: number; selec
     <div
       role="img"
       aria-label={label}
-      className="pointer-events-none inline-flex items-center gap-1.5 rounded-ctl bg-surface/90 px-2 py-1 text-[12px] leading-none text-ink-2 shadow-[0_1px_2px_var(--shadow)]"
+      className="pointer-events-none inline-flex items-center gap-2 rounded-ctl bg-surface/90 px-2 py-1 text-[12px] leading-none text-ink-2 shadow-[0_1px_2px_var(--shadow)]"
     >
       <span>{t('legend.less')}</span>
       <span className="flex gap-px" aria-hidden>
@@ -22,7 +22,7 @@ export default function MapLegend({ max, selected = true }: { max: number; selec
       <span>{t('legend.more')}</span>
       {selected && (
         <>
-          <span className="mx-0.5 h-3 w-px bg-line" aria-hidden />
+          <span className="h-3 w-px bg-line" aria-hidden />
           <span className="size-2.5 rounded-tag" style={{ background: MAP_SELECTED }} aria-hidden />
           <span>{t('legend.selected')}</span>
         </>

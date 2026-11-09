@@ -593,15 +593,15 @@ export default function MapView({
         )}
       </svg>
       {/* 오른쪽 끝은 확대 버튼 줄 앞에서 멈춘다 (휴대폰 44px 버튼 + 여백) */}
-      <div className="pointer-events-none absolute top-2 right-[60px] left-2 flex flex-col items-start gap-1.5 sm:right-14">
+      <div className="pointer-events-none absolute top-2 right-[60px] left-2 flex flex-col items-start gap-2 sm:right-14">
         {backs.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {backs.map((b) => (
               <button
                 key={b.label}
                 type="button"
                 onClick={b.onClick}
-                className="pointer-events-auto inline-flex h-11 min-w-11 items-center gap-1.5 rounded-ctl border border-line bg-surface px-3 text-[14px] font-semibold text-ink shadow-[0_1px_2px_var(--shadow)] transition hover:bg-sunken active:translate-y-px sm:h-8"
+                className="pointer-events-auto inline-flex h-11 min-w-11 items-center gap-2 rounded-ctl border border-line bg-surface px-3 text-[15px] font-semibold whitespace-nowrap text-ink shadow-[0_1px_2px_var(--shadow)] transition hover:bg-sunken active:translate-y-px sm:h-8"
               >
                 {b.icon === 'world' ? <GlobeHemisphereEast size={14} weight="bold" /> : <ArrowLeft size={14} weight="bold" />}
                 {b.label}
@@ -610,9 +610,9 @@ export default function MapView({
           </div>
         )}
         {tip && counts[tip] ? (
-          <div className="rounded-ctl bg-surface px-2.5 py-1.5 text-[14px] shadow-[0_1px_3px_var(--shadow-strong)]">
+          <div className="rounded-ctl bg-surface px-3 py-2 text-[15px] shadow-[0_1px_3px_var(--shadow-strong)]">
             <span className="font-semibold">{names[tip] ?? tip}</span>
-            <span className="num ml-1.5 text-[16px] font-semibold">{counts[tip]}</span>
+            <span className="num ml-2 font-semibold">{counts[tip]}</span>
             <span className="text-ink-3">{t('map.tipUnit', { count: counts[tip] })}</span>
           </div>
         ) : null}
