@@ -63,22 +63,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    // 메일 링크로 들어오면 URL 해시에 type=signup / type=recovery 가 붙어 있다.
+    // 메일 링크(PKCE)로 들어오면 주소에 ?code=… 가 붙는다. 라이브러리가 같은 브라우저에 둔 확인값으로 교환하고,
+    // 성공하면 code 를 주소에서 지운다 — 비번 재설정이면 PASSWORD_RECOVERY 이벤트, 그 밖(가입 확인)은 로그인만 된다.
+    // (앱에 매직 링크 로그인·이메일 변경이 없어 code 로 돌아오는 메일은 가입 확인·비번 재설정뿐)
+    // 예전 메일(implicit)은 해시에 type=signup / type=recovery — PKCE 에선 해시 토큰을 쓰지 않고 주소만 정리한다.
     const hash = new URLSearchParams(window.location.hash.slice(1));
+    const hadCode = new URLSearchParams(window.location.search).has('code');
     const linkType = hash.get('type');
-    const linkError = hash.get('error_description');
+    const linkError = new URLSearchParams(window.location.search).get('error_description') ?? hash.get('error_description');
+    let recoveryLink = false;
 
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
-      if (data.session && linkType === 'signup') setJustConfirmed(true);
+      const q = new URLSearchParams(window.location.search);
+      const exchanged = hadCode && !q.has('code');
+      if (data.session && !recoveryLink && (exchanged || linkType === 'signup')) setJustConfirmed(true);
       if (linkError) console.warn('auth link error:', linkError);
-      if (linkType || linkError) history.replaceState(null, '', window.location.pathname + window.location.search);
+      // 인증용 값만 지우고 다른 쿼리(?q=, ?r= …)는 남긴다
+      const authKeys = ['code', 'sb_flow_id', 'error', 'error_code', 'error_description'];
+      const authQuery = authKeys.some((k) => q.has(k));
+      const authHash = Boolean(linkType || linkError || hash.has('access_token') || hash.has('error'));
+      if (authQuery || authHash) {
+        for (const k of authKeys) q.delete(k);
+        const rest = q.toString();
+        history.replaceState(history.state, '', window.location.pathname + (rest ? `?${rest}` : '') + (authHash ? '' : window.location.hash));
+      }
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
-      if (event === 'PASSWORD_RECOVERY') setRecovering(true);
+      if (event === 'PASSWORD_RECOVERY') {
+        recoveryLink = true;
+        setRecovering(true);
+        setJustConfirmed(false);
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, []);
