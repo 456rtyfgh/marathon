@@ -143,29 +143,44 @@ function ProfileForm({ onClose, onWithdraw }: { onClose: () => void; onWithdraw:
           {busy ? t('common.saving') : t('auth.saveNick')}
         </Button>
       </form>
-      <section className="space-y-2 border-t border-line pt-5 text-[13px] leading-relaxed text-ink-3">
-        <h3 className="text-[15px] font-semibold text-ink-2">{t('rights.title')}</h3>
-        <ul className="space-y-1">
-          <li>{t('rights.view')}</li>
-          <li>{t('rights.fix')}</li>
-          <li>{t('rights.delete')}</li>
-          <li>{t('rights.stop', { email: CONTACT_EMAIL })}</li>
+      <section className="border-t border-line pt-5 text-[13px] leading-relaxed">
+        <h3 className="text-[15px] font-semibold text-ink">{t('rights.title')}</h3>
+        <ul className="mt-3 space-y-2">
+          {[t('rights.view'), t('rights.fix'), t('rights.delete'), t('rights.stop', { email: CONTACT_EMAIL })].map((s) => (
+            <RightsItem key={s} text={s} />
+          ))}
         </ul>
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4">
           <a
             href={langPath(PRIVACY_PATH, lang)}
             target="_blank"
             rel="noopener"
-            className="py-3 text-ink-2 underline underline-offset-2 hover:no-underline"
+            className="inline-flex min-h-11 items-center text-ink-2 underline underline-offset-2 hover:text-ink"
           >
             {t('rights.policy')}
           </a>
-          <button type="button" onClick={onWithdraw} className="min-h-11 text-ink-3 underline underline-offset-2 hover:text-ink">
+          {/* 탈퇴는 찾을 수 있되 눈에 덜 띄는 보조 동작 */}
+          <button
+            type="button"
+            onClick={onWithdraw}
+            className="inline-flex min-h-11 items-center text-ink-3 underline underline-offset-2 transition-colors hover:text-ink"
+          >
             {t('withdraw.open')}
           </button>
         </div>
       </section>
     </div>
+  );
+}
+
+/** '열람: …' 처럼 앞의 권리 이름을 굵게 (문구는 그대로, 첫 ': ' 에서 나눠 보여 줄 뿐) */
+function RightsItem({ text }: { text: string }) {
+  const i = text.indexOf(': ');
+  if (i < 0) return <li className="text-ink-2">{text}</li>;
+  return (
+    <li className="text-ink-2">
+      <span className="font-semibold text-ink">{text.slice(0, i + 1)}</span> {text.slice(i + 2)}
+    </li>
   );
 }
 
