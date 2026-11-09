@@ -8,6 +8,7 @@ import {
   type Member, type StatRow, type RaceRequest,
 } from '../lib/data';
 import { entryStatusByDate, fmtDate, safeUrl, STATUS_LABEL, todayISO } from '../lib/util';
+import GaSection from './GaSection';
 
 const EMPTY: Race = {
   id: '',
@@ -85,7 +86,18 @@ export default function AdminPanel({ races, onClose, onSaved }: { races: Race[];
       />
 
       <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-7">
-        {tab === 'stats' && <Stats races={races} />}
+        {tab === 'stats' && (
+          // GA 분석과 자체 통계는 형제로 — 한쪽이 오류여도 다른 쪽은 보인다
+          <div className="space-y-10">
+            <GaSection />
+            <section aria-labelledby="own-stats-title" className="space-y-5 border-t border-line pt-8">
+              <h3 id="own-stats-title" className="text-[19px] font-bold">
+                자체 통계 <span className="text-[14px] font-normal text-ink-3">사이트가 직접 쌓는 일별 기록</span>
+              </h3>
+              <Stats races={races} />
+            </section>
+          </div>
+        )}
         {tab === 'race' && <RaceForm races={full ?? races} hasFull={!!full} fullErr={fullErr} onSaved={saved} />}
         {tab === 'reports' && <SoldOutReports races={full ?? races} onSaved={saved} />}
         {tab === 'ext' && <ExtForm races={races} onSaved={onSaved} />}
