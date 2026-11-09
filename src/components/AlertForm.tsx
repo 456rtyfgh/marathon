@@ -5,11 +5,13 @@ import { useAuth } from '../lib/auth';
 import { daysBetween, TODAY, fmtDate, isSoldOut, isCancelled, isEntryConfirmed } from '../lib/util';
 import { Button, Field, Input, Note } from './ui';
 import { track } from '../lib/analytics';
+import { useLang } from '../i18n';
 
 const OPTIONS = [30, 14, 7, 3, 1];
 
 export default function AlertForm({ race }: { race: Race }) {
   const { session } = useAuth();
+  const { lang, t } = useLang();
   const [email, setEmail] = useState(session?.user.email ?? '');
   const [days, setDays] = useState<number[]>([14, 3]);
   const [state, setState] = useState<'idle' | 'busy' | 'ok' | 'err'>('idle');
@@ -25,11 +27,9 @@ export default function AlertForm({ race }: { race: Race }) {
   if (isCancelled(race)) {
     return (
       <div className="rounded-box bg-surface px-4 py-4">
-        <div className="text-[13px] text-ink-3">대회 취소</div>
-        <div className="mt-0.5 text-[17px] font-bold">{fmtDate(race.race_date)} 대회 취소</div>
-        <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
-          취소된 대회라 알림을 받을 수 없습니다. 환불 안내는 공식 홈페이지에서 확인하세요.
-        </p>
+        <div className="text-[13px] text-ink-3">{t('alert.cancelled')}</div>
+        <div className="mt-0.5 text-[17px] font-bold">{t('alert.cancelledOn', { d: fmtDate(race.race_date, lang) })}</div>
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-2">{t('alert.cancelledText')}</p>
       </div>
     );
   }
@@ -38,11 +38,9 @@ export default function AlertForm({ race }: { race: Race }) {
   if (isSoldOut(race, today) && !opensAhead) {
     return (
       <div className="rounded-box bg-surface px-4 py-4">
-        <div className="text-[13px] text-ink-3">조기 마감</div>
-        <div className="mt-0.5 text-[17px] font-bold">{fmtDate(race.sold_out_on!)} 정원 마감</div>
-        <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
-          이번 회차 접수가 끝나 알림을 받을 수 없습니다. 취소분 추가 접수는 공식 홈페이지에서 확인하세요.
-        </p>
+        <div className="text-[13px] text-ink-3">{t('alert.soldout')}</div>
+        <div className="mt-0.5 text-[17px] font-bold">{t('alert.soldoutOn', { d: fmtDate(race.sold_out_on!, lang) })}</div>
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-2">{t('alert.soldoutText')}</p>
       </div>
     );
   }
@@ -54,13 +52,14 @@ export default function AlertForm({ race }: { race: Race }) {
     e.preventDefault();
     setState('busy');
     try {
-      await subscribeAlert(email.trim(), race.id, days);
+      await subscribeAlert(email.trim(), race.id, days, lang);
       track('alert_subscribe', { race_id: race.id });
       setState('ok');
-      setMsg(`${email.trim()} 로 알려 드립니다.`);
+      setMsg(t('alert.ok', { email: email.trim() }));
     } catch (err) {
       setState('err');
-      setMsg(err instanceof Error ? err.message : '저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+      // 서버 오류 글은 영어일 수 있어 영어 화면에서만 그대로, 한국어 화면은 지금처럼
+      setMsg(err instanceof Error ? (lang === 'en' && /[가-힣]/.test(err.message) ? t('common.tryAgain') : err.message) : t('common.tryAgain'));
     }
   }
 
@@ -70,19 +69,19 @@ export default function AlertForm({ race }: { race: Race }) {
         {target ? (
           <div className="flex items-end justify-between gap-4">
             <div>
-              <div className="text-[13px] text-ink-3">{opensAhead ? '접수 시작일' : '접수 마감일'}</div>
-              <div className="mt-0.5 text-[17px] font-bold">{fmtDate(target)}</div>
+              <div className="text-[13px] text-ink-3">{opensAhead ? t('alert.opens') : t('alert.closes')}</div>
+              <div className="mt-0.5 text-[17px] font-bold">{fmtDate(target, lang)}</div>
             </div>
             {d != null && d >= 0 && <div className="num text-[34px] font-bold leading-none">D-{d}</div>}
           </div>
         ) : (
-          <p className="text-[15px] text-ink-2">접수 일정이 아직 나오지 않았습니다. 공개되면 알려 드립니다.</p>
+          <p className="text-[15px] text-ink-2">{t('alert.tbd')}</p>
         )}
       </div>
 
       <form onSubmit={submit} className="space-y-5">
         <fieldset>
-          <legend className="mb-2 text-[13px] font-semibold text-ink-2">알림 시점</legend>
+          <legend className="mb-2 text-[13px] font-semibold text-ink-2">{t('alert.when')}</legend>
           <div className="flex flex-wrap gap-2">
             {OPTIONS.map((n) => {
               const on = days.includes(n);
@@ -103,7 +102,7 @@ export default function AlertForm({ race }: { race: Race }) {
           </div>
         </fieldset>
 
-        <Field label="받을 이메일">
+        <Field label={t('alert.email')}>
           <div className="flex gap-2">
             <Input
               type="email"
@@ -114,7 +113,7 @@ export default function AlertForm({ race }: { race: Race }) {
               placeholder="name@example.com"
             />
             <Button type="submit" disabled={state === 'busy' || !days.length}>
-              {state === 'busy' ? '저장 중' : '알림 받기'}
+              {state === 'busy' ? t('common.saving') : t('alert.submit')}
             </Button>
           </div>
         </Field>

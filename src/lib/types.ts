@@ -42,6 +42,8 @@ export interface Race {
   source_url: string | null;
   last_verified: string;
   notes_ko: string | null;
+  /** 영어 메모. 비어 있으면 영어 화면에 메모를 보이지 않는다. 취소 태그는 넣지 않는다(취소 판단은 notes_ko) */
+  notes_en?: string | null;
   /** 없으면 로드로 본다 (내장 시드·예전 스냅샷 호환) */
   discipline?: Discipline;
   /** 누적 상승 (m) */

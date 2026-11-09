@@ -4,15 +4,17 @@ import { useAuth } from '../lib/auth';
 import { Button, CloseButton, Field, Input, Note, Panel } from './ui';
 import { spamReason } from '../lib/spam';
 import { track } from '../lib/analytics';
+import { useLang } from '../i18n';
 
 export function AuthBar({ onOpen }: { onOpen: () => void }) {
   const { session, profile, signOut } = useAuth();
+  const { t } = useLang();
   const [editing, setEditing] = useState(false);
 
   if (!session) {
     return (
       <Button size="sm" onClick={onOpen}>
-        로그인
+        {t('auth.login')}
       </Button>
     );
   }
@@ -20,22 +22,22 @@ export function AuthBar({ onOpen }: { onOpen: () => void }) {
     <div className="flex items-center gap-1">
       <button
         onClick={() => setEditing(true)}
-        title="닉네임 바꾸기"
+        title={t('auth.changeNick')}
         className="inline-flex h-8 items-center gap-1.5 rounded-ctl px-2 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink"
       >
         <UserCircle size={18} />
         <span className="hidden max-w-[10rem] truncate sm:inline">{profile?.nickname ?? session.user.email}</span>
-        <span className="sr-only sm:hidden">내 정보</span>
+        <span className="sr-only sm:hidden">{t('auth.me')}</span>
       </button>
       <button
         onClick={() => signOut()}
-        aria-label="로그아웃"
-        title="로그아웃"
+        aria-label={t('auth.logout')}
+        title={t('auth.logout')}
         className="grid size-8 place-items-center rounded-ctl text-ink-3 transition hover:bg-sunken hover:text-ink"
       >
         <SignOut size={17} />
       </button>
-      <Panel open={editing} onClose={() => setEditing(false)} label="내 정보" variant="sheet">
+      <Panel open={editing} onClose={() => setEditing(false)} label={t('auth.me')} variant="sheet">
         {editing && <ProfileForm onClose={() => setEditing(false)} />}
       </Panel>
     </div>
@@ -45,6 +47,7 @@ export function AuthBar({ onOpen }: { onOpen: () => void }) {
 /** 내 정보: 닉네임 바꾸기 */
 function ProfileForm({ onClose }: { onClose: () => void }) {
   const { session, profile, updateNickname } = useAuth();
+  const { lang, t } = useLang();
   const [nick, setNick] = useState(profile?.nickname ?? '');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -56,31 +59,31 @@ function ProfileForm({ onClose }: { onClose: () => void }) {
         e.preventDefault();
         setErr('');
         setOk(false);
-        const spam = spamReason(nick);
+        const spam = spamReason(nick, lang);
         if (spam) return setErr(spam);
         setBusy(true);
         try {
           await updateNickname(nick);
           setOk(true);
         } catch (e2) {
-          setErr(e2 instanceof Error ? e2.message : '닉네임을 바꾸지 못했습니다.');
+          setErr(e2 instanceof Error ? e2.message : t('auth.nickFail'));
         } finally {
           setBusy(false);
         }
       }}
     >
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[22px] font-extrabold tracking-tight">내 정보</h2>
+        <h2 className="text-[22px] font-extrabold tracking-tight">{t('auth.me')}</h2>
         <CloseButton onClick={onClose} />
       </div>
       <p className="text-[14px] text-ink-3">{session?.user.email}</p>
-      <Field label="닉네임" hint="2~16자, 후기와 요청에 표시됩니다">
+      <Field label={t('auth.nick')} hint={t('auth.nickHintMe')}>
         <Input required minLength={2} maxLength={16} value={nick} onChange={(e) => setNick(e.target.value)} />
       </Field>
       {err && <Note tone="error">{err}</Note>}
-      {ok && <Note tone="ok">바꿨습니다. 이미 쓴 후기에도 새 닉네임이 보입니다.</Note>}
+      {ok && <Note tone="ok">{t('auth.nickChanged')}</Note>}
       <Button type="submit" disabled={busy || nick.trim() === profile?.nickname} className="w-full">
-        {busy ? '저장 중' : '닉네임 저장'}
+        {busy ? t('common.saving') : t('auth.saveNick')}
       </Button>
     </form>
   );
@@ -90,6 +93,7 @@ type Mode = 'in' | 'up' | 'sent' | 'forgot' | 'forgot_sent' | 'reset';
 
 export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; initial?: Mode }) {
   const { signIn, signUp, resendConfirm, sendReset, updatePassword, verifyCode } = useAuth();
+  const { t } = useLang();
   const [code, setCode] = useState('');
   const [mode, setMode] = useState<Mode>(initial);
   const [email, setEmail] = useState('');
@@ -112,19 +116,19 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
     try {
       await fn();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : '처리하지 못했습니다.');
+      setErr(e instanceof Error ? e.message : t('auth.failed'));
     } finally {
       setBusy(false);
     }
   }
 
   const titles: Record<Mode, string> = {
-    in: '로그인',
-    up: '회원가입',
-    sent: '메일함을 확인하세요',
-    forgot: '비밀번호 다시 설정',
-    forgot_sent: '메일함을 확인하세요',
-    reset: '새 비밀번호',
+    in: t('auth.title.in'),
+    up: t('auth.title.up'),
+    sent: t('auth.title.sent'),
+    forgot: t('auth.title.forgot'),
+    forgot_sent: t('auth.title.sent'),
+    reset: t('auth.title.reset'),
   };
 
   return (
@@ -140,8 +144,9 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
             <EnvelopeSimple size={24} weight="bold" />
           </div>
           <p className="text-[15px] leading-relaxed text-ink-2">
-            <strong className="text-ink">{email}</strong> 로{' '}
-            {mode === 'sent' ? '가입 확인 메일을 보냈습니다. 메일의 버튼을 누르면 바로 로그인됩니다.' : '비밀번호를 다시 정하는 링크를 보냈습니다.'}
+            <strong className="text-ink">{email}</strong>
+            {t('auth.sentTo')}{' '}
+            {mode === 'sent' ? t('auth.sentSignup') : t('auth.sentReset')}
           </p>
           <form
             className="space-y-2"
@@ -155,7 +160,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
               });
             }}
           >
-            <Field label="또는 메일의 숫자 코드 입력" hint="다른 기기에서 메일을 볼 때">
+            <Field label={t('auth.code')} hint={t('auth.codeHint')}>
               <div className="flex gap-2">
                 <Input
                   inputMode="numeric"
@@ -167,14 +172,12 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
                   className="num text-[20px] tracking-[0.2em]"
                 />
                 <Button type="submit" disabled={busy || code.replace(/\D/g, '').length < 6}>
-                  확인
+                  {t('auth.confirm')}
                 </Button>
               </div>
             </Field>
           </form>
-          <p className="text-[13px] leading-relaxed text-ink-3">
-            몇 분 안에 오지 않으면 스팸함과 프로모션 탭도 확인해 주세요.
-          </p>
+          <p className="text-[13px] leading-relaxed text-ink-3">{t('auth.spam')}</p>
           {info && <Note tone="ok">{info}</Note>}
           {err && <Note tone="error">{err}</Note>}
           <div className="flex flex-wrap gap-2">
@@ -185,14 +188,14 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
                 run(async () => {
                   if (mode === 'sent') await resendConfirm(email);
                   else await sendReset(email);
-                  setInfo('다시 보냈습니다.');
+                  setInfo(t('auth.resent'));
                 })
               }
             >
-              {busy ? '보내는 중' : '메일 다시 보내기'}
+              {busy ? t('common.sending') : t('auth.resend')}
             </Button>
             <Button tone="quiet" onClick={() => go('in')}>
-              로그인으로
+              {t('auth.toLogin')}
             </Button>
           </div>
         </div>
@@ -204,18 +207,18 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
           onSubmit={(e) => {
             e.preventDefault();
             run(async () => {
-              if (password.length < 8) throw new Error('비밀번호는 8자 이상으로 정해 주세요.');
+              if (password.length < 8) throw new Error(t('auth.pw8'));
               await updatePassword(password);
               onClose();
             });
           }}
         >
-          <Field label="새 비밀번호" hint="8자 이상">
+          <Field label={t('auth.newPw')} hint={t('auth.pwHint')}>
             <Input type="password" autoComplete="new-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>
           {err && <Note tone="error">{err}</Note>}
           <Button type="submit" disabled={busy} className="w-full">
-            {busy ? '저장 중' : '비밀번호 저장'}
+            {busy ? t('common.saving') : t('auth.savePw')}
           </Button>
         </form>
       )}
@@ -231,19 +234,16 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
             });
           }}
         >
-          <p className="text-[15px] leading-relaxed text-ink-2">
-            가입한 이메일을 적으면 비밀번호를 다시 정할 수 있는 링크를 보내드립니다. 가입한 적이 없는 주소라면 메일이
-            가지 않습니다.
-          </p>
-          <Field label="이메일">
+          <p className="text-[15px] leading-relaxed text-ink-2">{t('auth.forgotText')}</p>
+          <Field label={t('auth.email')}>
             <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
           {err && <Note tone="error">{err}</Note>}
           <Button type="submit" disabled={busy} className="w-full">
-            {busy ? '보내는 중' : '링크 받기'}
+            {busy ? t('common.sending') : t('auth.getLink')}
           </Button>
           <button type="button" onClick={() => go('in')} className="w-full text-center text-[14px] text-ink-3 hover:text-ink">
-            로그인으로 돌아가기
+            {t('auth.backToLogin')}
           </button>
         </form>
       )}
@@ -259,27 +259,27 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
                 onClose();
                 return;
               }
-              if (password.length < 8) throw new Error('비밀번호는 8자 이상으로 정해 주세요.');
+              if (password.length < 8) throw new Error(t('auth.pw8'));
               const r = await signUp(email.trim(), password, nickname);
               track('sign_up', { result: r });
               if (r === 'signed_in') onClose();
               else if (r === 'check_email') setMode('sent');
               else {
                 setMode('in');
-                setErr('이미 가입된 이메일입니다. 로그인하거나, 비밀번호가 기억나지 않으면 아래에서 다시 정하세요.');
+                setErr(t('auth.exists'));
               }
             });
           }}
         >
           {mode === 'up' && (
-            <Field label="닉네임" hint="후기에 표시됩니다">
+            <Field label={t('auth.nick')} hint={t('auth.nickHint')}>
               <Input required minLength={2} maxLength={16} value={nickname} onChange={(e) => setNickname(e.target.value)} />
             </Field>
           )}
-          <Field label="이메일">
+          <Field label={t('auth.email')}>
             <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <Field label="비밀번호" hint={mode === 'up' ? '8자 이상' : undefined}>
+          <Field label={t('auth.password')} hint={mode === 'up' ? t('auth.pwHint') : undefined}>
             <Input
               type="password"
               autoComplete={mode === 'up' ? 'new-password' : 'current-password'}
@@ -292,16 +292,16 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
           {err && <Note tone="error">{err}</Note>}
 
           <Button type="submit" disabled={busy} className="w-full">
-            {busy ? '처리 중' : mode === 'in' ? '로그인' : '가입하고 인증 메일 받기'}
+            {busy ? t('common.processing') : mode === 'in' ? t('auth.login') : t('auth.signupSubmit')}
           </Button>
 
           <div className="flex items-center justify-between pt-1 text-[14px]">
             <button type="button" onClick={() => go(mode === 'in' ? 'up' : 'in')} className="font-semibold text-ink underline underline-offset-4">
-              {mode === 'in' ? '회원가입' : '이미 계정이 있습니다'}
+              {mode === 'in' ? t('auth.signup') : t('auth.haveAccount')}
             </button>
             {mode === 'in' && (
               <button type="button" onClick={() => go('forgot')} className="text-ink-3 hover:text-ink">
-                비밀번호를 잊었어요
+                {t('auth.forgot')}
               </button>
             )}
           </div>

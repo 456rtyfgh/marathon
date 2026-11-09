@@ -3,7 +3,10 @@
  * 다크 모드(prefers-color-scheme: dark)에서는 흰 타일 심볼 + 흰 워드마크.
  * 워드마크 비율 2314:200 — 높이를 바꾸면 너비도 같이 바꾼다.
  */
+import { useLang } from '../i18n';
+
 export function Logo() {
+  const { t } = useLang();
   return (
     <span className="flex items-center gap-2">
       <picture className="shrink-0">
@@ -12,7 +15,7 @@ export function Logo() {
       </picture>
       <picture>
         <source srcSet="/brand/wordmark-inverse.svg" media="(prefers-color-scheme: dark)" />
-        <img src="/brand/wordmark.svg" width={162} height={14} alt="마라톤 캘린더" className="block h-[13px] w-auto sm:h-[15px]" />
+        <img src="/brand/wordmark.svg" width={162} height={14} alt={t('site.name')} className="block h-[13px] w-auto sm:h-[15px]" />
       </picture>
     </span>
   );

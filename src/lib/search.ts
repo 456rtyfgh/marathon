@@ -1,6 +1,8 @@
 import type { Race } from './types';
 import { ALIASES, ONE_WAY, TAILS } from './aliases.ts';
 import { SUBREGION_NAME, subOf } from './subregions.ts';
+import { cityName, countryName, subregionName } from '../i18n/names.ts';
+import type { Lang } from '../i18n/lang.ts';
 
 /*
  * 대회 검색. 1단계(정확): 빈칸·가운뎃점·특수문자·대소문자 무시, 다른 표기 사전, 꼬리말(마라톤·대회·하프…) 떼기,
@@ -53,12 +55,16 @@ export type SearchDoc = {
 
 const SEP = '|';
 
-export function buildIndex(races: Race[]): SearchDoc[] {
+/** lang 'en' 이면 영어 도시·나라·주 이름과 영어 메모도 찾는다 (한국어 화면 결과는 그대로) */
+export function buildIndex(races: Race[], lang: Lang = 'ko'): SearchDoc[] {
   return races.map((r) => {
     const sub = subOf(r);
     const subName = sub ? SUBREGION_NAME.get(sub) ?? '' : '';
-    const main = [r.name_ko, r.name_en, r.city_ko, r.country_ko, subName].map((x) => normalize(x ?? '')).filter(Boolean);
-    const exact = [...main, normalize(r.notes_ko ?? ''), ...r.distances.map(normalize)].join(SEP);
+    const enNames =
+      lang === 'en' ? [cityName(r, 'en'), countryName(r.country_code, r.country_ko, 'en'), sub ? subregionName(sub, 'en') : ''] : [];
+    const main = [r.name_ko, r.name_en, r.city_ko, r.country_ko, subName, ...enNames].map((x) => normalize(x ?? '')).filter(Boolean);
+    const notes = lang === 'en' ? [normalize(r.notes_ko ?? ''), normalize(r.notes_en ?? '')] : [normalize(r.notes_ko ?? '')];
+    const exact = [...main, ...notes, ...r.distances.map(normalize)].join(SEP);
     return { race: r, exact, fields: main.map(toJamo), exactJamo: toJamo(exact) };
   });
 }

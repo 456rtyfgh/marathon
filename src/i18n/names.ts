@@ -37,6 +37,11 @@ const provinceIdOf = (cityKo: string): string | null => {
 
 let regionNames: Intl.DisplayNames | null = null;
 
+/** 대회 이름: en 은 name_en (비면 name_ko) */
+export function raceName(r: { name_ko: string; name_en?: string | null }, lang: Lang): string {
+  return lang === 'en' ? r.name_en?.trim() || r.name_ko : r.name_ko;
+}
+
 /** 나라 이름. ko 는 fallbackKo(대회의 country_ko 등) 그대로 */
 export function countryName(code: string | null | undefined, fallbackKo: string, lang: Lang): string {
   if (lang === 'ko') return fallbackKo;

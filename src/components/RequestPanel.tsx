@@ -6,16 +6,12 @@ import { Button, CloseButton, Field, Input, Note } from './ui';
 import { track } from '../lib/analytics';
 import { spamReason, friendlyError } from '../lib/spam';
 import { safeUrl } from '../lib/util';
-
-const STATUS_LABEL: Record<RaceRequest['status'], string> = {
-  pending: '확인 전',
-  added: '추가됨',
-  rejected: '보류',
-  duplicate: '이미 있음',
-};
+import { useLang } from '../i18n';
 
 export default function RequestPanel({ onClose, onLogin }: { onClose: () => void; onLogin: () => void }) {
   const { session, profile } = useAuth();
+  const { lang, t } = useLang();
+  const statusLabel = (s: RaceRequest['status']) => t(`req.status.${s}` as const);
   const [list, setList] = useState<RaceRequest[] | null>(null);
   const [reportCount, setReportCount] = useState(0);
   const [err, setErr] = useState('');
@@ -46,15 +42,15 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
     setErr('');
     setMsg('');
     if (!session) return onLogin();
-    if (name.trim().length < 2) return setErr('대회 이름을 적어 주세요.');
-    if (url && !/^https?:\/\//.test(url.trim())) return setErr('홈페이지 주소는 http 또는 https 로 시작해야 합니다.');
-    const spam = spamReason(name) ?? spamReason(note) ?? spamReason(country);
+    if (name.trim().length < 2) return setErr(t('req.needName'));
+    if (url && !/^https?:\/\//.test(url.trim())) return setErr(t('req.badUrl'));
+    const spam = spamReason(name, lang) ?? spamReason(note, lang) ?? spamReason(country, lang);
     if (spam) return setErr(spam);
     setBusy(true);
     try {
-      await submitRaceRequest({ race_name: name, country, race_month: month, url, note }, session.user.id, profile?.nickname ?? '러너');
+      await submitRaceRequest({ race_name: name, country, race_month: month, url, note }, session.user.id, profile?.nickname ?? t('common.runner'));
       track('request_submit', { race_name: name.trim() });
-      setMsg('받았습니다. 매주 월요일 정보를 갱신할 때 확인해서 넣겠습니다.');
+      setMsg(t('req.ok'));
       setName('');
       setCountry('');
       setMonth('');
@@ -62,7 +58,7 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
       setNote('');
       reload();
     } catch (e) {
-      setErr(friendlyError(e, '요청을 저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'));
+      setErr(friendlyError(e, t('req.fail'), lang));
     } finally {
       setBusy(false);
     }
@@ -72,29 +68,27 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
     <div className="flex h-full flex-col">
       <header className="flex items-start justify-between gap-4 px-5 pt-4 pb-5 sm:px-7">
         <div className="pt-1.5">
-          <h2 className="text-[26px] leading-tight font-extrabold tracking-tight">대회 추가 요청</h2>
-          <p className="mt-1.5 max-w-[46ch] text-[15px] leading-relaxed text-ink-2">
-            목록에 없는 대회를 알려 주세요. 매주 월요일 일정을 확인하면서 함께 넣습니다.
-          </p>
+          <h2 className="text-[26px] leading-tight font-extrabold tracking-tight">{t('req.title')}</h2>
+          <p className="mt-1.5 max-w-[46ch] text-[15px] leading-relaxed text-ink-2">{t('req.lead')}</p>
         </div>
         <CloseButton onClick={onClose} />
       </header>
 
       <div className="flex-1 space-y-10 overflow-y-auto px-5 pb-10 sm:px-7">
         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-          <Field label="대회 이름" wide>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 시드니 하프마라톤" required />
+          <Field label={t('req.name')} wide>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('req.namePh')} required />
           </Field>
-          <Field label="나라나 지역">
-            <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="예: 호주" />
+          <Field label={t('req.country')}>
+            <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder={t('req.countryPh')} />
           </Field>
-          <Field label="대략 언제" hint="모르면 비워두세요">
+          <Field label={t('req.month')} hint={t('req.monthHint')}>
             <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
           </Field>
-          <Field label="공식 홈페이지" hint="선택" wide>
+          <Field label={t('req.url')} hint={t('common.optional')} wide>
             <Input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
           </Field>
-          <Field label="남길 말" hint="선택" wide>
+          <Field label={t('req.note')} hint={t('common.optional')} wide>
             <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
           </Field>
 
@@ -103,26 +97,28 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
             {msg && <Note tone="ok">{msg}</Note>}
             <div className="flex items-center gap-3">
               <Button type="submit" disabled={busy}>
-                {busy ? '보내는 중' : session ? '요청 보내기' : '로그인하고 요청하기'}
+                {busy ? t('common.sending') : session ? t('req.send') : t('req.loginSend')}
               </Button>
-              {!session && <span className="text-[13px] text-ink-3">장난 요청을 막으려고 로그인이 필요합니다</span>}
+              {!session && <span className="text-[13px] text-ink-3">{t('req.loginWhy')}</span>}
             </div>
           </div>
         </form>
 
         <section>
           <h3 className="text-[15px] font-bold">
-            들어온 요청 <span className="num ml-1 text-[17px] text-ink-3">{list?.length ?? 0}</span>
+            {t('req.list')} <span className="num ml-1 text-[17px] text-ink-3">{list?.length ?? 0}</span>
           </h3>
           {profile?.is_admin && reportCount > 0 && (
             <p className="mt-1 text-[13px] text-ink-3">
-              확인 전 조기 마감 제보 <span className="num">{reportCount}</span>건은 관리 화면 '마감 제보' 탭에 있습니다.
+              {t('req.reportsPre')}
+              <span className="num">{reportCount}</span>
+              {t('req.reportsPost')}
             </p>
           )}
           {list === null ? (
             <div className="mt-3 h-16 animate-pulse rounded-box bg-surface" />
           ) : list.length === 0 ? (
-            <p className="mt-2 text-[14px] text-ink-3">아직 요청이 없습니다. 첫 요청을 남겨 주세요.</p>
+            <p className="mt-2 text-[14px] text-ink-3">{t('req.empty')}</p>
           ) : (
             <ul className="mt-3 divide-y divide-line">
               {list.map((r) => (
@@ -139,17 +135,17 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
                         r.status === 'added' ? 'bg-accent text-on-accent' : 'bg-sunken text-ink-2'
                       }`}
                     >
-                      {STATUS_LABEL[r.status]}
+                      {statusLabel(r.status)}
                     </span>
                   </div>
                   <div className="mt-0.5 text-[13px] text-ink-3">
-                    {r.nickname ?? '익명'}, <span className="num text-[14px]">{r.created_at.slice(0, 10)}</span>
+                    {r.nickname ?? t('common.anonymous')}, <span className="num text-[14px]">{r.created_at.slice(0, 10)}</span>
                   </div>
                   {r.note && <p className="mt-1 text-[14px] text-ink-2">{r.note}</p>}
-                  {r.admin_note && <p className="mt-1 text-[14px] text-ink">답변: {r.admin_note}</p>}
+                  {r.admin_note && <p className="mt-1 text-[14px] text-ink">{t('req.answer', { a: r.admin_note })}</p>}
                   {r.url && (
                     <a href={safeUrl(r.url)} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[13px] text-ink-2 underline underline-offset-4">
-                      홈페이지 <ArrowUpRight size={12} />
+                      {t('common.homepage')} <ArrowUpRight size={12} />
                     </a>
                   )}
                   {profile?.is_admin && (
@@ -165,7 +161,7 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
                             r.status === s ? 'bg-ink text-bg' : 'bg-sunken text-ink-2 hover:bg-line'
                           }`}
                         >
-                          {STATUS_LABEL[s]}
+                          {statusLabel(s)}
                         </button>
                       ))}
                     </div>

@@ -1,5 +1,7 @@
 import { supabase, hasSupabase } from './supabase';
 import { FX } from './seed';
+import { translate } from '../i18n/t';
+import type { Lang } from '../i18n/lang';
 import type {
   Race,
   Agency,
@@ -282,9 +284,9 @@ export async function adminDeleteExternalReview(id: string) {
   if (error) throw new Error(error.message);
 }
 
-export async function subscribeAlert(email: string, raceId: string, daysBefore: number[]) {
+export async function subscribeAlert(email: string, raceId: string, daysBefore: number[], lang: Lang = 'ko') {
   if (!hasSupabase || !supabase) {
-    throw new Error('Supabase가 아직 연결되지 않았습니다. 환경변수를 설정해 주세요.');
+    throw new Error(translate(lang, 'data.noServer'));
   }
   // 구독자 이메일이 anon key 로 조회되지 않도록, 직접 INSERT 대신
   // SECURITY DEFINER 함수를 호출한다 (alert_subscriptions 에는 정책이 없다).

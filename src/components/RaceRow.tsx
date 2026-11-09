@@ -1,8 +1,10 @@
 import { memo } from 'react';
 import { CaretRight, Star, BookmarkSimple, Eye, CalendarCheck, Check } from '@phosphor-icons/react';
 import type { Race, RaceRating } from '../lib/types';
-import { ENTRY_LABEL } from '../lib/types';
 import { dateParts, feeLabel, isDomestic, isTrail, statusLine, raceDayLine, TODAY, shortCount, mayFillEarly, isCancelled, expectedEntryText } from '../lib/util';
+import { useLang } from '../i18n';
+import { ENTRY_TEXT } from '../i18n/format';
+import { raceName, whereText } from '../i18n/names';
 
 const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
 
@@ -20,19 +22,20 @@ function RaceRow({
   registered?: boolean;
   onOpen: (race: Race) => void;
 }) {
+  const { lang, t } = useLang();
   const today = TODAY();
-  const p = dateParts(race.race_date);
+  const p = dateParts(race.race_date, lang);
   const thisYear = dateParts(today.toISOString().slice(0, 10)).y;
-  const st = statusLine(race, today, registered);
+  const st = statusLine(race, today, registered, lang);
   const domestic = isDomestic(race);
   const trail = isTrail(race);
-  const raceDay = raceDayLine(race, today);
+  const raceDay = raceDayLine(race, today, lang);
   // 선착순 접수 중인데 아직 마감 확인이 안 된 대회. 접수한 사람에게는 필요 없는 말이라 뺀다
   const mayFill = !registered && mayFillEarly(race, today);
   // 취소된 대회: 지우지 않고 남겨 두되 흐리게, D-day 대신 '대회 취소'
   const cancelled = isCancelled(race);
   // 접수 일정이 확정 전(예상·미정)이면 '접수 미정' 아래 작게 예상 날짜만
-  const expected = registered ? null : expectedEntryText(race, today);
+  const expected = registered ? null : expectedEntryText(race, today, lang);
 
   return (
     <li style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 104px' }}>
@@ -43,45 +46,47 @@ function RaceRow({
         {/* 대회 날짜 */}
         <div className={`flex flex-col items-start leading-none ${cancelled ? 'opacity-50' : ''}`}>
           <span className="num text-[13px] font-semibold text-ink-3">
-            {p.y !== thisYear ? `${p.y}. ${p.m}월` : `${p.m}월`}
+            {p.y !== thisYear ? t('date.ym', { y: p.y, m: p.m, mon: p.mon }) : t('date.m', { m: p.m, mon: p.mon })}
           </span>
           <span className="num mt-0.5 text-[34px] font-bold text-ink sm:text-[40px]">{p.d}</span>
-          <span className="text-[12px] text-ink-3">{p.w}요일</span>
+          <span className="text-[12px] text-ink-3">{t('date.weekday', { w: p.w })}</span>
         </div>
 
         {/* 대회명 */}
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h3 className={`truncate break-keep text-[17px] font-bold tracking-tight ${cancelled ? 'text-ink-2' : 'text-ink'}`}>
-              {race.name_ko}
+              {raceName(race, lang)}
             </h3>
-            {favorite && <BookmarkSimple size={15} weight="fill" className="shrink-0 text-ink" aria-label="관심 대회" />}
+            {favorite && <BookmarkSimple size={15} weight="fill" className="shrink-0 text-ink" aria-label={t('row.saved')} />}
             {trail && (
               <span className="shrink-0 rounded-tag border border-ink-3 px-1 py-px text-[10px] font-bold text-ink-2">
-                트레일
+                {t('row.trail')}
               </span>
             )}
             {race.is_major && (
               <span className="shrink-0 rounded-tag bg-ink px-1.5 py-0.5 text-[10px] font-bold text-bg">
-                메이저
+                {t('row.major')}
               </span>
             )}
           </div>
           <p className="mt-1 truncate break-keep text-[14px] text-ink-2">
-            {domestic ? race.city_ko : `${race.country_ko} ${race.city_ko}`}
+            {lang === 'en' ? whereText(race, 'en') : domestic ? race.city_ko : `${race.country_ko} ${race.city_ko}`}
             <span className="text-ink-3">
               {'  '}
               {mayFill ? (
                 <>
                   {/* 휴대폰은 한 줄에 들어가게 짧게 */}
-                  <span className="sm:hidden">선착순 · 조기 마감 가능</span>
-                  <span className="hidden sm:inline">선착순 · 조기 마감될 수 있음</span>
+                  <span className="sm:hidden">{t('row.fcfsShort')}</span>
+                  <span className="hidden sm:inline">{t('row.fcfsLong')}</span>
                 </>
               ) : (
-                ENTRY_LABEL[race.entry_type]
+                ENTRY_TEXT[lang][race.entry_type]
               )}
-              {race.date_confidence !== 'confirmed' && ', 날짜 예상'}
-              {trail && race.elevation_gain != null && `, 상승 ${race.elevation_gain.toLocaleString('ko-KR')}m`}
+              {race.date_confidence !== 'confirmed' && t('row.dateExpected')}
+              {trail &&
+                race.elevation_gain != null &&
+                t('row.gain', { n: race.elevation_gain.toLocaleString(lang === 'en' ? 'en-US' : 'ko-KR') })}
             </span>
           </p>
           {rating && (rating.review_count > 0 || (rating.views ?? 0) > 0) && (
@@ -90,19 +95,23 @@ function RaceRow({
                 <span className="inline-flex items-center gap-1">
                   <Star size={13} weight="fill" />
                   <span className="num text-[15px] font-semibold">{Number(rating.avg_rating).toFixed(1)}</span>
-                  <span className="text-ink-3">후기 {rating.review_count}</span>
+                  <span className="text-ink-3">{t('row.reviews', { count: rating.review_count })}</span>
                 </span>
               )}
               {(rating.views ?? 0) > 0 && (
-                <span className="inline-flex items-center gap-1 text-ink-3" title="이 대회를 연 횟수">
+                <span className="inline-flex items-center gap-1 text-ink-3" title={t('row.viewsTitle')}>
                   <Eye size={13} />
-                  조회 <span className="num text-[14px]">{shortCount(rating.views!)}</span>
+                  {t('views.pre')}
+                  <span className="num text-[14px]">{shortCount(rating.views!, lang)}</span>
+                  {t('views.post')}
                 </span>
               )}
               {(rating.saves ?? 0) > 0 && (
-                <span className="inline-flex items-center gap-1 text-ink-3" title="캘린더 저장·관심 추가 횟수">
+                <span className="inline-flex items-center gap-1 text-ink-3" title={t('row.savesTitle')}>
                   <CalendarCheck size={13} />
-                  저장 <span className="num text-[14px]">{shortCount(rating.saves!)}</span>
+                  {t('saves.pre')}
+                  <span className="num text-[14px]">{shortCount(rating.saves!, lang)}</span>
+                  {t('saves.post')}
                 </span>
               )}
             </p>
@@ -112,19 +121,19 @@ function RaceRow({
         {/* 참가비 · 이동 (데스크톱) */}
         <dl className="hidden grid-cols-[auto_auto] gap-x-4 text-[13px] leading-5 text-ink-2 sm:grid">
           <div className="contents">
-            <dt className="text-ink-3">참가비</dt>
-            <dd className="num text-right text-[15px] font-semibold text-ink">{feeLabel(race)}</dd>
+            <dt className="text-ink-3">{t('row.fee')}</dt>
+            <dd className="num text-right text-[15px] font-semibold text-ink">{feeLabel(race, lang)}</dd>
           </div>
           <div className="contents">
-            <dt className="text-ink-3">{domestic ? '서울에서' : '인천에서'}</dt>
+            <dt className="text-ink-3">{domestic ? t('row.fromSeoul') : t('row.fromIncheon')}</dt>
             <dd className="num text-right text-[15px] font-semibold text-ink">
-              {race.flight_hours != null ? `${race.flight_hours}시간` : '-'}
+              {race.flight_hours != null ? t('row.hours', { n: race.flight_hours }) : '-'}
             </dd>
           </div>
           <div className="contents">
-            <dt className="text-ink-3">대회까지</dt>
+            <dt className="text-ink-3">{t('row.raceIn')}</dt>
             <dd className="num text-right text-[15px] font-semibold text-ink">
-              {raceDay.days != null ? dday(raceDay.days) : cancelled ? '-' : '종료'}
+              {raceDay.days != null ? dday(raceDay.days) : cancelled ? '-' : t('row.over')}
             </dd>
           </div>
         </dl>
@@ -134,11 +143,11 @@ function RaceRow({
           {registered && (
             <span className="mb-0.5 inline-flex items-center gap-0.5 rounded-tag bg-ink px-1.5 py-px text-[11px] font-bold text-bg">
               <Check size={11} weight="bold" />
-              접수 완료
+              {t('row.registered')}
             </span>
           )}
           {cancelled ? (
-            <span className="mt-0.5 rounded-tag border border-ink-3 px-1.5 py-0.5 text-[13px] font-bold text-ink-2">대회 취소</span>
+            <span className="mt-0.5 rounded-tag border border-ink-3 px-1.5 py-0.5 text-[13px] font-bold text-ink-2">{t('st.cancelled')}</span>
           ) : (
             <span className="text-[12px] text-ink-3">{st.label}</span>
           )}
@@ -154,12 +163,12 @@ function RaceRow({
             <span className="num mt-0.5 text-[12px] text-ink-3">{expected}</span>
           ) : (
             <span className="mt-1 text-[14px] font-semibold text-ink-3">
-              {st.label === '정원 마감 시까지' ? '접수 중' : st.label === '조기 마감' ? '정원 마감' : ''}
+              {st.label === t('st.untilFull') ? t('row.open') : st.label === t('st.soldout') ? t('row.full') : ''}
             </span>
           )}
           {/* 휴대폰: 참가비 칸이 숨으므로 대회일 D-day 를 여기 작게 */}
           {!registered && raceDay.days != null && (
-            <span className="num mt-0.5 text-[12px] text-ink-3 sm:hidden">대회 {dday(raceDay.days)}</span>
+            <span className="num mt-0.5 text-[12px] text-ink-3 sm:hidden">{t('row.raceDday', { d: dday(raceDay.days) })}</span>
           )}
         </div>
 

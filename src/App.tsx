@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, CheckSquare, Plus } from '@phosphor-icons/react';
 import type { Race, EntryType, Region, Discipline } from './lib/types';
-import { ENTRY_LABEL, DISCIPLINES, DISCIPLINE_LABEL } from './lib/types';
+import { DISCIPLINES } from './lib/types';
 import { loadDataset, emptyDataset, type Dataset } from './lib/data';
 import {
   entryStatus,
@@ -28,6 +28,9 @@ import { buildIndex, searchRaces, suggestRaces } from './lib/search';
 import { scrollToResults, RESULTS_EMPTY_ID } from './lib/scrollToResults';
 import { ResultsAnnouncer } from './components/ResultsAnnouncer';
 import { track, pageView } from './lib/analytics';
+import { langPath, useLang, type Key } from './i18n';
+import { DISCIPLINE_TEXT, ENTRY_TEXT, fmtMonth } from './i18n/format';
+import { countryName, raceName, whereText } from './i18n/names';
 
 // 상세·요청·관리 패널은 열 때만 필요하므로 첫 화면 번들에서 뺀다 (목록이 뜬 뒤 미리 받아 둔다 —
 // 처음 열 때 받으면, 탭을 열어 둔 채 새로 배포된 뒤에는 옛 청크가 없어 화면 전체가 깨진다)
@@ -49,13 +52,13 @@ const ENTRY_TYPES: EntryType[] = ['lottery', 'fcfs', 'qualifying', 'open', 'tour
 type Sort = 'entry' | 'race_date' | 'views' | 'saves' | 'size' | 'flight';
 type StatusFilter = EntryStatus | 'closing7' | 'opening30';
 
-const STATUS_GROUP: Record<EntryStatus, string> = {
-  open: '지금 접수 중',
-  upcoming: '곧 접수 시작',
-  unknown: '접수 일정 미공개',
-  soldout: '조기 마감',
-  closed: '이번 회차 접수 끝',
-  cancelled: '취소된 대회',
+const STATUS_GROUP: Record<EntryStatus, Key> = {
+  open: 'group.open',
+  upcoming: 'group.upcoming',
+  unknown: 'group.unknown',
+  soldout: 'group.soldout',
+  closed: 'group.closed',
+  cancelled: 'group.cancelled',
 };
 
 export default function App() {
@@ -67,6 +70,7 @@ export default function App() {
 }
 
 function Main() {
+  const { lang, setLang, t } = useLang();
   const auth = useAuth();
   const { profile } = auth;
   // 내장 데이터로 즉시 그리고, 서버 응답이 오면 교체한다.
@@ -133,7 +137,7 @@ function Main() {
   const [deepLinked, setDeepLinked] = useState(false);
   useEffect(() => {
     if (deepLinked) return;
-    const id = location.pathname.match(/^\/r\/([a-z0-9-]+)/)?.[1] ?? new URLSearchParams(location.search).get('r');
+    const id = location.pathname.match(/^(?:\/en)?\/r\/([a-z0-9-]+)/)?.[1] ?? new URLSearchParams(location.search).get('r');
     if (!id) return setDeepLinked(true);
     const r = data.races.find((x) => x.id === id);
     if (r) {
@@ -146,11 +150,16 @@ function Main() {
     if (!deepLinked) return;
     const u = new URL(location.href);
     u.searchParams.delete('r');
-    u.pathname = selected ? `/r/${selected.id}` : '/';
+    u.pathname = langPath(selected ? `/r/${selected.id}` : '/', lang);
     history.replaceState(null, '', u.pathname + u.search + u.hash);
     document.title = selected
-      ? `${selected.name_ko} ${selected.race_date.slice(0, 4)} 일정·접수 기간 | 마라톤 캘린더`
-      : '마라톤 캘린더 — 2026·2027 국내·해외 마라톤 대회 일정과 접수';
+      ? t('title.race', { name: raceName(selected, lang), year: selected.race_date.slice(0, 4) })
+      : t('title.home');
+  }, [selected, deepLinked, lang, t]);
+
+  // 조회 기록은 대회를 열 때만 (언어를 바꿔 제목만 바뀔 때는 남기지 않는다). 제목은 위 효과가 먼저 바꾼다
+  useEffect(() => {
+    if (!deepLinked) return;
     if (selected) {
       pageView(document.title);
       track('race_view', {
@@ -186,7 +195,7 @@ function Main() {
     [data, today],
   );
   // 검색 색인 (정규화·자모를 대회마다 한 번만) — 검색은 지금처럼 다가오는 대회만
-  const searchIndex = useMemo(() => buildIndex(upcomingRaces), [upcomingRaces]);
+  const searchIndex = useMemo(() => buildIndex(upcomingRaces, lang), [upcomingRaces, lang]);
   const pastRaces = useMemo(
     () =>
       data
@@ -251,14 +260,14 @@ function Main() {
     // 접수한 대회만 볼 때는 접수 상태가 의미 없으니 대회일 순 한 묶음
     if (regOnly) {
       const sorted = [...list].sort((a, b) => a.race_date.localeCompare(b.race_date));
-      return [{ key: 'registered', title: '접수한 대회', races: sorted }];
+      return [{ key: 'registered', title: t('group.registered'), races: sorted }];
     }
     if (sort === 'entry') {
       const order: EntryStatus[] = ['open', 'upcoming', 'unknown', 'soldout', 'closed', 'cancelled'];
       return order
         .map((st) => ({
           key: st,
-          title: STATUS_GROUP[st],
+          title: t(STATUS_GROUP[st]),
           races: list.filter((r) => info.get(r)!.status === st).sort(byEntry),
         }))
         .filter((g) => g.races.length);
@@ -273,7 +282,7 @@ function Main() {
         if (g) g.push(r);
         else map.set(k, [r]);
       }
-      return [...map.entries()].map(([k, races]) => ({ key: k, title: k, races }));
+      return [...map.entries()].map(([k, races]) => ({ key: k, title: lang === 'en' ? fmtMonth(races[0].race_date, 'en') : k, races }));
     }
     const sorted = [...list].sort((a, b) => {
       if (sort === 'flight') return (a.flight_hours ?? 99) - (b.flight_hours ?? 99);
@@ -287,14 +296,14 @@ function Main() {
     });
     const title =
       sort === 'flight'
-        ? '가까운 곳부터'
+        ? t('group.flight')
         : sort === 'size'
-          ? '참가자 많은 순 (규모 미공개 대회는 맨 뒤)'
+          ? t('group.size')
           : sort === 'saves'
-            ? '저장순 (캘린더 저장 수 많은 순)'
-            : '조회순 (조회 수 많은 순)';
+            ? t('group.saves')
+            : t('group.views');
     return [{ key: 'all', title, races: sorted }];
-  }, [upcomingRaces, info, hits, scope, regions, places, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, discipline]);
+  }, [upcomingRaces, info, hits, scope, regions, places, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, discipline, lang, t]);
 
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
   // 검색 결과 0개일 때 '혹시 이 대회인가요?' (필터와 무관하게 다가오는 대회 중). 결과 수(shown)에는 넣지 않는다 → search_empty 기록 그대로
@@ -416,12 +425,12 @@ function Main() {
         href="#list"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-ctl focus:bg-ink focus:px-3 focus:py-2 focus:text-bg"
       >
-        목록으로 건너뛰기
+        {t('app.skip')}
       </a>
 
       <header className="sticky top-0 z-30 border-b border-line bg-bg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <a href="/" className="flex items-center">
+          <a href={langPath('/', lang)} className="flex items-center">
             <Logo />
           </a>
           <nav className="flex items-center gap-1 sm:gap-2">
@@ -429,16 +438,33 @@ function Main() {
               onClick={() => openRequest('header')}
               className="hidden h-8 items-center rounded-ctl px-3 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink sm:inline-flex"
             >
-              대회 추가 요청
+              {t('header.request')}
             </button>
             {profile?.is_admin && (
               <button
                 onClick={() => setShowAdmin(true)}
                 className="inline-flex h-8 items-center rounded-ctl px-3 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink"
               >
-                관리
+                {t('header.admin')}
               </button>
             )}
+            {/* 언어 전환: 글자는 두 언어 모두 'EN / 한', 지금 언어 쪽만 진하게 */}
+            <button
+              onClick={() => {
+                const next = lang === 'ko' ? 'en' : 'ko';
+                track('lang', { value: next });
+                setLang(next);
+              }}
+              aria-label={t('lang.switch')}
+              lang={lang === 'ko' ? 'en' : 'ko'}
+              className="inline-flex h-8 items-center rounded-ctl px-3 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink"
+            >
+              <span>
+                <span className={lang === 'en' ? 'text-ink' : undefined}>EN</span>
+                {' / '}
+                <span className={lang === 'ko' ? 'text-ink' : undefined}>한</span>
+              </span>
+            </button>
             <AuthBar onOpen={() => setAuthMode('in')} />
           </nav>
         </div>
@@ -448,8 +474,8 @@ function Main() {
         {auth.justConfirmed && (
           <div className="mx-auto max-w-6xl px-4 pt-4 sm:px-6">
             <div className="flex items-center justify-between gap-3 rounded-box bg-accent px-4 py-3 text-on-accent">
-              <span className="text-[15px] font-semibold">메일 인증이 끝났습니다. 이제 후기를 남길 수 있습니다.</span>
-              <button onClick={auth.clearFlags} aria-label="닫기" className="grid size-8 place-items-center rounded-ctl hover:bg-on-accent/10">
+              <span className="text-[15px] font-semibold">{t('app.confirmed')}</span>
+              <button onClick={auth.clearFlags} aria-label={t('common.close')} className="grid size-8 place-items-center rounded-ctl hover:bg-on-accent/10">
                 <X size={16} weight="bold" />
               </button>
             </div>
@@ -460,24 +486,23 @@ function Main() {
         <section className="mx-auto grid max-w-6xl gap-8 px-4 pt-10 pb-8 sm:px-6 md:grid-cols-[1fr_auto] md:items-end md:pt-14 md:pb-10">
           <div>
             <h1 className="text-[34px] leading-[1.12] font-extrabold tracking-[-0.03em] sm:text-[46px]">
-              마라톤 캘린더
+              {t('site.name')}
             </h1>
             <p className="mt-4 max-w-[42ch] text-[16px] leading-relaxed text-balance text-ink-2 sm:text-[17px]">
-              {remote === 'loading' ? '국내·해외 마라톤 대회 일정과 접수 기간을 접수가 가까운 순서로 모았습니다.' : <>국내·해외 마라톤 대회 일정과 접수 기간을 접수가 가까운 순서로 모았습니다. 국내 {stats.kr}개, 해외 {stats.abroad}개.
-            </>}</p>
+              {remote === 'loading' ? t('app.lead') : t('app.leadCount', { kr: stats.kr, abroad: stats.abroad })}</p>
           </div>
 
           <div className="grid grid-cols-3 gap-px overflow-hidden rounded-box bg-line md:w-[27rem]">
-            <Stat label="지금 접수 중" value={stats.open} active={status.includes('open')} onClick={() => pickStatus('open')} />
+            <Stat label={t('stat.open')} value={stats.open} active={status.includes('open')} onClick={() => pickStatus('open')} />
             <Stat
-              label="7일 안에 마감"
+              label={t('stat.closing7')}
               value={stats.closing7}
               active={status.includes('closing7')}
               hot={stats.closing7 > 0}
               onClick={() => pickStatus('closing7')}
             />
             <Stat
-              label="30일 안에 시작"
+              label={t('stat.opening30')}
               value={stats.opening30}
               active={status.includes('opening30')}
               onClick={() => pickStatus('opening30')}
@@ -487,9 +512,9 @@ function Main() {
 
         {/* 요즘 인기: 최근 7일 조회·저장이 많은 대회 */}
         {hotList.length >= 3 && (
-          <section className="mx-auto max-w-6xl px-4 pb-6 sm:px-6" aria-label="요즘 인기 대회">
+          <section className="mx-auto max-w-6xl px-4 pb-6 sm:px-6" aria-label={t('hot.aria')}>
             <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-[15px] font-bold">요즘 많이 보는 대회</h2>
+              <h2 className="text-[15px] font-bold">{t('hot.title')}</h2>
               <button
                 onClick={() => {
                   setSort('views');
@@ -498,7 +523,7 @@ function Main() {
                 }}
                 className="text-[13px] font-semibold text-ink-3 underline underline-offset-4 hover:text-ink"
               >
-                조회순 전체 보기
+                {t('hot.all')}
               </button>
             </div>
             <ol className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
@@ -511,16 +536,28 @@ function Main() {
                       onClick={() => openRace(r)}
                       className="flex h-full w-full flex-col items-start gap-1 rounded-box bg-surface px-3.5 py-3 text-left transition hover:bg-sunken"
                     >
-                      <span className="num text-[13px] font-bold text-ink-3">{i + 1}위</span>
-                      <span className="line-clamp-2 text-[15px] leading-snug font-bold">{r.name_ko}</span>
+                      <span className="num text-[13px] font-bold text-ink-3">{t('hot.rank', { n: i + 1 })}</span>
+                      <span className="line-clamp-2 text-[15px] leading-snug font-bold">{raceName(r, lang)}</span>
                       <span className="text-[13px] text-ink-3">
-                        {p.m}월 {p.d}일 · {isDomestic(r) ? r.city_ko.split(' ')[0] : r.country_ko}
+                        {t('date.md', { m: p.m, d: p.d, mon: p.mon })} ·{' '}
+                        {lang === 'en'
+                          ? isDomestic(r)
+                            ? whereText(r, 'en').split(', ').at(-1)
+                            : countryName(r.country_code, r.country_ko, 'en')
+                          : isDomestic(r)
+                            ? r.city_ko.split(' ')[0]
+                            : r.country_ko}
                       </span>
                       <span className="mt-auto text-[12px] text-ink-3">
-                        조회 <span className="num text-[13px]">{shortCount(st?.views ?? 0)}</span>
+                        {t('views.pre')}
+                        <span className="num text-[13px]">{shortCount(st?.views ?? 0, lang)}</span>
+                        {t('views.post')}
                         {(st?.saves ?? 0) > 0 && (
                           <>
-                            {' '}· 저장 <span className="num text-[13px]">{shortCount(st!.saves!)}</span>
+                            {t('saves.sep')}
+                            {t('saves.pre')}
+                            <span className="num text-[13px]">{shortCount(st!.saves!, lang)}</span>
+                            {t('saves.post')}
                           </>
                         )}
                       </span>
@@ -535,12 +572,12 @@ function Main() {
         {/* 도구 막대 */}
         <div className="border-y border-line bg-bg sm:sticky sm:top-14 sm:z-20">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-2.5 sm:px-6">
-            <div role="radiogroup" aria-label="국내 해외" className="grid w-full grid-cols-3 rounded-ctl bg-sunken p-1 sm:inline-flex sm:w-auto">
+            <div role="radiogroup" aria-label={t('scope.aria')} className="grid w-full grid-cols-3 rounded-ctl bg-sunken p-1 sm:inline-flex sm:w-auto">
               {(
                 [
-                  ['all', '전체', stats.kr + stats.abroad],
-                  ['kr', '국내', stats.kr],
-                  ['abroad', '해외', stats.abroad],
+                  ['all', t('scope.all'), stats.kr + stats.abroad],
+                  ['kr', t('scope.kr'), stats.kr],
+                  ['abroad', t('scope.abroad'), stats.abroad],
                 ] as [Scope, string, number][]
               ).map(([s, label, n]) => (
                 <button
@@ -565,7 +602,7 @@ function Main() {
 
             <form role="search" onSubmit={onSearchSubmit} className="order-first w-full sm:order-none sm:w-auto sm:flex-1">
               <label className="relative block">
-                <span className="sr-only">대회 검색</span>
+                <span className="sr-only">{t('search.label')}</span>
                 <MagnifyingGlass size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-3" />
                 <input
                   ref={searchRef}
@@ -573,25 +610,25 @@ function Main() {
                   enterKeyHint="search"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder="대회 이름, 도시, 나라"
+                  placeholder={t('search.placeholder')}
                   className="h-10 w-full rounded-ctl border border-line bg-surface pr-3 pl-9 text-[15px] outline-none transition placeholder:text-ink-3 focus:border-ink"
                 />
               </label>
             </form>
             {/* 휴대폰은 헤더 버튼이 숨겨져 있어 검색창 바로 밑에 (PC 는 바로 위 헤더 버튼이 같은 역할) */}
             <p className="order-first -mt-0.5 flex w-full items-baseline justify-end gap-1.5 text-[13px] text-ink-3 sm:hidden">
-              찾는 대회가 없나요?
+              {t('request.missing')}
               <button
                 onClick={() => openRequest('search')}
                 className="-my-2 py-2 font-semibold text-ink-2 underline underline-offset-4 hover:text-ink"
               >
-                추가 요청
+                {t('request.short')}
               </button>
             </p>
 
             <div className="flex w-full items-center justify-end gap-2 sm:ml-0 sm:w-auto">
               <label className="relative">
-                <span className="sr-only">정렬</span>
+                <span className="sr-only">{t('sort.label')}</span>
                 <select
                   value={sort}
                   onChange={(e) => {
@@ -600,12 +637,12 @@ function Main() {
                   }}
                   className="h-10 appearance-none rounded-ctl border border-line bg-surface pr-9 pl-3 text-[14px] font-semibold outline-none focus:border-ink"
                 >
-                  <option value="entry">접수 순서</option>
-                  <option value="race_date">대회 날짜</option>
-                  <option value="views">조회순</option>
-                  <option value="saves">저장순</option>
-                  <option value="size">규모순</option>
-                  <option value="flight">가까운 곳</option>
+                  <option value="entry">{t('sort.entry')}</option>
+                  <option value="race_date">{t('sort.race_date')}</option>
+                  <option value="views">{t('sort.views')}</option>
+                  <option value="saves">{t('sort.saves')}</option>
+                  <option value="size">{t('sort.size')}</option>
+                  <option value="flight">{t('sort.flight')}</option>
                 </select>
                 <CaretDown size={14} className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-ink-3" />
               </label>
@@ -622,7 +659,7 @@ function Main() {
                 >
                   <BookmarkSimple size={16} weight={favOnly ? 'fill' : 'bold'} />
                   <span className="num text-[15px]">{fav.ids.length}</span>
-                  <span className="sr-only">관심 대회만 보기</span>
+                  <span className="sr-only">{t('fav.only')}</span>
                 </button>
               )}
               {reg.ids.length > 0 && (
@@ -632,15 +669,15 @@ function Main() {
                     setRegOnly((v) => !v);
                   }}
                   aria-pressed={regOnly}
-                  title="접수한 대회"
+                  title={t('reg.title')}
                   className={`inline-flex h-10 items-center gap-1.5 rounded-ctl border px-3 text-[14px] font-semibold transition ${
                     regOnly ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
                   }`}
                 >
                   <CheckSquare size={16} weight={regOnly ? 'fill' : 'bold'} />
-                  <span className="hidden sm:inline">접수한 대회</span>
+                  <span className="hidden sm:inline">{t('reg.title')}</span>
                   <span className="num text-[15px]">{reg.ids.length}</span>
-                  <span className="sr-only sm:hidden">접수한 대회만 보기</span>
+                  <span className="sr-only sm:hidden">{t('reg.only')}</span>
                 </button>
               )}
               <button
@@ -651,7 +688,7 @@ function Main() {
                 }`}
               >
                 <SlidersHorizontal size={16} weight="bold" />
-                필터
+                {t('filter.button')}
                 {activeFilters > 0 && <span className="num text-[15px]">{activeFilters}</span>}
               </button>
             </div>
@@ -660,7 +697,7 @@ function Main() {
           {filtersOpen && (
             <div className="border-t border-line">
               <div className="mx-auto grid max-w-6xl gap-4 px-4 py-4 sm:px-6 md:grid-cols-2">
-                <FilterGroup label="종목">
+                <FilterGroup label={t('filter.discipline')}>
                   {DISCIPLINES.map((d) => (
                     <Chip
                       key={d}
@@ -670,26 +707,26 @@ function Main() {
                         setDiscipline(discipline === d ? null : d);
                       }}
                     >
-                      {DISCIPLINE_LABEL[d]}
+                      {DISCIPLINE_TEXT[lang][d]}
                     </Chip>
                   ))}
                 </FilterGroup>
-                <FilterGroup label="접수 방식">
-                  {ENTRY_TYPES.map((t) => (
-                    <Chip key={t} on={types.includes(t)} onClick={() => {
-                        if (!types.includes(t)) track('filter', { name: 'entry_type', value: t });
-                        toggle(types, setTypes, t);
+                <FilterGroup label={t('filter.entry')}>
+                  {ENTRY_TYPES.map((et) => (
+                    <Chip key={et} on={types.includes(et)} onClick={() => {
+                        if (!types.includes(et)) track('filter', { name: 'entry_type', value: et });
+                        toggle(types, setTypes, et);
                       }}>
-                      {ENTRY_LABEL[t]}
+                      {ENTRY_TEXT[lang][et]}
                     </Chip>
                   ))}
                 </FilterGroup>
-                <FilterGroup label="접수 상태">
+                <FilterGroup label={t('filter.status')}>
                   {(
                     [
-                      ['open', '접수 중'],
-                      ['upcoming', '접수 예정'],
-                      ['closed', '접수 끝'],
+                      ['open', t('filter.open')],
+                      ['upcoming', t('filter.upcoming')],
+                      ['closed', t('filter.closed')],
                     ] as [EntryStatus, string][]
                   ).map(([s, label]) => (
                     <Chip
@@ -710,11 +747,11 @@ function Main() {
                       setMajorOnly(!majorOnly);
                     }}
                   >
-                    메이저만
+                    {t('filter.major')}
                   </Chip>
                 </FilterGroup>
                 {scope !== 'kr' && (
-                  <FilterGroup label="비행시간">
+                  <FilterGroup label={t('filter.flight')}>
                     <input
                       type="range"
                       min={2}
@@ -722,9 +759,9 @@ function Main() {
                       value={maxFlight}
                       onChange={(e) => setMaxFlight(Number(e.target.value))}
                       className="w-40"
-                      aria-label="최대 비행시간"
+                      aria-label={t('filter.flightAria')}
                     />
-                    <span className="num text-[16px] font-semibold">{maxFlight >= 24 ? '제한 없음' : `${maxFlight}시간 이내`}</span>
+                    <span className="num text-[16px] font-semibold">{maxFlight >= 24 ? t('filter.noLimit') : t('filter.hours', { n: maxFlight })}</span>
                   </FilterGroup>
                 )}
               </div>
@@ -739,16 +776,16 @@ function Main() {
         <section id="list" className="mx-auto max-w-6xl scroll-mt-32 px-1 pb-16 sm:px-2">
           <ResultsAnnouncer query={dq.trim()} count={shown} suggestions={suggestions.length} loading={remote === 'loading'} />
           {remote === 'loading' ? (
-            <div className="space-y-px pt-8" aria-busy="true" aria-label="대회 목록 불러오는 중">
+            <div className="space-y-px pt-8" aria-busy="true" aria-label={t('list.loading')}>
               {Array.from({ length: 6 }, (_, i) => (
                 <div key={i} className="h-[88px] animate-pulse bg-surface" />
               ))}
             </div>
           ) : shown === 0 ? (
             <div id={RESULTS_EMPTY_ID} className="scroll-mt-32 px-3 py-20 text-center">
-              <p className="text-[17px] font-semibold">{dq.trim() ? `‘${dq.trim()}’ 대회를 찾지 못했습니다.` : '조건에 맞는 대회가 없습니다.'}</p>
+              <p className="text-[17px] font-semibold">{dq.trim() ? t('list.notFound', { q: dq.trim() }) : t('list.noMatch')}</p>
               <p className="mx-auto mt-1.5 max-w-[34ch] text-[15px] break-keep text-balance text-ink-2">
-                찾는 대회가 없나요? 추가 요청을 남겨 주시면 매주 월요일 일정을 확인할 때 같이 넣습니다.
+                {t('list.emptyHelp')}
               </p>
               <div className="mt-5 flex justify-center gap-3">
                 <button
@@ -756,15 +793,15 @@ function Main() {
                   className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-ink px-4 text-sm font-semibold text-bg hover:opacity-85"
                 >
                   <Plus size={14} weight="bold" aria-hidden />
-                  대회 추가 요청
+                  {t('header.request')}
                 </button>
                 <button onClick={reset} className="h-10 rounded-ctl bg-sunken px-4 text-sm font-semibold hover:bg-line">
-                  {dq.trim() ? '검색·필터 풀기' : '필터 풀기'}
+                  {dq.trim() ? t('list.clearAll') : t('list.clearFilters')}
                 </button>
               </div>
               {suggestions.length > 0 && (
                 <div className="mt-12 text-left">
-                  <h2 className="pb-2 text-[17px] font-bold tracking-tight sm:px-2">혹시 이 대회인가요?</h2>
+                  <h2 className="pb-2 text-[17px] font-bold tracking-tight sm:px-2">{t('list.didYouMean')}</h2>
                   <ul className="-mx-3 divide-y divide-line border-y border-line">
                     {suggestions.map((r) => (
                       <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} registered={reg.has(r.id)} onOpen={openRace} />
@@ -789,7 +826,8 @@ function Main() {
                     >
                       <Plus size={14} weight="bold" aria-hidden />
                       <span>
-                        <span className="hidden sm:inline">찾는 대회가 없나요? </span>추가 요청
+                        <span className="hidden sm:inline">{t('list.missingLead')}</span>
+                        {t('request.short')}
                       </span>
                     </button>
                   )}
@@ -815,7 +853,7 @@ function Main() {
                 aria-expanded={showPast}
                 className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-ink-3 hover:text-ink"
               >
-                이미 끝난 대회 {pastRaces.length}개 {showPast ? '접기' : '보기'}
+                {t(showPast ? 'past.hide' : 'past.show', { n: pastRaces.length })}
                 <CaretDown size={14} className={showPast ? 'rotate-180' : ''} />
               </button>
               {showPast && (
@@ -836,28 +874,24 @@ function Main() {
         <section className="border-t border-line">
           <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-12 sm:px-6 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-[22px] font-extrabold tracking-tight">찾는 대회가 없나요?</h2>
-              <p className="mt-1 text-[15px] text-ink-2">알려주시면 매주 월요일 일정을 확인할 때 같이 넣습니다.</p>
+              <h2 className="text-[22px] font-extrabold tracking-tight">{t('bottom.title')}</h2>
+              <p className="mt-1 text-[15px] text-ink-2">{t('bottom.text')}</p>
             </div>
             <button
               onClick={() => openRequest('bottom')}
               className="h-11 shrink-0 self-start rounded-ctl bg-accent px-5 text-[15px] font-bold text-on-accent transition hover:brightness-95 active:translate-y-px md:self-auto"
             >
-              대회 추가 요청
+              {t('header.request')}
             </button>
           </div>
         </section>
 
         <footer className="border-t border-line">
           <div className="mx-auto max-w-6xl px-4 py-8 text-[13px] leading-relaxed text-ink-3 sm:px-6">
-            <p className="max-w-[70ch]">
-              일정과 접수 기간은 주최 측 사정으로 바뀔 수 있습니다. 날짜 옆에 예상이라고 적힌 값은 지난 대회를 바탕으로 짐작한
-              것이니 신청 전에 공식 홈페이지를 꼭 확인하세요. 비용은 참고용 추정치이고, 다른 곳 후기는 링크만 모았으며 글의
-              저작권은 쓴 분에게 있습니다.
-            </p>
-            <p className="mt-2 max-w-[70ch]">방문 통계를 내려고 Google Analytics 를 씁니다. 이름이나 이메일처럼 누구인지 알 수 있는 정보는 보내지 않습니다.</p>
+            <p className="max-w-[70ch]">{t('footer.1')}</p>
+            <p className="mt-2 max-w-[70ch]">{t('footer.2')}</p>
             <p className="mt-2 max-w-[70ch]">
-              문의{' '}
+              {t('footer.contact')}{' '}
               <a href="mailto:marathon82@kakao.com" className="underline underline-offset-2 hover:no-underline">
                 marathon82@kakao.com
               </a>
@@ -866,7 +900,7 @@ function Main() {
         </footer>
       </main>
 
-      <Panel open={!!selected} onClose={() => setSelected(null)} label={selected?.name_ko ?? '대회 정보'}>
+      <Panel open={!!selected} onClose={() => setSelected(null)} label={selected ? raceName(selected, lang) : t('panel.race')}>
         {selected && (
           <Suspense fallback={null}>
             <RaceDetail
@@ -888,13 +922,13 @@ function Main() {
         )}
       </Panel>
 
-      <Panel open={showRequest} onClose={() => setShowRequest(false)} label="대회 추가 요청">
+      <Panel open={showRequest} onClose={() => setShowRequest(false)} label={t('header.request')}>
         <Suspense fallback={null}>
           <RequestPanel onClose={() => setShowRequest(false)} onLogin={() => setAuthMode('in')} />
         </Suspense>
       </Panel>
 
-      <Panel open={showAdmin && !!profile?.is_admin} onClose={() => setShowAdmin(false)} label="관리">
+      <Panel open={showAdmin && !!profile?.is_admin} onClose={() => setShowAdmin(false)} label={t('header.admin')}>
         <Suspense fallback={null}>
           <AdminPanel races={data.races} onClose={() => setShowAdmin(false)} onSaved={() => reload(true)} />
         </Suspense>
@@ -907,7 +941,7 @@ function Main() {
           setAuthMode(null);
           auth.clearFlags();
         }}
-        label="로그인"
+        label={t('panel.login')}
       >
         {authMode && (
           <AuthForm
@@ -922,7 +956,7 @@ function Main() {
 
       {remote !== 'fallback' ? null : (
         <div className="fixed right-4 bottom-4 z-40 max-w-xs">
-          <Note tone="error">대회 목록을 불러오지 못했습니다. 잠시 뒤 새로고침해 주세요.</Note>
+          <Note tone="error">{t('app.loadError')}</Note>
         </div>
       )}
     </div>

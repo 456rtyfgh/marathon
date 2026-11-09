@@ -1,6 +1,8 @@
 import type { Race } from './types';
 import { TODAY, daysBetween } from './util';
 import { provinceOf } from './places';
+import type { Lang } from '../i18n/lang';
+import { translate } from '../i18n/t';
 
 /** 국내 대회 숙소·교통 예약 사이트로 바로 가는 링크. 주소 형식은 직접 열어 확인한 것만 쓴다 (PLAN §6, 2026-11-06). */
 export interface BookingLink {
@@ -55,7 +57,8 @@ export function stayQuery(race: Race): string {
 /** 울릉도는 배로만 간다 */
 export const isUlleung = (race: Race) => /울릉/.test(race.city_ko || '');
 
-export function stayLinks(race: Race, today = TODAY()): BookingLink[] {
+export function stayLinks(race: Race, today = TODAY(), lang: Lang = 'ko'): BookingLink[] {
+  const t = (k: Parameters<typeof translate>[1]) => translate(lang, k);
   const q = stayQuery(race);
   const dates = stayDates(race, today);
   const yeogi = new URLSearchParams({ keyword: q, personal: '1' });
@@ -67,19 +70,20 @@ export function stayLinks(race: Race, today = TODAY()): BookingLink[] {
     airbnb.set('checkout', dates.checkOut);
   }
   return [
-    { id: 'yeogi', label: '여기어때', url: `https://www.yeogi.com/domestic-accommodations?${yeogi}`, note: '호텔·모텔·펜션' },
+    { id: 'yeogi', label: t('book.yeogi'), url: `https://www.yeogi.com/domestic-accommodations?${yeogi}`, note: t('book.yeogiNote') },
     {
       id: 'airbnb',
-      label: '에어비앤비',
+      label: t('book.airbnb'),
       url: `https://www.airbnb.co.kr/s/${encodeURIComponent(q)}/homes?${airbnb}`,
-      note: '집 전체·방',
+      note: t('book.airbnbNote'),
     },
   ];
 }
 
 const ymd = (s: string) => s.replaceAll('-', '');
 
-export function transportLinks(race: Race, today = TODAY()): BookingLink[] {
+export function transportLinks(race: Race, today = TODAY(), lang: Lang = 'ko'): BookingLink[] {
+  const t = (k: Parameters<typeof translate>[1], v?: Record<string, string>) => translate(lang, k, v);
   // 울릉도 여객선은 항구·선사마다 예매처가 달라 확인된 한 곳이 없다 → 링크 없이 안내 문구만 (CostCalculator)
   if (isUlleung(race)) return [];
   // 제주는 기차·고속버스가 없으니 항공권만
@@ -88,19 +92,19 @@ export function transportLinks(race: Race, today = TODAY()): BookingLink[] {
     return [
       {
         id: 'naver-flight',
-        label: '항공권',
+        label: t('book.flight'),
         url: dates
           ? `https://flight.naver.com/flights/domestic/SEL-CJU-${ymd(dates.checkIn)}/CJU-SEL-${ymd(dates.checkOut)}?adult=1&fareType=YC`
           : 'https://flight.naver.com/',
-        note: dates ? `서울↔제주 왕복, 대회 전날 출발·${dates.nextDay ? '다음 날' : '당일'} 귀경` : '서울↔제주',
+        note: dates ? t('book.flightNote', { back: dates.nextDay ? t('book.nextDay') : t('book.sameDay') }) : t('book.flightNoteNoDate'),
       },
     ];
   }
   return [
-    { id: 'korail', label: '코레일', url: 'https://www.korail.com/ticket/search/general', note: 'KTX·ITX·무궁화' },
-    { id: 'srt', label: 'SRT', url: 'https://etk.srail.kr/hpg/hra/01/selectScheduleList.do?pageId=TK0101010000', note: '수서·동탄 출발' },
-    { id: 'kobus', label: '고속버스', url: 'https://www.kobus.co.kr/mrs/rotinf.do', note: '고속버스 통합예매' },
-    { id: 'txbus', label: '시외버스', url: 'https://txbus.t-money.co.kr/main.do', note: '시외버스 통합예매' },
+    { id: 'korail', label: t('book.korail'), url: 'https://www.korail.com/ticket/search/general', note: t('book.korailNote') },
+    { id: 'srt', label: t('book.srt'), url: 'https://etk.srail.kr/hpg/hra/01/selectScheduleList.do?pageId=TK0101010000', note: t('book.srtNote') },
+    { id: 'kobus', label: t('book.kobus'), url: 'https://www.kobus.co.kr/mrs/rotinf.do', note: t('book.kobusNote') },
+    { id: 'txbus', label: t('book.txbus'), url: 'https://txbus.t-money.co.kr/main.do', note: t('book.txbusNote') },
   ];
 }
 
@@ -108,11 +112,12 @@ export function transportLinks(race: Race, today = TODAY()): BookingLink[] {
  * 당일치기: 대회장 근처 식당·사우나 지도 검색. 검색어는 숙소와 같은 stayQuery.
  * 네이버 지도 /p/search/<검색어> — PC 는 그 검색, 휴대폰은 m.map.naver.com/search?query= 로 넘어가 검색어 유지 (2026-11-08 확인)
  */
-export function nearbyLinks(race: Race): BookingLink[] {
+export function nearbyLinks(race: Race, lang: Lang = 'ko'): BookingLink[] {
+  const t = (k: Parameters<typeof translate>[1]) => translate(lang, k);
   const q = stayQuery(race);
   const naver = (term: string) => `https://map.naver.com/p/search/${encodeURIComponent(`${q} ${term}`)}`;
   return [
-    { id: 'map-food', label: '식당', url: naver('맛집'), note: '네이버 지도 · 맛집' },
-    { id: 'map-sauna', label: '사우나·목욕탕', url: naver('사우나'), note: '네이버 지도 · 사우나' },
+    { id: 'map-food', label: t('book.food'), url: naver('맛집'), note: t('book.foodNote') },
+    { id: 'map-sauna', label: t('book.sauna'), url: naver('사우나'), note: t('book.saunaNote') },
   ];
 }

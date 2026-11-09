@@ -4,9 +4,10 @@ import type { Race, CostBaseline } from '../lib/types';
 import { costFor, feeToKrw, feeLabel, krwExact, isDomestic } from '../lib/util';
 import { isUlleung, nearbyLinks, stayDates, stayLinks, stayQuery, transportLinks, type BookingLink } from '../lib/booking';
 import { track } from '../lib/analytics';
+import { useLang } from '../i18n';
+import { cityName } from '../i18n/names';
 
 type Tier = 'low' | 'mid' | 'high';
-const TIER_LABEL: Record<Tier, string> = { low: '절약', mid: '보통', high: '여유' };
 
 export default function CostCalculator({ race, costs }: { race: Race; costs: CostBaseline[] }) {
   return isDomestic(race) ? <DomesticBooking race={race} /> : <Estimate race={race} costs={costs} />;
@@ -14,24 +15,27 @@ export default function CostCalculator({ race, costs }: { race: Race; costs: Cos
 
 /** 국내 대회: 금액 추정 대신 숙소·교통 예약 사이트로 바로 연결 */
 function DomesticBooking({ race }: { race: Race }) {
+  const { lang, t } = useLang();
   const dates = stayDates(race);
-  const stays = stayLinks(race);
-  const rides = transportLinks(race);
+  const stays = stayLinks(race, undefined, lang);
+  const rides = transportLinks(race, undefined, lang);
   const jeju = rides.length === 1 && rides[0].id === 'naver-flight';
   const ferry = isUlleung(race);
-  const out = dates?.nextDay ? '다음 날 체크아웃' : '당일 체크아웃';
+  const out = dates?.nextDay ? t('cost.nextDayOut') : t('cost.sameDayOut');
+  // 검색어는 한국어 그대로(예약 사이트가 한국어), 영어 화면 글에는 영어 지명
+  const q = lang === 'en' ? (cityName(race, 'en') ?? race.name_en) : stayQuery(race);
   return (
     <div className="space-y-7">
       <section className="space-y-3">
         <div>
-          <h3 className="text-[15px] font-semibold text-ink">숙소 찾기</h3>
+          <h3 className="text-[15px] font-semibold text-ink">{t('cost.stayTitle')}</h3>
           <p className="mt-0.5 text-[13px] text-ink-3">
             {!dates
-              ? `대회 날짜가 정해지지 않아 ‘${stayQuery(race)}’ 지역만 넣어 검색합니다. 날짜는 직접 고르세요.`
+              ? t('cost.stayNoDate', { q })
               : race.date_confidence === 'expected'
-                ? `예상 대회일 기준으로 전날 체크인, ${out} ‘${stayQuery(race)}’ 숙소를 검색합니다. 날짜가 바뀔 수 있습니다.`
-                : `대회 전날 체크인, ${out}으로 ‘${stayQuery(race)}’ 숙소를 검색합니다.`}
-            {dates?.nextDay && ' 100km 이상 종목은 다음 날 끝나는 경우가 많아 하루 더 잡았습니다.'}
+                ? t('cost.stayExpected', { out, q })
+                : t('cost.stayConfirmed', { out, q })}
+            {dates?.nextDay && t('cost.stayLong')}
           </p>
         </div>
         <BookingList race={race} links={stays} />
@@ -39,13 +43,9 @@ function DomesticBooking({ race }: { race: Race }) {
 
       <section className="space-y-3">
         <div>
-          <h3 className="text-[15px] font-semibold text-ink">교통편 예매</h3>
+          <h3 className="text-[15px] font-semibold text-ink">{t('cost.rideTitle')}</h3>
           <p className="mt-0.5 text-[13px] text-ink-3">
-            {ferry
-              ? '울릉도는 포항·강릉·묵호에서 여객선으로 갑니다. 항구·선사마다 예매처가 달라 링크는 따로 걸지 않았습니다. 배는 날씨로 결항이 잦습니다.'
-              : jeju
-                ? '제주는 항공편으로 갑니다. 서울 출발로 검색하니 다른 공항 출발은 예매 화면에서 바꾸세요.'
-                : '출발역·도착역과 날짜는 예매 화면에서 고르세요.'}
+            {ferry ? t('cost.rideFerry') : jeju ? t('cost.rideJeju') : t('cost.rideOther')}
           </p>
         </div>
         {rides.length > 0 && <BookingList race={race} links={rides} />}
@@ -53,17 +53,15 @@ function DomesticBooking({ race }: { race: Race }) {
 
       <section className="space-y-3">
         <div>
-          <h3 className="text-[15px] font-semibold text-ink">식당·사우나</h3>
-          <p className="mt-0.5 text-[13px] text-ink-3">
-            당일치기라면 — 대회 끝나고 ‘{stayQuery(race)}’ 근처 식당·사우나를 지도에서 찾습니다.
-          </p>
+          <h3 className="text-[15px] font-semibold text-ink">{t('cost.nearTitle')}</h3>
+          <p className="mt-0.5 text-[13px] text-ink-3">{t('cost.nearText', { q })}</p>
         </div>
-        <BookingList race={race} links={nearbyLinks(race)} />
+        <BookingList race={race} links={nearbyLinks(race, lang)} />
       </section>
 
       <dl className="flex items-baseline justify-between gap-4 border-t border-line pt-4">
-        <dt className="text-[14px] text-ink-2">대회 참가비</dt>
-        <dd className="num text-[17px] font-semibold text-ink">{feeLabel(race)}</dd>
+        <dt className="text-[14px] text-ink-2">{t('cost.fee')}</dt>
+        <dd className="num text-[17px] font-semibold text-ink">{feeLabel(race, lang)}</dd>
       </dl>
     </div>
   );
@@ -94,6 +92,7 @@ function BookingList({ race, links }: { race: Race; links: BookingLink[] }) {
 }
 
 function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
+  const { lang, t } = useLang();
   const base = costFor(race, costs);
   const [nights, setNights] = useState(race.flight_hours && race.flight_hours > 8 ? 5 : 3);
   const [people, setPeople] = useState(1);
@@ -116,37 +115,37 @@ function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
   }, [base, nights, people, tier, shareRoom, race]);
 
   if (!base || !r) {
-    return <p className="text-sm text-ink-3">이 지역은 아직 비용 기준값이 없습니다.</p>;
+    return <p className="text-sm text-ink-3">{t('cost.noBase')}</p>;
   }
 
   const rows: [string, number, string][] = [
-    ['왕복 항공 (인천 출발)', r.travel, `${people}명`],
-    ['숙박', r.hotel, nights ? `${nights}박, 방 ${r.rooms}개` : '당일치기'],
-    ['식비·현지 교통', r.daily, `${nights + 1}일`],
-    ['대회 참가비', r.fee, race.entry_fee ? `${people}명` : '미공개'],
-    ['보험·기타', r.misc, ''],
+    [t('cost.flight'), r.travel, t('cost.people', { n: people })],
+    [t('cost.hotel'), r.hotel, nights ? t('cost.nightsRooms', { n: nights, r: r.rooms }) : t('cost.dayTrip')],
+    [t('cost.daily'), r.daily, t('cost.days', { n: nights + 1 })],
+    [t('cost.feeRow'), r.fee, race.entry_fee ? t('cost.people', { n: people }) : t('cost.tba')],
+    [t('cost.misc'), r.misc, ''],
   ];
 
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Stepper label="숙박" unit="박" value={nights} min={0} max={14} onChange={setNights} />
-        <Stepper label="인원" unit="명" value={people} min={1} max={30} onChange={setPeople} />
+        <Stepper label={t('cost.nights')} unit={t('cost.nightUnit')} value={nights} min={0} max={14} onChange={setNights} />
+        <Stepper label={t('cost.peopleLabel')} unit={t('cost.peopleUnit')} value={people} min={1} max={30} onChange={setPeople} />
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div role="radiogroup" aria-label="예산 수준" className="inline-flex rounded-ctl bg-sunken p-1">
-          {(['low', 'mid', 'high'] as Tier[]).map((t) => (
+        <div role="radiogroup" aria-label={t('cost.tierAria')} className="inline-flex rounded-ctl bg-sunken p-1">
+          {(['low', 'mid', 'high'] as Tier[]).map((tier_) => (
             <button
-              key={t}
+              key={tier_}
               role="radio"
-              aria-checked={tier === t}
-              onClick={() => setTier(t)}
+              aria-checked={tier === tier_}
+              onClick={() => setTier(tier_)}
               className={`h-9 rounded-[4px] border px-3.5 text-[14px] font-semibold transition ${
-                tier === t ? 'border-line bg-surface text-ink' : 'border-transparent text-ink-3 hover:text-ink'
+                tier === tier_ ? 'border-line bg-surface text-ink' : 'border-transparent text-ink-3 hover:text-ink'
               }`}
             >
-              {TIER_LABEL[t]}
+              {t(`cost.tier.${tier_}` as const)}
             </button>
           ))}
         </div>
@@ -158,7 +157,7 @@ function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
               onChange={(e) => setShareRoom(e.target.checked)}
               className="size-4"
             />
-            2명이 방 하나
+            {t('cost.share')}
           </label>
         )}
       </div>
@@ -171,23 +170,20 @@ function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
                 {label}
                 {hint && <span className="ml-2 text-[13px] text-ink-3">{hint}</span>}
               </dt>
-              <dd className="num text-[17px] font-semibold text-ink">{krwExact(value)}</dd>
+              <dd className="num text-[17px] font-semibold text-ink">{krwExact(value, lang)}</dd>
             </div>
           ))}
         </dl>
         <div className="flex items-end justify-between gap-4 border-t-2 border-ink px-4 py-4">
           <div>
-            <div className="text-[13px] text-ink-3">예상 총액</div>
-            {people > 1 && <div className="num text-[15px] text-ink-2">1인 {krwExact(r.per)}</div>}
+            <div className="text-[13px] text-ink-3">{t('cost.total')}</div>
+            {people > 1 && <div className="num text-[15px] text-ink-2">{t('cost.per', { v: krwExact(r.per, lang) })}</div>}
           </div>
-          <div className="num text-[32px] font-bold leading-none">{krwExact(r.total)}</div>
+          <div className="num text-[32px] font-bold leading-none">{krwExact(r.total, lang)}</div>
         </div>
       </div>
 
-      <p className="max-w-[60ch] text-[13px] leading-relaxed text-ink-3">
-        인천 출발 왕복 이코노미 기준 추정치입니다. 대회 주간에는 숙박비가 평소보다
-        오르는 경우가 많으니 여행사 패키지 가격과 비교해 확인하세요.
-      </p>
+      <p className="max-w-[60ch] text-[13px] leading-relaxed text-ink-3">{t('cost.note')}</p>
     </div>
   );
 }
@@ -207,20 +203,21 @@ function Stepper({
   max: number;
   onChange: (v: number) => void;
 }) {
+  const { t } = useLang();
   const btn =
     'grid size-11 place-items-center sm:size-9 rounded-ctl text-ink-2 transition hover:bg-sunken hover:text-ink active:scale-95 disabled:opacity-30';
   return (
     <div className="flex items-center justify-between rounded-box bg-surface px-3 py-2.5">
       <span className="shrink-0 whitespace-nowrap text-[14px] text-ink-2">{label}</span>
       <div className="flex items-center gap-1">
-        <button className={btn} aria-label={`${label} 줄이기`} disabled={value <= min} onClick={() => onChange(value - 1)}>
+        <button className={btn} aria-label={t('cost.less', { label: label.toLowerCase() })} disabled={value <= min} onClick={() => onChange(value - 1)}>
           <Minus size={16} weight="bold" />
         </button>
         <span className="num w-12 text-center text-[22px] font-bold">
           {value}
           <span className="ml-0.5 text-[14px] font-semibold text-ink-3">{unit}</span>
         </span>
-        <button className={btn} aria-label={`${label} 늘리기`} disabled={value >= max} onClick={() => onChange(value + 1)}>
+        <button className={btn} aria-label={t('cost.more', { label: label.toLowerCase() })} disabled={value >= max} onClick={() => onChange(value + 1)}>
           <Plus size={16} weight="bold" />
         </button>
       </div>

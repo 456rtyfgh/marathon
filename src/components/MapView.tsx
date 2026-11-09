@@ -4,6 +4,7 @@ import { union, type Box } from '../lib/geo';
 import { MAP_SELECTED, mapFill, mapStep } from '../lib/mapColor';
 import type { SubCountry } from '../lib/subregions';
 import MapLegend from './MapLegend';
+import { useLang } from '../i18n';
 // 지도는 JS 모듈 대신 JSON 파일로 받아 res.json() 으로 읽는다 (800KB 짜리 JS 를 해석·실행하지 않게)
 import koreaUrl from '../maps/korea.json?url';
 import worldUrl from '../maps/world.json?url';
@@ -174,6 +175,7 @@ export default function MapView({
   /** 한 단계 위로 (바다 클릭·Esc). 없으면 둘 다 아무 일 없음 */
   onUp?: () => void;
 }) {
+  const { t } = useLang();
   const [map, setMap] = useState<MapData | undefined>(cache[kind]);
   // 처음 화면(지금 맞춤 영역). 제스처 계산은 ref 로, 그리기 판단은 state 로
   const [base, setBase] = useState<Box | null>(null);
@@ -547,7 +549,7 @@ export default function MapView({
         // 처음 화면에서는 한 손가락 세로 스와이프를 페이지 스크롤로 넘기고, 확대한 뒤에는 지도를 옮긴다
         style={{ touchAction: zoomed ? 'none' : 'pan-y', WebkitTapHighlightColor: 'transparent' }}
         role="group"
-        aria-label={kind === 'kr' ? '시·도별 대회 지도' : kind === 'world' ? '나라별 대회 지도' : '주·도별 대회 지도'}
+        aria-label={kind === 'kr' ? t('map.svg.kr') : kind === 'world' ? t('map.svg.world') : t('map.svg.sub')}
         onMouseLeave={() => setHover(null)}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -611,7 +613,7 @@ export default function MapView({
           <div className="rounded-ctl bg-surface px-2.5 py-1.5 text-[14px] shadow-[0_1px_3px_var(--shadow-strong)]">
             <span className="font-semibold">{names[tip] ?? tip}</span>
             <span className="num ml-1.5 text-[16px] font-semibold">{counts[tip]}</span>
-            <span className="text-ink-3">개</span>
+            <span className="text-ink-3">{t('map.tipUnit')}</span>
           </div>
         ) : null}
       </div>
@@ -620,13 +622,13 @@ export default function MapView({
         <MapLegend max={max} />
       </div>
       <div className="absolute top-2 right-2 flex flex-col divide-y divide-line overflow-hidden rounded-ctl border border-line shadow-[0_1px_2px_var(--shadow)]">
-        <button type="button" className={ctl} onClick={() => zoomBy(1.6)} disabled={zoom >= MAX_ZOOM} aria-label="지도 확대">
+        <button type="button" className={ctl} onClick={() => zoomBy(1.6)} disabled={zoom >= MAX_ZOOM} aria-label={t('map.zoomIn')}>
           <Plus size={16} weight="bold" />
         </button>
-        <button type="button" className={ctl} onClick={() => zoomBy(1 / 1.6)} disabled={!zoomed} aria-label="지도 축소">
+        <button type="button" className={ctl} onClick={() => zoomBy(1 / 1.6)} disabled={!zoomed} aria-label={t('map.zoomOut')}>
           <Minus size={16} weight="bold" />
         </button>
-        <button type="button" className={ctl} onClick={() => base && animateTo(base)} disabled={!moved} aria-label="지도 처음 화면으로">
+        <button type="button" className={ctl} onClick={() => base && animateTo(base)} disabled={!moved} aria-label={t('map.reset')}>
           <ArrowsIn size={16} weight="bold" />
         </button>
       </div>
@@ -659,6 +661,7 @@ const Paths = memo(function Paths({
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
 }) {
+  const { t } = useLang();
   const inFocus = (id: string) => !focus.length || focus.includes(id);
   const fill = (id: string) => {
     if (selected.includes(id)) return MAP_SELECTED;
@@ -683,7 +686,7 @@ const Paths = memo(function Paths({
           ? {
               role: 'button',
               tabIndex: 0,
-              'aria-label': `${names[id] ?? id} 대회 ${n}개`,
+              'aria-label': t('map.pathAria', { name: names[id] ?? id, n }),
               'aria-pressed': selected.includes(id),
               onClick: () => onSelect(id),
               onKeyDown: (e: React.KeyboardEvent) => {

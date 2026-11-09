@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session } from '@supabase/supabase-js';
 import { supabase, hasSupabase } from './supabase';
 import type { Profile } from './types';
+import { useLang, translate as tr, type Lang } from '../i18n';
 
 export type SignUpResult = 'signed_in' | 'check_email' | 'already_exists';
 
@@ -49,6 +50,8 @@ export const useAuth = () => useContext(Ctx);
 const redirectTo = () => `${window.location.origin}/`;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { lang, t } = useLang();
+  const translate = (msg: string) => translateError(msg, lang);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   const need = () => {
-    if (!supabase) throw new Error('서버에 연결되지 않았습니다.');
+    if (!supabase) throw new Error(t('authErr.noServer'));
     return supabase;
   };
 
@@ -120,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     async signUp(email, password, nickname) {
       const nick = nickname.trim();
-      if (nick.length < 2 || nick.length > 16) throw new Error('닉네임은 2자에서 16자 사이로 정해주세요.');
+      if (nick.length < 2 || nick.length > 16) throw new Error(t('authErr.nickLen'));
       const { data, error } = await need().auth.signUp({
         email,
         password,
@@ -141,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     async verifyCode(email, code, kind) {
       const token = code.replace(/\D/g, '');
-      if (token.length < 6) throw new Error('메일에 적힌 숫자 코드를 그대로 입력해 주세요.');
+      if (token.length < 6) throw new Error(t('authErr.code'));
       const types = kind === 'recovery' ? (['recovery'] as const) : (['signup', 'email'] as const);
       let last: string | null = null;
       for (const type of types) {
@@ -162,9 +165,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     async updateNickname(nickname) {
       const nick = nickname.trim();
-      if (nick.length < 2 || nick.length > 16) throw new Error('닉네임은 2자에서 16자 사이로 정해 주세요.');
+      if (nick.length < 2 || nick.length > 16) throw new Error(t('authErr.nickLen2'));
       const uid = session?.user.id;
-      if (!uid) throw new Error('로그인이 필요합니다.');
+      if (!uid) throw new Error(t('authErr.needLogin'));
       const { data, error } = await need()
         .from('profiles')
         .update({ nickname: nick })
@@ -172,8 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select('id, nickname, is_admin')
         .maybeSingle();
       if (error) {
-        if (error.code === '23505') throw new Error('이미 다른 분이 쓰는 닉네임입니다.');
-        throw new Error(/[가-힣]/.test(error.message) ? error.message : '닉네임을 바꾸지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+        if (error.code === '23505') throw new Error(t('authErr.nickTaken'));
+        throw new Error(lang === 'ko' && /[가-힣]/.test(error.message) ? error.message : t('authErr.nickFail'));
       }
       if (data) setProfile(data as Profile);
     },
@@ -186,20 +189,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-function translate(msg: string): string {
+function translateError(msg: string, lang: Lang): string {
   const m = msg.toLowerCase();
-  if (m.includes('invalid login')) return '이메일이나 비밀번호가 맞지 않습니다.';
-  if (m.includes('already registered') || m.includes('already been registered'))
-    return '이미 가입된 이메일입니다. 로그인하거나 비밀번호를 다시 설정하세요.';
-  if (m.includes('password should be at least')) return '비밀번호는 8자 이상으로 정해주세요.';
-  if (m.includes('unable to validate email') || m.includes('invalid email')) return '이메일 주소를 다시 확인해 주세요.';
-  if (m.includes('token has expired') || m.includes('otp') || m.includes('invalid token'))
-    return '코드가 맞지 않거나 시간이 지났습니다. 메일을 다시 받아 새 코드를 넣어 주세요.';
-  if (m.includes('email not confirmed')) return '아직 메일 인증을 하지 않았습니다. 받은 메일의 링크를 눌러주세요.';
-  if (m.includes('rate limit') || m.includes('security purposes'))
-    return '메일을 너무 자주 요청했습니다. 1분쯤 뒤에 다시 시도해 주세요.';
-  if (m.includes('same as the old') || m.includes('different from the old'))
-    return '이전과 다른 비밀번호로 정해주세요.';
-  if (m.includes('weak') || m.includes('pwned')) return '너무 쉬운 비밀번호입니다. 다른 비밀번호를 써주세요.';
-  return '처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.';
+  const t = (k: Parameters<typeof tr>[1]) => tr(lang, k);
+  if (m.includes('invalid login')) return t('authErr.invalidLogin');
+  if (m.includes('already registered') || m.includes('already been registered')) return t('authErr.registered');
+  if (m.includes('password should be at least')) return t('authErr.pwShort');
+  if (m.includes('unable to validate email') || m.includes('invalid email')) return t('authErr.badEmail');
+  if (m.includes('token has expired') || m.includes('otp') || m.includes('invalid token')) return t('authErr.badCode');
+  if (m.includes('email not confirmed')) return t('authErr.notConfirmed');
+  if (m.includes('rate limit') || m.includes('security purposes')) return t('authErr.rate');
+  if (m.includes('same as the old') || m.includes('different from the old')) return t('authErr.samePw');
+  if (m.includes('weak') || m.includes('pwned')) return t('authErr.weak');
+  return t('authErr.generic');
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight } from '@phosphor-icons/react';
 import type { Race, Review, ExternalReview } from '../lib/types';
-import { KIND_LABEL } from '../lib/types';
+import { useLang } from '../i18n';
 import { loadReviews, loadExternalReviews, saveReview, deleteReview } from '../lib/data';
 import { useAuth } from '../lib/auth';
 import { hasSupabase } from '../lib/supabase';
@@ -13,9 +13,11 @@ import { safeUrl } from '../lib/util';
 
 export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () => void }) {
   const { session, profile } = useAuth();
+  const { t } = useLang();
   const [reviews, setReviews] = useState<Review[] | null>(null);
   const [ext, setExt] = useState<ExternalReview[]>([]);
-  const [err, setErr] = useState('');
+  // 불러오기 실패 (문구는 화면 언어로 그릴 때 정한다)
+  const [loadFailed, setLoadFailed] = useState(false);
   const [writing, setWriting] = useState(false);
 
   const reload = () => {
@@ -29,7 +31,7 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
         setExt(e);
       })
       .catch(() => {
-        setErr('후기를 불러오지 못했습니다. 잠시 뒤 다시 열어주세요.');
+        setLoadFailed(true);
         setReviews([]);
       });
   };
@@ -51,25 +53,25 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
               </div>
             </>
           ) : (
-            <p className="text-[15px] text-ink-2">아직 이 사이트에 남겨진 후기가 없습니다.</p>
+            <p className="text-[15px] text-ink-2">{t('rev.none')}</p>
           )}
         </div>
         {session ? (
           <Button tone={writing ? 'quiet' : 'primary'} onClick={() => setWriting((v) => !v)}>
-            {writing ? '닫기' : mine ? '내 후기 고치기' : '후기 쓰기'}
+            {writing ? t('common.close') : mine ? t('rev.edit') : t('rev.write')}
           </Button>
         ) : (
-          <Button onClick={onLogin}>로그인하고 쓰기</Button>
+          <Button onClick={onLogin}>{t('rev.loginToWrite')}</Button>
         )}
       </div>
 
-      {err && <Note tone="error">{err}</Note>}
+      {loadFailed && <Note tone="error">{t('rev.loadFail')}</Note>}
 
       {writing && session && (
         <ReviewForm
           race={race}
           existing={mine}
-          nickname={profile?.nickname ?? '러너'}
+          nickname={profile?.nickname ?? t('common.runner')}
           userId={session.user.id}
           onDone={() => {
             setWriting(false);
@@ -93,8 +95,8 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
                   <StarRating value={r.rating} size={14} />
                   <span className="text-[15px] font-bold">{r.nickname}</span>
                   <span className="text-[13px] text-ink-3">
-                    {r.race_year ? `${r.race_year}년 참가` : ''}
-                    {r.finish_time ? `, 기록 ${r.finish_time}` : ''}
+                    {r.race_year ? t('rev.year', { y: r.race_year }) : ''}
+                    {r.finish_time ? t('rev.time', { t: r.finish_time }) : ''}
                   </span>
                   <span className="num ml-auto text-[14px] text-ink-3">{r.created_at.slice(0, 10)}</span>
                 </div>
@@ -102,9 +104,9 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
                 {(r.course_rating || r.support_rating || r.value_rating) && (
                   <p className="mt-2 text-[13px] text-ink-3">
                     {[
-                      r.course_rating != null && `코스 ${r.course_rating}`,
-                      r.support_rating != null && `운영·보급 ${r.support_rating}`,
-                      r.value_rating != null && `가성비 ${r.value_rating}`,
+                      r.course_rating != null && t('rev.course', { n: r.course_rating }),
+                      r.support_rating != null && t('rev.support', { n: r.support_rating }),
+                      r.value_rating != null && t('rev.value', { n: r.value_rating }),
                     ]
                       .filter(Boolean)
                       .join(', ')}
@@ -118,7 +120,7 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
                     }}
                     className="mt-2 text-[13px] text-ink-3 underline underline-offset-4 transition hover:text-ink"
                   >
-                    삭제
+                    {t('rev.delete')}
                   </button>
                 )}
               </li>
@@ -128,10 +130,10 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
       )}
 
       <section>
-        <h3 className="text-[15px] font-bold">다른 곳에 올라온 후기</h3>
-        <p className="mt-1 text-[13px] text-ink-3">원문 링크만 모았습니다. 누르면 해당 글로 이동합니다.</p>
+        <h3 className="text-[15px] font-bold">{t('rev.extTitle')}</h3>
+        <p className="mt-1 text-[13px] text-ink-3">{t('rev.extHelp')}</p>
         {ext.length === 0 ? (
-          <p className="mt-3 text-[14px] text-ink-3">아직 모아둔 글이 없습니다.</p>
+          <p className="mt-3 text-[14px] text-ink-3">{t('rev.extNone')}</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {ext.map((e) => (
@@ -144,7 +146,7 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
                 >
                   <span className="min-w-0">
                     <span className="block text-[13px] text-ink-3">
-                      {KIND_LABEL[e.kind]}, {e.source}
+                      {t(`kind.${e.kind}` as const)}, {e.source}
                       {e.author && `, ${e.author}`}
                     </span>
                     <span className="mt-0.5 block text-[15px] font-semibold text-ink">{e.title}</span>
@@ -183,12 +185,13 @@ function ReviewForm({
   const [value, setValue] = useState(existing?.value_rating ?? 0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const { lang, t } = useLang();
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!rating) return setErr('별점을 골라 주세요.');
-    if (body.trim().length < 10) return setErr('후기는 10자 이상 써 주세요.');
-    const spam = spamReason(body) ?? spamReason(time);
+    if (!rating) return setErr(t('rev.needRating'));
+    if (body.trim().length < 10) return setErr(t('rev.tooShort'));
+    const spam = spamReason(body, lang) ?? spamReason(time, lang);
     if (spam) return setErr(spam);
     setBusy(true);
     setErr('');
@@ -210,7 +213,7 @@ function ReviewForm({
       track('review_submit', { race_id: race.id });
       onDone();
     } catch (e) {
-      setErr(friendlyError(e, '저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'));
+      setErr(friendlyError(e, t('common.tryAgain'), lang));
     } finally {
       setBusy(false);
     }
@@ -219,35 +222,35 @@ function ReviewForm({
   return (
     <form onSubmit={submit} className="space-y-5 rounded-box bg-surface p-4 sm:p-5">
       <fieldset>
-        <legend className="mb-1.5 text-[13px] font-semibold text-ink-2">전체 별점</legend>
+        <legend className="mb-1.5 text-[13px] font-semibold text-ink-2">{t('rev.overall')}</legend>
         <StarRating value={rating} onChange={setRating} size={28} />
       </fieldset>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="참가 연도">
+        <Field label={t('rev.yearLabel')}>
           <Input type="number" inputMode="numeric" min={1990} max={2100} value={year} onChange={(e) => setYear(e.target.value)} placeholder="2026" />
         </Field>
-        <Field label="기록" hint="선택">
+        <Field label={t('rev.timeLabel')} hint={t('common.optional')}>
           <Input value={time} onChange={(e) => setTime(e.target.value)} placeholder="3:45:12" maxLength={12} />
         </Field>
       </div>
 
       <fieldset className="space-y-2">
         <legend className="mb-1.5 text-[13px] font-semibold text-ink-2">
-          세부 평가 <span className="font-normal text-ink-3">선택</span>
+          {t('rev.detail')} <span className="font-normal text-ink-3">{t('common.optional')}</span>
         </legend>
-        <StarRating value={course} onChange={setCourse} size={18} label="코스" />
-        <StarRating value={support} onChange={setSupport} size={18} label="운영·보급" />
-        <StarRating value={value} onChange={setValue} size={18} label="가성비" />
+        <StarRating value={course} onChange={setCourse} size={18} label={t('rev.courseLabel')} />
+        <StarRating value={support} onChange={setSupport} size={18} label={t('rev.supportLabel')} />
+        <StarRating value={value} onChange={setValue} size={18} label={t('rev.valueLabel')} />
       </fieldset>
 
-      <Field label="후기" hint={`${body.length}/3000`}>
+      <Field label={t('rev.body')} hint={`${body.length}/3000`}>
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={5}
           maxLength={3000}
-          placeholder="코스, 보급, 분위기, 다시 갈 생각이 있는지처럼 다음 사람에게 도움이 될 이야기를 적어 주세요."
+          placeholder={t('rev.placeholder')}
           className={`${inputCls} h-auto resize-y py-2.5 leading-relaxed`}
         />
       </Field>
@@ -256,9 +259,9 @@ function ReviewForm({
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={busy}>
-          {busy ? '저장 중' : existing ? '고친 내용 저장' : '후기 올리기'}
+          {busy ? t('common.saving') : existing ? t('rev.saveEdit') : t('rev.post')}
         </Button>
-        <span className="text-[13px] text-ink-3">{nickname} 이름으로 올라갑니다</span>
+        <span className="text-[13px] text-ink-3">{t('rev.postedAs', { name: nickname })}</span>
       </div>
     </form>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes } from 'react';
 import { X } from '@phosphor-icons/react';
+import { useLang } from '../i18n';
 
 /* ── 오른쪽에서 열리는 패널 (native <dialog>) ─────────────────── */
 
@@ -49,12 +50,13 @@ export function Panel({
   );
 }
 
-export function CloseButton({ onClick, label = '닫기' }: { onClick: () => void; label?: string }) {
+export function CloseButton({ onClick, label }: { onClick: () => void; label?: string }) {
+  const { t } = useLang();
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={label}
+      aria-label={label ?? t('common.close')}
       className="grid size-11 shrink-0 sm:size-9 place-items-center rounded-ctl text-ink-3 transition hover:bg-sunken hover:text-ink active:scale-95"
     >
       <X size={18} weight="bold" />
@@ -90,13 +92,14 @@ export function Button({ tone = 'primary', size = 'md', className = '', ...rest 
 
 /** 목록 '더 보기 (N개 남음)'. 대회 목록 묶음·지난 대회가 같이 쓴다 */
 export function MoreButton({ left, onClick, className = '' }: { left: number; onClick: () => void; className?: string }) {
+  const { t } = useLang();
   return (
     <button
       type="button"
       onClick={onClick}
       className={`h-9 rounded-ctl bg-sunken px-3 text-[14px] font-semibold transition hover:bg-line active:translate-y-px ${className}`}
     >
-      더 보기 <span className="font-normal text-ink-2">(<span className="num">{left}</span>개 남음)</span>
+      {t('more.label')} <span className="font-normal text-ink-2">(<span className="num">{left}</span>{t('more.leftPost')})</span>
     </button>
   );
 }
