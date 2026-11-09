@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [recovering, setRecovering] = useState(false);
   const [justConfirmed, setJustConfirmed] = useState(false);
-  // 안내를 확인한 버전 — 메타데이터 저장이 늦거나 실패해도 이번 화면에서는 다시 띄우지 않는다
+  // 안내를 확인한 버전 — 저장한 메타데이터가 세션에 늦게 들어와도 이번 화면에서는 다시 띄우지 않는다
   const [ackedVersion, setAckedVersion] = useState('');
 
   useEffect(() => {
@@ -200,9 +200,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     policyNoticeDue:
       !!session?.user && session.user.user_metadata?.policy_version !== POLICY_VERSION && ackedVersion !== POLICY_VERSION,
     async ackPolicy() {
-      setAckedVersion(POLICY_VERSION);
       const { error } = await need().auth.updateUser({ data: { policy_version: POLICY_VERSION, agreed_at: new Date().toISOString() } });
       if (error) throw new Error(translate(error.message));
+      // 저장된 뒤에만 표시한다 — 먼저 표시하면 재동의 저장이 실패해도 안내 창이 사라져 오류를 못 보고 동의도 안 남는다
+      // (안내만일 때 실패하면 PolicyNotice 가 직접 닫으므로 이번 화면에서는 다시 뜨지 않는다)
+      setAckedVersion(POLICY_VERSION);
     },
     async deleteAccount() {
       const sb = need();
