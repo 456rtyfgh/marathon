@@ -4,6 +4,8 @@
  * — 세 스크립트가 각자 계산하면 sitemap·링크가 실제로 없는 페이지를 가리킬 수 있다.
  */
 import { existsSync, readFileSync } from 'node:fs';
+import { DIST_TEXT, ENTRY_TEXT, fmtDate, fmtMonth } from '../src/i18n/format.ts';
+import { countryName, whereText } from '../src/i18n/names.ts';
 
 export const ORIGIN = process.env.SITE_ORIGIN || 'https://marathon82.com';
 export const snap = JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'));
@@ -83,11 +85,45 @@ export const listPages = [
 ];
 
 export const RSS_PATH = '/rss.xml';
-/** 정적 페이지 <head> 에 넣는 hreflang(자기 주소)·RSS 링크 */
-export const headLinks = (url) =>
-  `<link rel="alternate" hreflang="ko" href="${url}">\n<link rel="alternate" hreflang="x-default" href="${url}">\n<link rel="alternate" type="application/rss+xml" title="마라톤 캘린더" href="${ORIGIN}${RSS_PATH}">`;
+/**
+ * 정적 페이지 <head> 에 넣는 hreflang·RSS 링크. altUrls = { ko, en } (짝 페이지 주소).
+ * ko·x-default → 한국어 주소, en → 영어 주소. url 이 영어 주소면 RSS 제목도 영어.
+ */
+export const headLinks = (url, altUrls = { ko: url, en: url }) =>
+  `<link rel="alternate" hreflang="ko" href="${altUrls.ko}">\n<link rel="alternate" hreflang="en" href="${altUrls.en}">\n<link rel="alternate" hreflang="x-default" href="${altUrls.ko}">\n<link rel="alternate" type="application/rss+xml" title="${url === altUrls.en && url !== altUrls.ko ? 'Marathon Calendar' : '마라톤 캘린더'}" href="${ORIGIN}${RSS_PATH}">`;
 /** 목록 안 대회들의 last_verified 중 가장 늦은 날 (없으면 오늘) */
 export const lastmodOf = (rs) => rs.map((r) => r.last_verified).filter(Boolean).sort().at(-1) ?? today;
+
+// ── 영어판 (/en/…). 한국어 주소 앞에 /en 만 붙인다 (PLAN 2-1) ──
+export const SITE_NAME_EN = 'Marathon Calendar';
+export const enPath = (path) => `/en${path}`;
+export const raceNameEn = (r) => r.name_en?.trim() || r.name_ko;
+export const fmtEn = (iso) => fmtDate(iso, 'en');
+export const monthLabelEn = (ym) => fmtMonth(ym, 'en');
+export const whereEn = (r) => whereText(r, 'en');
+export const countryNameEn = (code) => countryName(code, code, 'en');
+export const ENTRY_EN = ENTRY_TEXT.en;
+export const distEn = (r) => (r.distances ?? []).map(DIST_TEXT.en).join(', ');
+/** 연도 묶음 '2026–2027' (하나면 그대로) */
+export const yearsEn = (ys) => (ys.length > 1 ? `${ys[0]}–${ys.at(-1)}` : ys[0] ?? '');
+/** 영어 접수 글: 'Lottery, registration Aug 1, 2026 – Aug 31, 2026' */
+export const entryEn = (r) => {
+  const how = ENTRY_EN[r.entry_type];
+  const o = r.entry_opens && fmtEn(r.entry_opens);
+  const c = r.entry_closes && fmtEn(r.entry_closes);
+  const when = o && c ? (o === c ? `registration ${o} only` : `registration ${o} – ${c}`) : o ? `registration opens ${o}` : c ? `registration closes ${c}` : '';
+  return [how, when].filter(Boolean).join(', ');
+};
+
+export const LANDINGS_EN = [
+  ...years.map((y) => ({ path: enPath(yearPath(y)), name: `${y} Marathon Calendar` })),
+  { path: '/en/kr/', name: 'Marathons in South Korea' },
+  { path: '/en/abroad/', name: 'Marathons Outside Korea' },
+  { path: '/en/trail/', name: 'Trail Races' },
+  { path: '/en/entry-open/', name: 'Races Open for Registration' },
+];
+/** 영어 정적 목록 페이지 전부 (sitemap 용) — 한국어 listPages 와 짝 */
+export const listPagesEn = listPages.map((p) => ({ ...p, path: enPath(p.path) }));
 
 /** 로고 <img> 크기: 브랜드 SVG 의 viewBox 비율로 계산 (없으면 null → 글자 로고) */
 export function svgSize(path, height) {

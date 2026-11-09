@@ -4,8 +4,9 @@
  * 월별·나라별 목록 페이지(/m/…, /c/… — scripts/seo-pages.mjs)로 따라갈 수 있게 하기 위함.
  * 화면이 뜨면 React 가 이 내용을 바로 갈아 끼운다.
  */
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { ENTRY, LANDINGS, ORIGIN, countries, countryPath, esc, fmt, isCancelled, ldJson, monthLabel, monthPath, months, today, upcoming, whereOf } from './seo-lib.mjs';
+import { LANDINGS_EN, SITE_NAME_EN, countryNameEn, enPath, entryEn, fmtEn, monthLabelEn, raceNameEn, whereEn } from './seo-lib.mjs';
 
 const dist = new URL('../dist/index.html', import.meta.url);
 const kr = upcoming.filter((r) => r.country_code === 'KR').length;
@@ -61,9 +62,92 @@ const preloads = [
   '<link rel="preconnect" href="https://zhwmfvkwtmakieatlqtz.supabase.co" crossorigin>',
 ];
 
-let page = readFileSync(dist, 'utf8');
+const built = readFileSync(dist, 'utf8');
+let page = built;
 page = page.replace('<div id="root"></div>', `<div id="root">${html}</div>`);
 // id 로 표시: 대회 페이지(worker/site.ts)는 이 홈 목록 구조화 데이터를 지운다
 page = page.replace('</head>', `${preloads.join('\n')}\n${ldJson(ld).replace('<script ', '<script id="ld-itemlist" ')}\n</head>`);
 writeFileSync(dist, page);
 console.log(`prerender: 대회 ${upcoming.length}개 링크(접수 정보 ${Math.min(FULL, upcoming.length)}개), 미리 받기·연결 ${preloads.length}개`);
+
+// ── 영어 첫 화면 dist/en/index.html: 빌드된 index.html 복사본에서 머리말·구조화 데이터·미리 그린 목록만 영어로 (같은 JS·CSS) ──
+// 대회 영어 SSR(worker/site.ts 의 /en/r/<id>)도 이 파일을 바탕으로 쓴다.
+const TITLE_EN = 'Marathon Calendar — 2026–2027 Race Dates & Registration, Korea and Worldwide';
+const DESC_EN =
+  'Marathon dates and registration open and close dates for 2026–2027, in Korea and worldwide, all in one place. Lottery or first-come entry, entry fees, tour packages and trail races — never miss registration for Seoul, Chuncheon, JTBC Seoul, Tokyo, Boston or Berlin.';
+const OG_DESC_EN = 'Entry types and registration windows for marathons in Korea and worldwide';
+const KEYWORDS_EN =
+  'marathon calendar, marathon schedule, marathon race dates, 2026 marathons, 2027 marathon calendar, marathon registration, marathons in Korea, marathons in Japan, half marathon schedule, 10k races, Tokyo Marathon lottery, Boston Marathon, Chuncheon Marathon, Seoul Marathon, JTBC Seoul Marathon';
+
+let m = 0;
+const itemEn = (r) => {
+  const full = m++ < FULL;
+  const entry = full ? entryEn(r) : '';
+  return `<li>${isCancelled(r) ? '[Cancelled] ' : ''}<a href="${enPath(`/r/${esc(r.id)}`)}">${esc(raceNameEn(r))}</a> — ${fmtEn(r.race_date)}, ${esc(whereEn(r))}${entry ? `, ${esc(entry)}` : ''}</li>`;
+};
+const navEn = `<nav aria-label="Marathons by month"><h2>Marathons by Month</h2><p>${months
+  .filter((ym) => ym >= today.slice(0, 7))
+  .map((ym) => `<a href="${enPath(monthPath(ym))}">${monthLabelEn(ym)}</a>`)
+  .join(' · ')}</p></nav>
+<nav aria-label="Marathons by country"><h2>Marathons by Country</h2><p>${countries
+  .map((c) => `<a href="${enPath(countryPath(c.code))}">${esc(countryNameEn(c.code.toUpperCase()))}</a>`)
+  .join(' · ')}</p></nav>
+<nav aria-label="Marathons by topic"><h2>Marathons by Topic</h2><p>${LANDINGS_EN.map((l) => `<a href="${l.path}">${esc(l.name)}</a>`).join(' · ')}</p></nav>`;
+const htmlEn = `<main class="seo-pre" style="max-width:72rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
+<h1>${SITE_NAME_EN}</h1>
+<p>Marathon dates and registration windows in Korea and worldwide, sorted by upcoming registration. ${kr} in Korea, ${upcoming.length - kr} abroad.</p>
+<p>Race dates, registration open and close dates, lottery or first-come entry, entry fees, tour packages and estimated costs for ${kr} races in Korea and ${upcoming.length - kr} abroad, marathons and trail races alike. See Seoul, Chuncheon, JTBC Seoul, Tokyo, Osaka, Boston, New York, Berlin and London marathon dates at a glance.</p>
+${navEn}
+${[...byMonth.entries()].map(([ym, rs]) => `<h2><a href="${enPath(monthPath(ym))}">${monthLabelEn(ym)} Marathons</a></h2><ul>${rs.map(itemEn).join('')}</ul>`).join('\n')}
+</main>`;
+const ldEn = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name: 'Upcoming marathons',
+  itemListElement: upcoming.slice(0, 100).map((r, i) => ({ '@type': 'ListItem', position: i + 1, url: `${ORIGIN}${enPath(`/r/${r.id}`)}`, name: raceNameEn(r) })),
+};
+
+/** index.html 의 구조화 데이터(Organization·WebSite)를 영어로 */
+const ldToEn = (v) => {
+  if (v['@type'] === 'WebSite')
+    return {
+      ...v,
+      name: SITE_NAME_EN,
+      alternateName: ['마라톤 캘린더', '마라톤캘린더', 'marathon82'],
+      url: `${ORIGIN}/en/`,
+      inLanguage: 'en',
+      description: 'Marathon race dates, registration windows, entry fees and tour packages for races in Korea and worldwide',
+      potentialAction: { ...v.potentialAction, target: `${ORIGIN}/en/?q={search_term_string}` },
+    };
+  if (v['@type'] === 'Organization')
+    return { ...v, name: SITE_NAME_EN, ...(v.contactPoint ? { contactPoint: { ...v.contactPoint, contactType: 'customer support' } } : {}) };
+  return v;
+};
+const setMeta = (html, attr, key, value) => {
+  const re = new RegExp(`(<meta\\s+${attr}="${key}"\\s+content=")[^"]*(")`);
+  if (!re.test(html)) throw new Error(`prerender: ${key} 태그를 못 찾음`);
+  return html.replace(re, `$1${esc(value)}$2`);
+};
+
+let en = built;
+en = en.replace('<html lang="ko">', '<html lang="en">');
+en = en.replace(/<title>[^<]*<\/title>/, `<title>${esc(TITLE_EN)}</title>`);
+// 여러 줄로 쓴 description 도 잡도록 name·content 사이 공백은 아무거나
+en = en.replace(/(<meta\s+name="description"\s+content=")[^"]*(")/, `$1${esc(DESC_EN)}$2`);
+en = setMeta(en, 'name', 'keywords', KEYWORDS_EN);
+en = setMeta(en, 'property', 'og:title', SITE_NAME_EN);
+en = setMeta(en, 'property', 'og:description', OG_DESC_EN);
+en = setMeta(en, 'property', 'og:url', `${ORIGIN}/en/`);
+en = setMeta(en, 'property', 'og:site_name', SITE_NAME_EN);
+en = en.replace(/(<meta\s+property="og:locale"\s+content=")ko_KR("\s*\/?>)/, '$1en_US$2\n    <meta property="og:locale:alternate" content="ko_KR" />');
+en = setMeta(en, 'name', 'twitter:title', SITE_NAME_EN);
+en = setMeta(en, 'name', 'twitter:description', OG_DESC_EN);
+en = en.replace(/(<link\s+rel="canonical"\s+href=")[^"]*(")/, `$1${ORIGIN}/en/$2`);
+en = en.replace(/(<link\s+rel="alternate"\s+type="application\/rss\+xml"\s+title=")[^"]*(")/, `$1${SITE_NAME_EN}$2`);
+en = en.replace(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g, (_, json) => ldJson(ldToEn(JSON.parse(json))));
+en = en.replace('<div id="root"></div>', `<div id="root">${htmlEn}</div>`);
+en = en.replace('</head>', `${preloads.join('\n')}\n${ldJson(ldEn).replace('<script ', '<script id="ld-itemlist" ')}\n</head>`);
+if (!en.includes(`hreflang="en" href="${ORIGIN}/en/"`)) throw new Error('prerender: index.html 에 hreflang en 줄이 없음');
+mkdirSync(new URL('../dist/en/', import.meta.url), { recursive: true });
+writeFileSync(new URL('../dist/en/index.html', import.meta.url), en);
+console.log('prerender: dist/en/index.html (영어 첫 화면)');

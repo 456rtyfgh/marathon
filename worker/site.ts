@@ -3,12 +3,16 @@
  * 정적 파일(첫 화면, /data.json …)은 Pages 가 함수 없이 바로 내보낸다 — 방문이 몰려도 함수·DB 를 거의 안 쓴다.
  * 여기 함수는 _routes.json 으로 두 경로에서만 돈다.
  *  - /r/대회id      : 공유 링크. 대회별 제목·설명(og 태그), 검색엔진용 본문, 구조화 데이터를 넣는다.
- *  - /cal/대회id.ics: 캘린더 일정 파일 (아이폰 사파리는 열자마자 '캘린더에 추가').
+ *  - /en/r/대회id   : 같은 내용의 영어판 (영어 첫 화면 dist/en/index.html 을 바탕으로).
+ *  - /cal/대회id.ics: 캘린더 일정 파일 (아이폰 사파리는 열자마자 '캘린더에 추가'). ?lang=en 이면 영어.
  *  - /__ping        : DB 연결 확인 (한 번 깨우기)
  */
 import { raceIcs, type CalKind } from '../src/lib/ics';
 import { keepalive } from './keepalive';
 import { PROVINCE_NAME, provinceOf } from '../src/lib/places';
+import type { Lang } from '../src/i18n/lang.ts';
+import { DIST_TEXT, ENTRY_TEXT, fmtDate, fmtMoney, fmtMonth } from '../src/i18n/format.ts';
+import { cityName, countryName, provinceName, whereText } from '../src/i18n/names.ts';
 
 // 사이트 전체 CSP (public/_headers 의 값과 같게 유지)
 export const CSP = [
@@ -46,6 +50,8 @@ interface RaceMeta {
   entry_fee?: number | null;
   entry_fee_currency?: string;
   notes_ko?: string | null;
+  /** 영어 메모 (비면 영어 페이지에 메모를 안 넣는다) */
+  notes_en?: string | null;
   official_url: string;
   city_ko: string;
   country_ko: string;
@@ -136,14 +142,13 @@ const raceLi = (x: RaceMeta) =>
   `<li><a href="/r/${encodeURIComponent(x.id)}">${esc(x.name_ko)} ${x.race_date.slice(0, 4)}</a> — ${fmt(x.race_date)} · ${esc(whereOf(x))}</li>`;
 const RELATED_MAX = 8;
 
-/** 같은 지역(국내는 시·도, 해외는 나라)·같은 달 대회와 정적 목록 페이지로 가는 링크 */
-function relatedHtml(r: RaceMeta, list: RaceMeta[], today: string): string {
+/** 같은 지역(국내는 시·도, 해외는 나라)·같은 달 대회 고르기 (한국어·영어 공통) */
+function relatedPick(r: RaceMeta, list: RaceMeta[], today: string, hasArea: boolean) {
   const kr = r.country_code === 'KR';
   const ok = (x: RaceMeta) => x.id !== r.id && !isCancelled(x);
   const byDate = (a: RaceMeta, b: RaceMeta) => a.race_date.localeCompare(b.race_date) || a.name_ko.localeCompare(b.name_ko, 'ko');
   const pv = kr ? provinceOf(r) : null;
-  const areaName = kr ? (pv ? PROVINCE_NAME.get(pv) : undefined) : r.country_ko;
-  const area = !areaName
+  const area = !hasArea
     ? []
     : list
         .filter((x) => ok(x) && x.race_date >= today && (kr ? x.country_code === 'KR' && provinceOf(x) === pv : !!r.country_code && x.country_code === r.country_code))
@@ -151,13 +156,19 @@ function relatedHtml(r: RaceMeta, list: RaceMeta[], today: string): string {
         .slice(0, RELATED_MAX);
   const shown = new Set(area.map((x) => x.id));
   const ym = r.race_date.slice(0, 7);
-  const monthName = `${Number(ym.slice(0, 4))}년 ${Number(ym.slice(5, 7))}월`;
   const month = list
     .filter((x) => ok(x) && !shown.has(x.id) && x.race_date.startsWith(ym))
     .sort(byDate)
     .slice(0, RELATED_MAX);
-  const y = r.race_date.slice(0, 4);
-  const cpath = COUNTRY_PATH(r);
+  return { kr, area, month, ym, y: r.race_date.slice(0, 4), cpath: COUNTRY_PATH(r) };
+}
+
+/** 같은 지역(국내는 시·도, 해외는 나라)·같은 달 대회와 정적 목록 페이지로 가는 링크 */
+function relatedHtml(r: RaceMeta, list: RaceMeta[], today: string): string {
+  const pv = r.country_code === 'KR' ? provinceOf(r) : null;
+  const areaName = r.country_code === 'KR' ? (pv ? PROVINCE_NAME.get(pv) : undefined) : r.country_ko;
+  const { kr, area, month, ym, y, cpath } = relatedPick(r, list, today, !!areaName);
+  const monthName = `${Number(ym.slice(0, 4))}년 ${Number(ym.slice(5, 7))}월`;
   const links: [string, string][] = [
     [`/m/${ym}/`, `${monthName} 마라톤 일정`],
     // 국내는 /c/kr/ 와 /kr/ 이름이 같아(국내 마라톤 일정) /kr/ 만. /c/kr/ 는 위 위치 줄에 있다
@@ -222,6 +233,107 @@ ${related}
 </main>`;
 }
 
+// ── 영어판 (/en/r/<id>). 지명·날짜·용어는 src/i18n 을 그대로 쓰고, 한국어 쪽 함수는 위에 그대로 둔다 ──
+const SITE_NAME_EN = 'Marathon Calendar';
+const nameEn = (r: RaceMeta) => r.name_en?.trim() || r.name_ko;
+const fmtEn = (iso: string) => fmtDate(iso, 'en');
+const whereEn = (r: RaceMeta) => whereText({ country_code: r.country_code ?? '', city_ko: r.city_ko, country_ko: r.country_ko }, 'en');
+const distTextEn = (r: RaceMeta) => (r.distances ?? []).map(DIST_TEXT.en).join(', ');
+const entryHowEn = (r: RaceMeta) => (ENTRY_TEXT.en as Record<string, string>)[r.entry_type] ?? '';
+const countryCrumbEn = (r: RaceMeta) => `Marathons in ${countryName(r.country_code, r.country_ko, 'en')}`;
+const feeTextEn = (r: RaceMeta) =>
+  r.entry_fee == null ? '' : r.entry_fee_currency ? fmtMoney(r.entry_fee, r.entry_fee_currency, 'en') : r.entry_fee.toLocaleString('en-US');
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function entryTextEn(r: RaceMeta): string {
+  const how = entryHowEn(r);
+  const reg = how ? `Registration (${how})` : 'Registration';
+  if (r.entry_opens && r.entry_closes && r.entry_opens === r.entry_closes) return `${reg}: ${fmtEn(r.entry_opens)} only`;
+  if (r.entry_opens && r.entry_closes) return `${reg}: ${fmtEn(r.entry_opens)} – ${fmtEn(r.entry_closes)}`;
+  if (r.entry_closes) return `${reg} closes ${fmtEn(r.entry_closes)}`;
+  if (r.entry_opens) return `${reg} opens ${fmtEn(r.entry_opens)}`;
+  return `${reg} dates TBA`;
+}
+
+/** 검색 결과 설명 (영어, 160자 안쪽 — 넘치면 꼬리부터 뺀다) */
+function describeEn(r: RaceMeta): string {
+  const head = `${isCancelled(r) ? '[Cancelled] ' : ''}${nameEn(r)} is a ${r.discipline === 'trail' ? 'trail race' : 'marathon'} on ${fmtEn(r.race_date)} in ${whereEn(r)}.`;
+  const dist = distTextEn(r) ? ` Distances: ${distTextEn(r)}.` : '';
+  const entry = ` ${entryTextEn(r)}.`;
+  const tail = ' See dates, costs and reviews.';
+  for (const s of [head + dist + entry + tail, head + dist + entry, head + entry]) if (s.length <= 160) return s;
+  return (head + entry).slice(0, 159) + '…';
+}
+
+const raceLiEn = (x: RaceMeta) =>
+  `<li><a href="/en/r/${encodeURIComponent(x.id)}">${esc(nameEn(x))} ${x.race_date.slice(0, 4)}</a> — ${fmtEn(x.race_date)} · ${esc(whereEn(x))}</li>`;
+
+function relatedHtmlEn(r: RaceMeta, list: RaceMeta[], today: string): string {
+  const pv = r.country_code === 'KR' ? provinceOf(r) : null;
+  const areaName = r.country_code === 'KR' ? (pv ? provinceName(pv, 'en') : undefined) : countryName(r.country_code, r.country_ko, 'en');
+  const { kr, area, month, ym, y, cpath } = relatedPick(r, list, today, !!areaName);
+  const monthName = fmtMonth(ym, 'en');
+  const links: [string, string][] = [
+    [`/en/m/${ym}/`, `${monthName} Marathons`],
+    ...(cpath && !kr ? [[`/en${cpath}`, countryCrumbEn(r)] as [string, string]] : []),
+    [`/en/${y}/`, `${y} Marathon Calendar`],
+    kr ? ['/en/kr/', 'Marathons in South Korea'] : ['/en/abroad/', 'Marathons Outside Korea'],
+    ...(r.discipline === 'trail' ? [['/en/trail/', 'Trail Races'] as [string, string]] : []),
+  ];
+  return [
+    area.length ? `<h2>More races in ${esc(areaName)}</h2><ul>${area.map(raceLiEn).join('')}</ul>` : '',
+    month.length ? `<h2>More races in ${monthName}</h2><ul>${month.map(raceLiEn).join('')}</ul>` : '',
+    `<nav aria-label="Race calendars"><p>${links.map(([href, name]) => `<a href="${href}">${esc(name)}</a>`).join(' · ')}</p></nav>`,
+  ].join('\n');
+}
+
+/** 자주 묻는 질문 (영어). 넣는 규칙은 한국어 faqLd 와 같다 */
+function faqLdEn(r: RaceMeta, today: string) {
+  if (isCancelled(r)) return null;
+  const qa: [string, string][] = [];
+  const confirmed = r.entry_confidence === 'confirmed';
+  const soldOut = !!r.sold_out_on && r.sold_out_on <= today;
+  const name = nameEn(r);
+  if (confirmed && r.entry_opens) qa.push([`When does registration open for ${name}?`, `Registration opens on ${fmtEn(r.entry_opens)}.`]);
+  if (confirmed && r.entry_closes && !soldOut) qa.push([`When does registration close for ${name}?`, `Registration closes on ${fmtEn(r.entry_closes)}.`]);
+  if (r.entry_fee != null) qa.push([`How much is the entry fee for ${name}?`, `The entry fee is ${feeTextEn(r)}.`]);
+  if (!qa.length) return null;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    inLanguage: 'en',
+    mainEntity: qa.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+  };
+}
+
+function raceHtmlEn(r: RaceMeta, desc: string, related: string): string {
+  const cancelled = isCancelled(r);
+  // 영어 메모가 비면 메모를 넣지 않는다 (영어 페이지에 한국어 메모를 섞지 않게)
+  const note = r.notes_en?.trim();
+  const cpath = COUNTRY_PATH(r);
+  const ym = r.race_date.slice(0, 7);
+  const reg = [r.entry_opens && `opens ${fmtEn(r.entry_opens)}`, r.entry_closes && `closes ${fmtEn(r.entry_closes)}`].filter(Boolean).join(', ');
+  const rows: [string, string][] = [
+    ['Race date', fmtEn(r.race_date)],
+    ['Location', whereEn(r)],
+    ['Entry type', entryHowEn(r)],
+    ['Registration', reg ? cap(reg) : 'TBA'],
+    ['Distances', distTextEn(r)],
+    ['Entry fee', feeTextEn(r) || 'TBA'],
+  ];
+  return `<main style="max-width:48rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
+<nav aria-label="Breadcrumb"><a href="/en/">${SITE_NAME_EN}</a>${cpath ? ` › <a href="/en${cpath}">${esc(countryCrumbEn(r))}</a>` : ''} › <a href="/en/m/${ym}/">${fmtMonth(ym, 'en')}</a></nav>
+<h1>${esc(nameEn(r))}</h1>
+<p>${r.race_date.slice(0, 4)} race date &amp; registration</p>
+${cancelled ? '<p><strong>Cancelled</strong> — The organizer has cancelled (suspended) this race.</p>' : ''}
+<p>${esc(desc)}</p>
+<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+${note ? `<p>${esc(note)}</p>` : ''}
+${httpUrl(r.official_url) ? `<p><a href="${esc(httpUrl(r.official_url))}" rel="nofollow noopener">Official website</a></p>` : ''}
+${related}
+</main>`;
+}
+
 /** 주최 측 페이지로 쓸 수 있는 공식 주소 (네이버 검색 링크 같은 대체 링크는 빼고) */
 const organizerUrl = (r: RaceMeta) => {
   const u = httpUrl(r.official_url);
@@ -238,15 +350,18 @@ function availability(r: RaceMeta, today: string): string | undefined {
 }
 
 const ORG = { '@type': 'Organization', name: '마라톤 캘린더', url: SITE, logo: `${SITE}/brand/logo-512.png` };
+const ORG_EN = { ...ORG, name: SITE_NAME_EN };
 
-function eventLd(r: RaceMeta, url: string, desc: string) {
+function eventLd(r: RaceMeta, url: string, desc: string, lang: Lang = 'ko') {
   const org = organizerUrl(r);
   const avail = availability(r, todayKst());
+  const en = lang === 'en';
   const ev = {
     '@context': 'https://schema.org',
     '@type': 'SportsEvent',
-    name: `${r.name_ko} ${r.race_date.slice(0, 4)}`,
-    alternateName: r.name_en || undefined,
+    name: `${en ? nameEn(r) : r.name_ko} ${r.race_date.slice(0, 4)}`,
+    alternateName: en ? r.name_ko : r.name_en || undefined,
+    ...(en ? { inLanguage: 'en' } : {}),
     startDate: r.race_date,
     endDate: r.race_date,
     eventStatus: isCancelled(r) ? 'https://schema.org/EventCancelled' : 'https://schema.org/EventScheduled',
@@ -257,10 +372,14 @@ function eventLd(r: RaceMeta, url: string, desc: string) {
     image: [`${SITE}/og.png`],
     location: {
       '@type': 'Place',
-      name: whereOf(r),
-      address: { '@type': 'PostalAddress', addressLocality: r.city_ko, addressCountry: r.country_code || r.country_ko },
+      name: en ? whereEn(r) : whereOf(r),
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: en ? cityName({ country_code: r.country_code ?? '', city_ko: r.city_ko }, 'en') ?? whereEn(r) : r.city_ko,
+        addressCountry: r.country_code || r.country_ko,
+      },
     },
-    organizer: { '@type': 'Organization', name: r.name_ko, ...(org ? { url: org } : {}) },
+    organizer: { '@type': 'Organization', name: en ? nameEn(r) : r.name_ko, ...(org ? { url: org } : {}) },
     offers: {
       '@type': 'Offer',
       url: org || url,
@@ -268,14 +387,20 @@ function eventLd(r: RaceMeta, url: string, desc: string) {
       ...(avail ? { availability: avail } : {}),
       ...(r.entry_opens ? { validFrom: r.entry_opens } : {}),
     },
-    publisher: ORG,
+    publisher: en ? ORG_EN : ORG,
   };
   const cpath = COUNTRY_PATH(r);
-  const crumbs = [
-    { name: '마라톤 캘린더', item: `${SITE}/` },
-    ...(cpath ? [{ name: countryCrumb(r), item: `${SITE}${cpath}` }] : []),
-    { name: ev.name, item: url },
-  ];
+  const crumbs = en
+    ? [
+        { name: SITE_NAME_EN, item: `${SITE}/en/` },
+        ...(cpath ? [{ name: countryCrumbEn(r), item: `${SITE}/en${cpath}` }] : []),
+        { name: ev.name, item: url },
+      ]
+    : [
+        { name: '마라톤 캘린더', item: `${SITE}/` },
+        ...(cpath ? [{ name: countryCrumb(r), item: `${SITE}${cpath}` }] : []),
+        { name: ev.name, item: url },
+      ];
   const bc = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -299,8 +424,10 @@ async function raceById(req: Request, env: Env, id: string): Promise<RaceMeta | 
   return (await loadRaces(req, env)).byId.get(id);
 }
 
-async function withRaceMeta(req: Request, env: Env, id: string): Promise<Response> {
-  const page = await env.ASSETS.fetch(new URL('/', req.url).toString());
+async function withRaceMeta(req: Request, env: Env, id: string, lang: Lang = 'ko'): Promise<Response> {
+  const en = lang === 'en';
+  // 영어는 영어 첫 화면(scripts/prerender.mjs 가 만든 dist/en/index.html, <html lang="en">)을 바탕으로
+  const page = await env.ASSETS.fetch(new URL(en ? '/en/' : '/', req.url).toString());
   let race: RaceMeta | undefined;
   try {
     race = await raceById(req, env, id);
@@ -320,14 +447,18 @@ async function withRaceMeta(req: Request, env: Env, id: string): Promise<Respons
     return res;
   }
 
-  const title = `${race.name_ko} ${race.race_date.slice(0, 4)} 일정·접수 기간 | 마라톤 캘린더`;
-  const desc = describe(race);
-  const canonical = `${SITE}/r/${encodeURIComponent(race.id)}`;
+  const title = en
+    ? `${nameEn(race)} ${race.race_date.slice(0, 4)} — Date & Registration | ${SITE_NAME_EN}`
+    : `${race.name_ko} ${race.race_date.slice(0, 4)} 일정·접수 기간 | 마라톤 캘린더`;
+  const desc = en ? describeEn(race) : describe(race);
+  const koUrl = `${SITE}/r/${encodeURIComponent(race.id)}`;
+  const enUrl = `${SITE}/en/r/${encodeURIComponent(race.id)}`;
+  const canonical = en ? enUrl : koUrl;
   const set = (content: string) => ({ element: (el: Element) => el.setAttribute('content', content) });
   const today = todayKst();
-  const related = relatedHtml(race, cache?.list ?? [], today);
-  const faq = faqLd(race, today);
-  const lds = [...eventLd(race, canonical, desc), ...(faq ? [faq] : [])];
+  const related = en ? relatedHtmlEn(race, cache?.list ?? [], today) : relatedHtml(race, cache?.list ?? [], today);
+  const faq = en ? faqLdEn(race, today) : faqLd(race, today);
+  const lds = [...eventLd(race, canonical, desc, lang), ...(faq ? [faq] : [])];
 
   const out = new HTMLRewriter()
     .on('title', { element: (el) => el.setInnerContent(title) })
@@ -338,12 +469,12 @@ async function withRaceMeta(req: Request, env: Env, id: string): Promise<Respons
     .on('meta[name="twitter:title"]', set(title))
     .on('meta[name="twitter:description"]', set(desc))
     .on('link[rel="canonical"]', { element: (el) => el.setAttribute('href', canonical) })
-    // 언어 대체 주소(hreflang)도 이 대회 주소로. RSS 링크(hreflang 없음)는 그대로
-    .on('link[rel="alternate"][hreflang]', { element: (el) => el.setAttribute('href', canonical) })
+    // 언어 대체 주소(hreflang)도 이 대회 주소로: ko·x-default → 한국어, en → 영어. RSS 링크(hreflang 없음)는 그대로
+    .on('link[rel="alternate"][hreflang]', { element: (el) => el.setAttribute('href', el.getAttribute('hreflang') === 'en' ? enUrl : koUrl) })
     // 홈 대회 목록(ItemList)은 홈에만 — 대회 페이지에 실리면 구조화 데이터가 겹친다
     .on('script#ld-itemlist', { element: (el) => el.remove() })
     // 검색엔진이 읽을 대회 본문과 구조화 데이터 (화면이 뜨면 React 가 갈아 끼운다)
-    .on('div#root', { element: (el) => el.setInnerContent(raceHtml(race!, desc, related), { html: true }) })
+    .on('div#root', { element: (el) => el.setInnerContent((en ? raceHtmlEn : raceHtml)(race!, desc, related), { html: true }) })
     .on('head', { element: (el) => el.append(`${lds.map((ld) => `<script type="application/ld+json">${jsonForScript(ld)}</script>`).join('')}`, { html: true }) })
     .transform(page);
 
@@ -362,19 +493,20 @@ export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
   }
   // 예전 주소로 연 공유 링크는 대표 주소로 (미리보기 주소 xxx.marathoncalendar.pages.dev 는 그대로)
   if (url.hostname === OLD_HOST) return Response.redirect(SITE + url.pathname + url.search, 301);
-  const m = url.pathname.match(/^\/r\/([a-z0-9-]{2,40})(\/?)$/);
-  // 대회 주소는 끝 슬래시 없는 꼴 하나로 (canonical 과 같게)
-  if (m?.[2]) return Response.redirect(`${url.origin}/r/${m[1]}${url.search}`, 301);
-  if (m) return withRaceMeta(req, env, m[1]);
+  const m = url.pathname.match(/^\/(en\/)?r\/([a-z0-9-]{2,40})(\/?)$/);
+  // 대회 주소는 끝 슬래시 없는 꼴 하나로 (canonical 과 같게, 언어 접두는 그대로)
+  if (m?.[3]) return Response.redirect(`${url.origin}${m[1] ? '/en' : ''}/r/${m[2]}${url.search}`, 301);
+  if (m) return withRaceMeta(req, env, m[2], m[1] ? 'en' : 'ko');
   const c = url.pathname.match(/^\/cal\/([a-z0-9-]{2,40})\.ics$/);
   if (c) {
     const race = await raceById(req, env, c[1]).catch(() => undefined);
-    if (!race) return new Response('대회를 찾지 못했습니다.', { status: 404 });
+    const lang: Lang = url.searchParams.get('lang') === 'en' ? 'en' : 'ko';
+    if (!race) return new Response(lang === 'en' ? 'Race not found.' : '대회를 찾지 못했습니다.', { status: 404 });
     const allowed: CalKind[] = ['race', 'open', 'close'];
     const kinds = (url.searchParams.get('e') ?? 'race,open,close')
       .split(',')
       .filter((k): k is CalKind => allowed.includes(k as CalKind));
-    const ics = raceIcs(race, `${SITE}/r/${race.id}`, kinds.length ? kinds : allowed);
+    const ics = raceIcs(race, `${SITE}${lang === 'en' ? '/en' : ''}/r/${race.id}`, kinds.length ? kinds : allowed, lang);
     return new Response(ics, {
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
