@@ -66,10 +66,10 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-start justify-between gap-4 px-5 pt-4 pb-5 sm:px-7">
-        <div className="pt-1.5">
-          <h2 className="text-[26px] leading-tight font-extrabold tracking-tight">{t('req.title')}</h2>
-          <p className="mt-1.5 max-w-[46ch] text-[15px] leading-relaxed text-ink-2">{t('req.lead')}</p>
+      <header className="flex items-start justify-between gap-4 px-5 pt-4 pb-6 sm:px-7">
+        <div className="pt-1">
+          <h2 className="text-[28px] leading-tight font-extrabold tracking-tight sm:text-[32px]">{t('req.title')}</h2>
+          <p className="mt-2 max-w-[46ch] text-[15px] leading-relaxed text-ink-2">{t('req.lead')}</p>
         </div>
         <CloseButton onClick={onClose} />
       </header>
@@ -105,7 +105,7 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
         </form>
 
         <section>
-          <h3 className="text-[15px] font-bold">
+          <h3 className="text-[17px] font-bold">
             {t('req.list')} <span className="num ml-1 text-[17px] text-ink-3">{list?.length ?? 0}</span>
           </h3>
           {profile?.is_admin && reportCount > 0 && (
@@ -118,38 +118,43 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
           {list === null ? (
             <div className="mt-3 h-16 animate-pulse rounded-box bg-surface" />
           ) : list.length === 0 ? (
-            <p className="mt-2 text-[14px] text-ink-3">{t('req.empty')}</p>
+            <p className="mt-2 text-[15px] text-ink-3">{t('req.empty')}</p>
           ) : (
             <ul className="mt-3 divide-y divide-line">
               {list.map((r) => (
-                <li key={r.id} className="py-3.5">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="min-w-0 truncate text-[15px] font-semibold">
+                <li key={r.id} className="py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="line-clamp-2 min-w-0 text-[15px] leading-snug font-semibold">
                       {r.race_name}
                       {(r.country || r.race_month) && (
-                        <span className="ml-2 font-normal text-ink-3">{[r.country, r.race_month].filter(Boolean).join(', ')}</span>
+                        <span className="ml-2 font-normal whitespace-nowrap text-ink-3">{[r.country, r.race_month].filter(Boolean).join(', ')}</span>
                       )}
                     </span>
                     <span
-                      className={`shrink-0 rounded-tag px-1.5 py-0.5 text-[12px] font-bold ${
+                      className={`inline-flex h-5 shrink-0 items-center rounded-tag px-2 text-[12px] font-bold whitespace-nowrap ${
                         r.status === 'added' ? 'bg-accent text-on-accent' : 'bg-sunken text-ink-2'
                       }`}
                     >
                       {statusLabel(r.status)}
                     </span>
                   </div>
-                  <div className="mt-0.5 text-[13px] text-ink-3">
-                    {r.nickname ?? t('common.anonymous')}, <span className="num text-[14px]">{r.created_at.slice(0, 10)}</span>
+                  <div className="mt-1 text-[13px] text-ink-3">
+                    {r.nickname ?? t('common.anonymous')}, <span className="num">{r.created_at.slice(0, 10)}</span>
                   </div>
-                  {r.note && <p className="mt-1 text-[14px] text-ink-2">{r.note}</p>}
-                  {r.admin_note && <p className="mt-1 text-[14px] text-ink">{t('req.answer', { a: r.admin_note })}</p>}
+                  {r.note && <p className="mt-1 text-[15px] text-ink-2">{r.note}</p>}
+                  {r.admin_note && <p className="mt-1 text-[15px] text-ink">{t('req.answer', { a: r.admin_note })}</p>}
                   {r.url && (
-                    <a href={safeUrl(r.url)} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[13px] text-ink-2 underline underline-offset-4">
+                    <a
+                      href={safeUrl(r.url)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="-my-2 inline-flex min-h-11 items-center gap-1 text-[13px] text-ink-2 underline underline-offset-4"
+                    >
                       {t('common.homepage')} <ArrowUpRight size={12} />
                     </a>
                   )}
                   {profile?.is_admin && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    <div className="mt-2 flex flex-wrap gap-2">
                       {(['added', 'duplicate', 'rejected', 'pending'] as RaceRequest['status'][]).map((s) => (
                         <button
                           key={s}
@@ -157,7 +162,7 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
                             await adminResolveRequest(r.id, s, r.admin_note);
                             reload();
                           }}
-                          className={`h-7 rounded-ctl px-2.5 text-[12px] font-semibold transition ${
+                          className={`h-11 rounded-ctl px-3 text-[13px] font-semibold whitespace-nowrap transition sm:h-8 ${
                             r.status === s ? 'bg-ink text-bg' : 'bg-sunken text-ink-2 hover:bg-line'
                           }`}
                         >

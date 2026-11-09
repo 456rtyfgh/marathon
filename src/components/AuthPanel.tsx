@@ -23,7 +23,7 @@ export function AuthBar({ onOpen }: { onOpen: () => void }) {
       <button
         onClick={() => setEditing(true)}
         title={t('auth.changeNick')}
-        className="inline-flex h-8 items-center gap-1.5 rounded-ctl px-2 text-[14px] font-semibold text-ink-2 transition hover:bg-sunken hover:text-ink"
+        className="inline-flex h-11 items-center gap-2 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition hover:bg-sunken hover:text-ink sm:h-9"
       >
         <UserCircle size={18} />
         <span className="hidden max-w-[10rem] truncate sm:inline">{profile?.nickname ?? session.user.email}</span>
@@ -33,7 +33,7 @@ export function AuthBar({ onOpen }: { onOpen: () => void }) {
         onClick={() => signOut()}
         aria-label={t('auth.logout')}
         title={t('auth.logout')}
-        className="grid size-8 place-items-center rounded-ctl text-ink-3 transition hover:bg-sunken hover:text-ink"
+        className="grid size-11 place-items-center rounded-ctl text-ink-3 transition hover:bg-sunken hover:text-ink sm:size-9"
       >
         <SignOut size={17} />
       </button>
@@ -73,10 +73,10 @@ function ProfileForm({ onClose }: { onClose: () => void }) {
       }}
     >
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[22px] font-extrabold tracking-tight">{t('auth.me')}</h2>
+        <h2 className="text-[20px] font-bold tracking-tight">{t('auth.me')}</h2>
         <CloseButton onClick={onClose} />
       </div>
-      <p className="text-[14px] text-ink-3">{session?.user.email}</p>
+      <p className="text-[15px] text-ink-3">{session?.user.email}</p>
       <Field label={t('auth.nick')} hint={t('auth.nickHintMe')}>
         <Input required minLength={2} maxLength={16} value={nick} onChange={(e) => setNick(e.target.value)} />
       </Field>
@@ -133,8 +133,8 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
 
   return (
     <div className="p-6">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <h2 className="text-[22px] font-extrabold tracking-tight">{titles[mode]}</h2>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h2 className="text-[20px] font-bold tracking-tight">{titles[mode]}</h2>
         <CloseButton onClick={onClose} />
       </div>
 
@@ -169,7 +169,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
                   placeholder="00000000"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  className="num text-[20px] tracking-[0.2em]"
+                  className="num text-[20px]! tracking-[0.2em]"
                 />
                 <Button type="submit" disabled={busy || code.replace(/\D/g, '').length < 6}>
                   {t('auth.confirm')}
@@ -242,7 +242,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
           <Button type="submit" disabled={busy} className="w-full">
             {busy ? t('common.sending') : t('auth.getLink')}
           </Button>
-          <button type="button" onClick={() => go('in')} className="w-full text-center text-[14px] text-ink-3 hover:text-ink">
+          <button type="button" onClick={() => go('in')} className="min-h-11 w-full text-center text-[15px] text-ink-3 hover:text-ink">
             {t('auth.backToLogin')}
           </button>
         </form>
@@ -295,12 +295,16 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
             {busy ? t('common.processing') : mode === 'in' ? t('auth.login') : t('auth.signupSubmit')}
           </Button>
 
-          <div className="flex items-center justify-between pt-1 text-[14px]">
-            <button type="button" onClick={() => go(mode === 'in' ? 'up' : 'in')} className="font-semibold text-ink underline underline-offset-4">
+          <div className="flex items-center justify-between gap-4 text-[15px]">
+            <button
+              type="button"
+              onClick={() => go(mode === 'in' ? 'up' : 'in')}
+              className="min-h-11 font-semibold whitespace-nowrap text-ink underline underline-offset-4"
+            >
               {mode === 'in' ? t('auth.signup') : t('auth.haveAccount')}
             </button>
             {mode === 'in' && (
-              <button type="button" onClick={() => go('forgot')} className="text-ink-3 hover:text-ink">
+              <button type="button" onClick={() => go('forgot')} className="min-h-11 whitespace-nowrap text-ink-3 hover:text-ink">
                 {t('auth.forgot')}
               </button>
             )}
