@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ArrowUpRight, CalendarPlus, LinkSimple, Check, BookmarkSimple, CheckSquare, Square } from '@phosphor-icons/react';
 import { calDates, calLabel, googleCalUrl, openIcs, openOutside, type CalKind } from '../lib/ics';
 import { track } from '../lib/analytics';
@@ -82,6 +82,9 @@ export default function RaceDetail({
   const [tab, setTab] = useState<Tab>('overview');
   const [copied, setCopied] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
+  // 패널 전체가 하나의 스크롤 상자: 위쪽 요약은 같이 올라가고 맨 윗줄(지역·관심·닫기)과 탭 줄만 붙어 있다
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLElement>(null);
 
   async function share() {
     track('share', { race_id: race.id });
@@ -126,62 +129,63 @@ export default function RaceDetail({
   const view: Tab = cancelled && tab === 'alert' ? 'overview' : tab;
 
   return (
-    <div className="flex h-full flex-col">
-      {/* 머리 */}
-      <header className="px-5 pt-4 pb-5 sm:px-7">
-        <div className="flex items-center justify-between">
-          <span className="text-[14px] text-ink-2">
-            {lang === 'en'
-              ? domestic
-                ? t('detail.domestic', { city: whereText(race, 'en') })
-                : whereText(race, 'en')
-              : domestic
-                ? `국내, ${race.city_ko}`
-                : `${race.country_ko} ${race.city_ko}`}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => {
-                if (!favorite) track('favorite', { race_id: race.id });
-                onToggleFavorite();
-              }}
-              aria-pressed={favorite}
-              className={`inline-flex h-11 items-center gap-1.5 rounded-ctl px-3 text-[14px] sm:h-9 font-semibold transition active:translate-y-px ${
-                favorite ? 'bg-ink text-bg' : 'text-ink-2 hover:bg-sunken hover:text-ink'
-              }`}
-            >
-              <BookmarkSimple size={16} weight={favorite ? 'fill' : 'bold'} />
-              {favorite ? t('detail.saved') : t('detail.save')}
-            </button>
-            <CloseButton onClick={onClose} />
-          </div>
+    <div ref={scrollRef} className="relative h-full overflow-y-auto">
+      {/* 맨 윗줄: 스크롤해도 붙어 있어 휴대폰에서도 닫기를 늘 누를 수 있다 (높이 64/56 = 아래 탭 줄의 top) */}
+      <div className="sticky top-0 z-10 flex h-16 items-center justify-between gap-2 bg-bg px-5 sm:h-14 sm:px-7">
+        <span className="line-clamp-2 min-w-0 text-[15px] leading-snug text-ink-2">
+          {lang === 'en'
+            ? domestic
+              ? t('detail.domestic', { city: whereText(race, 'en') })
+              : whereText(race, 'en')
+            : domestic
+              ? `국내, ${race.city_ko}`
+              : `${race.country_ko} ${race.city_ko}`}
+        </span>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            onClick={() => {
+              if (!favorite) track('favorite', { race_id: race.id });
+              onToggleFavorite();
+            }}
+            aria-pressed={favorite}
+            className={`inline-flex h-11 items-center gap-2 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition active:translate-y-px sm:h-9 ${
+              favorite ? 'bg-ink text-bg' : 'text-ink-2 hover:bg-sunken hover:text-ink'
+            }`}
+          >
+            <BookmarkSimple size={16} weight={favorite ? 'fill' : 'bold'} />
+            {favorite ? t('detail.saved') : t('detail.save')}
+          </button>
+          <CloseButton onClick={onClose} />
         </div>
+      </div>
 
-        <h2 className="mt-2 text-[28px] leading-tight font-extrabold tracking-tight sm:text-[32px]">
+      {/* 머리 */}
+      <header ref={headRef} className="px-5 pt-1 pb-6 sm:px-7">
+        <h2 className="text-[28px] leading-tight font-extrabold tracking-tight sm:text-[32px]">
           {raceName(race, lang)}
           {trail && (
-            <span className="ml-2 inline-block translate-y-[-4px] rounded-tag border border-ink-3 px-1.5 py-px align-middle text-[11px] font-bold text-ink-2">
+            <span className="ml-2 inline-flex h-5 items-center rounded-tag border border-ink-3 px-2 align-middle text-[12px] font-bold tracking-normal whitespace-nowrap text-ink-2">
               {t('row.trail')}
             </span>
           )}
           {race.is_major && (
-            <span className="ml-2 inline-block translate-y-[-4px] rounded-tag bg-ink px-1.5 py-0.5 align-middle text-[11px] font-bold text-bg">
+            <span className="ml-2 inline-flex h-5 items-center rounded-tag bg-ink px-2 align-middle text-[12px] font-bold tracking-normal whitespace-nowrap text-bg">
               {t('row.major')}
             </span>
           )}
         </h2>
         {/* 한국어 화면은 영문 이름을 덧붙인다. 영어 화면은 제목이 이미 영문 이름이라 비운다(한글을 섞지 않게) */}
-        <p className="mt-0.5 text-[14px] text-ink-3">{lang === 'en' ? null : race.name_en}</p>
+        <p className="mt-1 text-[15px] text-ink-3">{lang === 'en' ? null : race.name_en}</p>
 
         {cancelled ? (
-          <div className="mt-5 rounded-box border border-line bg-surface px-4 py-3.5">
-            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-              <span className="text-[22px] leading-tight font-bold">{t('detail.cancelled')}</span>
-              <span className="num text-[14px] text-ink-3">
+          <div className="mt-5 rounded-box border border-line bg-surface px-4 py-4">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-[20px] leading-tight font-bold">{t('detail.cancelled')}</span>
+              <span className="text-[13px] text-ink-3">
                 {t('detail.wasScheduled', { m: p.m, d: p.d, w: p.w, mon: p.mon })}
               </span>
             </div>
-            <p className="mt-1.5 max-w-[60ch] text-[14px] leading-relaxed text-ink-2">
+            <p className="mt-2 max-w-[60ch] text-[15px] leading-relaxed text-ink-2">
               {t('detail.cancelledPre')}{' '}
               <a
                 href={safeUrl(race.official_url)}
@@ -197,34 +201,34 @@ export default function RaceDetail({
           </div>
         ) : (
           <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-box bg-line">
-            <div className="bg-surface px-4 py-3">
+            <div className={`${sumCell} bg-surface`}>
               <div className="text-[13px] text-ink-3">
-                {t('detail.raceDay')} <span className="num">{t('detail.raceDate', { m: p.m, d: p.d, mon: p.mon })}</span> {p.w}
+                {t('detail.raceDay')} {t('detail.raceDate', { m: p.m, d: p.d, mon: p.mon })} {p.w}
               </div>
-              <div className="num mt-0.5 text-[26px] leading-none font-bold">
+              <div className="num text-[26px] leading-none font-bold">
                 {raceDay.days != null ? dday(raceDay.days) : t('detail.over')}
               </div>
-              <div className="mt-1 text-[13px] text-ink-3">
+              <div className="text-[13px] text-ink-3">
                 {raceDay.label}
                 {race.date_confidence !== 'confirmed' && t('detail.dateConf', { c: CONFIDENCE_TEXT[lang][race.date_confidence].toLowerCase() })}
               </div>
             </div>
             {registered ? (
-              <div className="bg-surface px-4 py-3">
+              <div className={`${sumCell} bg-surface`}>
                 <div className="text-[13px] text-ink-3">{t('detail.entry')}</div>
-                <div className="mt-0.5 inline-flex items-center gap-1 text-[24px] leading-none font-bold">
+                <div className="inline-flex items-center gap-1 text-[26px] leading-none font-bold">
                   <Check size={20} weight="bold" />
                   {t('detail.done')}
                 </div>
-                <div className="mt-1 text-[13px] text-ink-3">{entryLabel}</div>
+                <div className="text-[13px] text-ink-3">{entryLabel}</div>
               </div>
             ) : (
-              <div className={`px-4 py-3 ${st.hot ? 'bg-accent text-on-accent' : 'bg-surface'}`}>
+              <div className={`${sumCell} ${st.hot ? 'bg-accent text-on-accent' : 'bg-surface'}`}>
                 <div className={`text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>{st.label}</div>
-                <div className={`mt-0.5 text-[26px] leading-none font-bold ${soldOut ? '' : 'num'}`}>
+                <div className={`text-[26px] leading-none font-bold ${soldOut ? '' : 'num'}`}>
                   {st.days != null ? dday(st.days) : soldOut ? t('detail.closedShort') : '-'}
                 </div>
-                <div className={`mt-1 text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>
+                <div className={`text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>
                   {soldOut ? (
                     t('detail.soldOutOn', { m: soldOut.m, d: soldOut.d, mon: soldOut.mon })
                   ) : (
@@ -250,12 +254,14 @@ export default function RaceDetail({
               onToggleRegistered();
             }}
             aria-pressed={registered}
-            className={`mt-3 inline-flex h-11 items-center gap-2 rounded-ctl px-3.5 text-[14px] font-semibold transition active:translate-y-px sm:h-9 ${
+            className={`mt-4 inline-flex min-h-11 flex-wrap items-center gap-x-2 rounded-ctl px-4 py-2 text-left text-[15px] font-semibold transition active:translate-y-px sm:min-h-10 ${
               registered ? 'bg-ink text-bg' : 'bg-surface text-ink hover:bg-sunken'
             }`}
           >
-            {registered ? <CheckSquare size={18} weight="fill" /> : <Square size={18} weight="bold" />}
-            {registered ? t('detail.registered') : t('detail.register')}
+            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+              {registered ? <CheckSquare size={18} weight="fill" /> : <Square size={18} weight="bold" />}
+              {registered ? t('detail.registered') : t('detail.register')}
+            </span>
             <span className={`text-[13px] font-normal ${registered ? 'opacity-70' : 'text-ink-3'}`}>
               {cancelled ? t('detail.unregister') : registered ? t('detail.byRaceDay') : t('detail.registerHint')}
             </span>
@@ -263,30 +269,36 @@ export default function RaceDetail({
         )}
       </header>
 
-      <Tabs<Tab>
-        value={view}
-        onChange={(t) => {
-          setTab(t);
-          track('race_tab', { race_id: race.id, tab: t });
-        }}
-        items={[
-          ['overview', t('tab.overview')],
-          ['reviews', reviewCount ? t('tab.reviewsN', { n: reviewCount }) : t('tab.reviews')],
-          ['packages', racePackages.length ? t('tab.packagesN', { n: racePackages.length }) : t('tab.packages')],
-          ['cost', t('tab.cost')],
-          ...(cancelled ? [] : ([['alert', t('tab.alert')]] as [Tab, string][])),
-        ]}
-      />
+      <div className="sticky top-16 z-10 bg-bg sm:top-14">
+        <Tabs<Tab>
+          value={view}
+          onChange={(t) => {
+            setTab(t);
+            track('race_tab', { race_id: race.id, tab: t });
+            // 탭 줄이 이미 위에 붙어 있으면, 새 탭 내용이 첫머리부터 보이게 탭 줄 바로 아래로 맞춘다
+            const box = scrollRef.current;
+            const head = headRef.current;
+            if (box && head && box.scrollTop > head.offsetHeight) box.scrollTop = head.offsetHeight;
+          }}
+          items={[
+            ['overview', t('tab.overview')],
+            ['reviews', reviewCount ? t('tab.reviewsN', { n: reviewCount }) : t('tab.reviews')],
+            ['packages', racePackages.length ? t('tab.packagesN', { n: racePackages.length }) : t('tab.packages')],
+            ['cost', t('tab.cost')],
+            ...(cancelled ? [] : ([['alert', t('tab.alert')]] as [Tab, string][])),
+          ]}
+        />
+      </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-7">
+      <div className="px-5 pt-6 pb-10 sm:px-7">
         {view === 'overview' && (
-          <div className="space-y-7">
+          <div className="space-y-8">
             <section>
-              <h3 className="text-[15px] font-bold">{t('detail.entryHead', { type: entryLabel })}</h3>
+              <h3 className="text-[17px] font-bold">{t('detail.entryHead', { type: entryLabel })}</h3>
               <p className="mt-1 max-w-[60ch] text-[15px] leading-relaxed text-ink-2">{t(`entryDesc.${race.entry_type}` as Key)}</p>
               <dl className="mt-4 grid grid-cols-2 gap-3">
                 {entryConfirmed ? (
-                  <Fact label={t('detail.opens')} value={race.entry_opens ? fmtDate(race.entry_opens, lang) : t('fee.tba')} />
+                  <Fact label={t('detail.opens')} value={race.entry_opens ? fmtDate(race.entry_opens, lang) : t('fee.tba')} num={!!race.entry_opens} />
                 ) : (
                   <Fact
                     label={t('detail.opens')}
@@ -305,7 +317,11 @@ export default function RaceDetail({
                     }
                   />
                 ) : entryConfirmed ? (
-                  <Fact label={t('detail.closes')} value={race.entry_closes ? fmtDate(race.entry_closes, lang) : t('detail.closesWhenFull')} />
+                  <Fact
+                    label={t('detail.closes')}
+                    value={race.entry_closes ? fmtDate(race.entry_closes, lang) : t('detail.closesWhenFull')}
+                    num={!!race.entry_closes}
+                  />
                 ) : (
                   <Fact
                     label={t('detail.closes')}
@@ -316,8 +332,8 @@ export default function RaceDetail({
               </dl>
               {!registered && mayFillEarly(race, today) && (
                 <div className="mt-3 max-w-[60ch] rounded-box border border-line px-4 py-3">
-                  <p className="text-[14px] font-semibold">{t('detail.mayFillTitle')}</p>
-                  <p className="mt-0.5 text-[14px] leading-relaxed text-ink-2">{t('detail.mayFillText')}</p>
+                  <p className="text-[15px] font-semibold">{t('detail.mayFillTitle')}</p>
+                  <p className="mt-1 text-[15px] leading-relaxed text-ink-2">{t('detail.mayFillText')}</p>
                 </div>
               )}
               {canReport && <SoldOutReport key={race.id} race={race} onLogin={onLogin} />}
@@ -361,26 +377,21 @@ export default function RaceDetail({
                 onClick={() => track('official_click', { race_id: race.id, search: isSearchLink(race.official_url) })}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-ink px-4 text-sm font-semibold text-bg transition hover:opacity-85"
+                className={`${actBtn} bg-ink text-bg hover:opacity-85`}
               >
-                {isSearchLink(race.official_url) ? t('detail.officialSearch') : t('detail.official')} <ArrowUpRight size={15} weight="bold" />
+                {isSearchLink(race.official_url) ? t('detail.officialSearch') : t('detail.official')} <ArrowUpRight size={14} weight="bold" />
               </a>
               {!cancelled && (
                 <button
                   onClick={() => setCalOpen((v) => !v)}
                   aria-expanded={calOpen}
-                  className={`inline-flex h-10 items-center gap-1.5 rounded-ctl px-3.5 text-sm font-semibold transition active:translate-y-px ${
-                    calOpen ? 'bg-ink text-bg' : 'bg-surface text-ink hover:bg-sunken'
-                  }`}
+                  className={`${actBtn} active:translate-y-px ${calOpen ? 'bg-ink text-bg' : 'bg-surface text-ink hover:bg-sunken'}`}
                 >
-                  <CalendarPlus size={16} weight="bold" /> {calDates(race).length === 1 ? t('detail.calRaceOnly') : t('detail.cal')}
+                  <CalendarPlus size={14} weight="bold" /> {calDates(race).length === 1 ? t('detail.calRaceOnly') : t('detail.cal')}
                 </button>
               )}
-              <button
-                onClick={share}
-                className="inline-flex h-10 items-center gap-1.5 rounded-ctl bg-surface px-3.5 text-sm font-semibold text-ink transition hover:bg-sunken active:translate-y-px"
-              >
-                {copied ? <Check size={16} weight="bold" /> : <LinkSimple size={16} weight="bold" />}
+              <button onClick={share} className={`${actBtn} bg-surface text-ink hover:bg-sunken active:translate-y-px`}>
+                {copied ? <Check size={14} weight="bold" /> : <LinkSimple size={14} weight="bold" />}
                 {copied ? t('detail.copied') : t('detail.share')}
               </button>
               {race.source_url && (
@@ -388,7 +399,7 @@ export default function RaceDetail({
                   href={safeUrl(race.source_url)}
                   target="_blank"
                   rel="noreferrer"
-                  className="ml-1 inline-flex h-10 items-center text-sm font-semibold text-ink-2 underline decoration-line underline-offset-4 hover:text-ink"
+                  className="inline-flex h-11 items-center px-2 text-[15px] font-semibold whitespace-nowrap text-ink-2 underline decoration-line underline-offset-4 hover:text-ink sm:h-10"
                 >
                   {t('detail.source')}
                 </a>
@@ -420,11 +431,32 @@ export default function RaceDetail({
   );
 }
 
+/** 위쪽 요약 두 칸: 부모 줄을 같이 써서(subgrid) 한쪽 라벨이 두 줄이어도 큰 값의 기준선이 같다 */
+const sumCell = 'row-span-3 grid grid-rows-subgrid gap-y-1 px-4 py-3';
+
+/** 동작 버튼 줄(공식 홈페이지·캘린더·공유)은 모두 같은 높이 */
+const actBtn =
+  'inline-flex h-11 items-center gap-2 rounded-ctl px-4 text-[15px] font-semibold whitespace-nowrap transition sm:h-10';
+
+/** '2026년 8월 28일 (금)' 같은 날짜는 덩어리 안에서 꺾이지 않게, '(요일)' 앞에서만 꺾는다 */
+function FactValue({ value }: { value: string }) {
+  const i = value.lastIndexOf(' (');
+  if (i < 0 || !/\d/.test(value)) return <>{value}</>;
+  return (
+    <>
+      <span className="whitespace-nowrap">{value.slice(0, i)}</span> <span className="whitespace-nowrap">{value.slice(i + 1)}</span>
+    </>
+  );
+}
+
+/** 정보 칸: 값은 글이든 숫자든 17px·같은 줄 높이라 같은 줄 두 칸의 값 기준선이 같다 */
 function Fact({ label, value, sub, num }: { label: string; value: string; sub?: string; num?: boolean }) {
   return (
     <div className="rounded-box bg-surface px-4 py-3">
       <dt className="text-[13px] text-ink-3">{label}</dt>
-      <dd className={`mt-0.5 font-semibold text-ink ${num ? 'num text-[20px]' : 'text-[15px]'}`}>{value}</dd>
+      <dd className={`mt-1 text-[17px] leading-7 font-semibold text-ink ${num ? 'num' : ''}`}>
+        <FactValue value={value} />
+      </dd>
       {sub && <dd className="text-[13px] text-ink-3">{sub}</dd>}
     </div>
   );
@@ -440,17 +472,17 @@ function CalendarPicker({ race }: { race: Race }) {
     else openIcs(race, kind === 'all' ? dates.map((d) => d.kind) : [kind], lang);
   };
   const btn =
-    'inline-flex h-9 items-center rounded-ctl bg-bg px-3 text-[13px] font-semibold text-ink transition hover:bg-sunken active:translate-y-px';
+    'inline-flex h-11 items-center rounded-ctl bg-bg px-3 text-[15px] font-semibold whitespace-nowrap text-ink transition hover:bg-sunken active:translate-y-px sm:h-10';
   return (
-    <div className="-mt-3 rounded-box bg-surface p-4">
+    <div className="-mt-5 rounded-box bg-surface p-4">
       <ul className="divide-y divide-line">
         {dates.map((d) => (
-          <li key={d.kind} className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0">
+          <li key={d.kind} className="flex flex-wrap items-center justify-between gap-2 py-3 first:pt-0">
             <span className="text-[15px]">
               <strong className="font-semibold">{calLabel(d.kind, lang)}</strong>
               <span className="ml-2 text-ink-2">{fmtDate(d.date, lang)}</span>
             </span>
-            <span className="flex gap-1.5">
+            <span className="flex gap-2">
               <button className={btn} onClick={() => save(d.kind, 'google')}>
                 {t('cal.google')}
               </button>
@@ -464,12 +496,12 @@ function CalendarPicker({ race }: { race: Race }) {
       {dates.length > 1 && (
         <button
           onClick={() => save('all', 'ics')}
-          className="mt-2 inline-flex h-9 items-center rounded-ctl bg-ink px-3 text-[13px] font-semibold text-bg transition hover:opacity-85"
+          className="mt-2 inline-flex min-h-11 items-center rounded-ctl bg-ink px-3 py-2 text-left text-[15px] font-semibold text-bg transition hover:opacity-85 sm:min-h-10"
         >
           {t('cal.all', { list: dates.map((d) => calLabel(d.kind, lang).toLowerCase()).join(t('cal.allSep')) })}
         </button>
       )}
-      <p className="mt-3 text-[12px] leading-relaxed text-ink-3">
+      <p className="mt-3 text-[13px] leading-relaxed text-ink-3">
         {dates.length > 1 ? t('cal.reminder') : race.sold_out_on ? t('cal.soldOnly') : t('cal.raceOnly')}
         {t('cal.kakao')}
       </p>
@@ -545,9 +577,9 @@ function SoldOutReport({ race, onLogin }: { race: Race; onLogin: () => void }) {
     );
 
   return (
-    <form onSubmit={send} className="mt-3 max-w-[60ch] space-y-2 rounded-box bg-surface p-4">
+    <form onSubmit={send} className="mt-3 max-w-[60ch] space-y-3 rounded-box bg-surface p-4">
       <label className="block">
-        <span className="mb-1.5 block text-[13px] font-semibold text-ink-2">
+        <span className="mb-2 block text-[13px] font-semibold text-ink-2">
           {t('report.where')} <span className="font-normal text-ink-3">{t('common.optional')}</span>
         </span>
         <Input value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={200} placeholder={t('report.placeholder')} />
