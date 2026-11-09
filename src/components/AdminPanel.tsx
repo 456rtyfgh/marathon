@@ -4,7 +4,7 @@ import type { Race, ExternalKind, Region, Course, EntryType, Confidence, Discipl
 import { REGIONS, COURSES, ENTRY_LABEL, CONFIDENCE_LABEL, KIND_LABEL, DISCIPLINES, DISCIPLINE_LABEL } from '../lib/types';
 import {
   adminUpsertRace, adminDeleteRace, adminAddExternalReview, adminListMembers, adminConfirmMember, adminStats,
-  loadRaceRequests, adminResolveRequest, adminSetSoldOut, soldOutReportRaceId, loadSoldOutDates,
+  loadRaceRequests, adminResolveRequest, adminSetSoldOut, soldOutReportRaceId, loadSoldOutDates, loadAllRaces,
   type Member, type StatRow, type RaceRequest,
 } from '../lib/data';
 import { entryStatusByDate, fmtDate, safeUrl, STATUS_LABEL, todayISO } from '../lib/util';
@@ -42,6 +42,25 @@ type AdminTab = 'stats' | 'race' | 'reports' | 'ext' | 'members';
 
 export default function AdminPanel({ races, onClose, onSaved }: { races: Race[]; onClose: () => void; onSaved: () => void }) {
   const [tab, setTab] = useState<AdminTab>('stats');
+  // 화면의 races 는 목록 파일 값일 수 있다(공식 링크·메모 등 상세 필드 없음) → 수정 폼은 DB 의 전체 필드로.
+  // 목록 값으로 upsert 하면 빠진 칸이 지워지므로, 못 받으면 수정 저장을 막는다
+  const [full, setFull] = useState<Race[] | null>(null);
+  const [fullErr, setFullErr] = useState('');
+  const loadFull = () =>
+    loadAllRaces()
+      .then((r) => {
+        if (r.error || !r.data) throw r.error ?? new Error('no data');
+        setFull(r.data);
+        setFullErr('');
+      })
+      .catch((e) => setFullErr(`대회 전체 정보를 DB 에서 못 받아 수정 저장을 막았습니다. (${e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e)})`));
+  useEffect(() => {
+    loadFull();
+  }, []);
+  const saved = () => {
+    onSaved();
+    loadFull();
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -67,8 +86,8 @@ export default function AdminPanel({ races, onClose, onSaved }: { races: Race[];
 
       <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-7">
         {tab === 'stats' && <Stats races={races} />}
-        {tab === 'race' && <RaceForm races={races} onSaved={onSaved} />}
-        {tab === 'reports' && <SoldOutReports races={races} onSaved={onSaved} />}
+        {tab === 'race' && <RaceForm races={full ?? races} hasFull={!!full} fullErr={fullErr} onSaved={saved} />}
+        {tab === 'reports' && <SoldOutReports races={full ?? races} onSaved={saved} />}
         {tab === 'ext' && <ExtForm races={races} onSaved={onSaved} />}
         {tab === 'members' && <Members />}
       </div>
@@ -78,7 +97,7 @@ export default function AdminPanel({ races, onClose, onSaved }: { races: Race[];
 
 /* ── 대회 폼 ───────────────────────────────────────────── */
 
-function RaceForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
+function RaceForm({ races, hasFull, fullErr, onSaved }: { races: Race[]; hasFull: boolean; fullErr: string; onSaved: () => void }) {
   const [editingId, setEditingId] = useState('');
   const [f, setF] = useState<Race>(EMPTY);
   const [distText, setDistText] = useState('');
@@ -110,6 +129,7 @@ function RaceForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
     setMsg('');
     if (!/^[a-z0-9-]{2,40}$/.test(f.id)) return setErr('대회 ID 는 영소문자·숫자·하이픈으로 2~40자여야 합니다. (예: tokyo, seoul-half)');
     if (!f.name_ko || !f.race_date || !f.official_url) return setErr('대회명(한글), 대회 날짜, 공식 홈페이지는 필수입니다.');
+    if (editingId && !hasFull) return setErr(fullErr || '대회 전체 정보를 DB 에서 받는 중입니다. 잠시 뒤 다시 저장하세요.');
     setBusy(true);
     try {
       await adminUpsertRace({
@@ -145,7 +165,8 @@ function RaceForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
     <form onSubmit={submit} className="space-y-5">
       <label className="block">
         <span className="mb-1.5 block text-[13px] font-semibold text-ink-2">고칠 대회 고르기</span>
-        <select value={editingId} onChange={(e) => pick(e.target.value)} className={inputCls}>
+        {/* 전체 필드가 오기 전엔 고르지 못하게 (목록 값으로 폼을 채우지 않게) */}
+        <select value={editingId} onChange={(e) => pick(e.target.value)} disabled={!hasFull} className={inputCls}>
           <option value="">+ 새 대회 등록</option>
           {races.map((r) => (
             <option key={r.id} value={r.id}>
@@ -235,11 +256,12 @@ function RaceForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
         />
       </label>
 
+      {fullErr && !err && <Note tone="error">{fullErr}</Note>}
       {err && <Note tone="error">{err}</Note>}
       {msg && <Note tone="ok">{msg}</Note>}
 
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={busy}>
+        <Button type="submit" disabled={busy || (!!editingId && !hasFull)}>
           {busy ? '저장 중…' : editingId ? '수정 저장' : '대회 등록'}
         </Button>
         {editingId && (

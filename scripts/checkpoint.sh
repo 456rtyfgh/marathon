@@ -1,10 +1,10 @@
 #!/bin/zsh
 # 체크포인트(버전) 관리 — 잘못 만들어졌을 때 예전 상태로 되돌리기 위한 것.
-#   ./scripts/checkpoint.sh save "메모"     지금 코드 + 지금 사이트의 대회 데이터를 체크포인트로 저장
+#   ./scripts/checkpoint.sh save "메모"     지금 코드 + 지금 대회 데이터(public/data.json)를 체크포인트로 저장
 #   ./scripts/checkpoint.sh list            저장된 체크포인트 목록 (최신이 위)
 #   ./scripts/checkpoint.sh show <이름>     그 체크포인트 이후 바뀐 파일
 #   ./scripts/checkpoint.sh restore <이름>  코드를 그 체크포인트 상태로 되돌리는 커밋을 만든다 (push 하면 배포)
-# 체크포인트 = git 태그 cp-YYYYMMDD-HHMM + checkpoints/<이름>.json.gz (그 시점 사이트의 data.json)
+# 체크포인트 = git 태그 cp-YYYYMMDD-HHMM + checkpoints/<이름>.json.gz (그 시점 저장소의 public/data.json — DB 사본)
 # 되돌리기는 기록을 지우지 않고 '되돌림' 커밋을 새로 쌓는다 → 되돌린 것도 다시 되돌릴 수 있다.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -17,7 +17,7 @@ save)
   [[ -z "$(git status --porcelain -- . ':!checkpoints')" ]] || { echo "커밋 안 된 변경이 있습니다. 먼저 커밋하세요."; git status --short; exit 1; }
   name="cp-$(date +%Y%m%d-%H%M)"
   mkdir -p checkpoints
-  if curl -fsS -m 30 "$SITE/data.json" | gzip -9 > "checkpoints/$name.json.gz"; then
+  if gzip -9 < public/data.json > "checkpoints/$name.json.gz"; then
     git add "checkpoints/$name.json.gz"
     git commit -qm "체크포인트 데이터: $name ($memo)"
   else

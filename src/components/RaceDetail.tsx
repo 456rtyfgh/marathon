@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, CalendarPlus, LinkSimple, Check, BookmarkSimple, CheckSquare, Square } from '@phosphor-icons/react';
 import { calDates, calLabel, googleCalUrl, openIcs, openOutside, type CalKind } from '../lib/ics';
 import { track } from '../lib/analytics';
@@ -36,31 +36,14 @@ import ReviewsTab from './ReviewsTab';
 import SimilarRaces from './SimilarRaces';
 import { Button, CloseButton, Input, Note, Tabs } from './ui';
 import { useAuth } from '../lib/auth';
-import { submitSoldOutReport } from '../lib/data';
+import { fetchRaceDetail, submitSoldOutReport, type RaceDetailData } from '../lib/data';
 import { spamReason, friendlyError } from '../lib/spam';
 
 const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
 
 type Tab = 'overview' | 'reviews' | 'packages' | 'cost' | 'alert';
 
-export default function RaceDetail({
-  race,
-  agencies,
-  packages,
-  costs,
-  rating,
-  favorite,
-  onToggleFavorite,
-  registered,
-  onToggleRegistered,
-  onClose,
-  onLogin,
-  races,
-  ratingMap,
-  isFavorite,
-  isRegistered,
-  onOpenRace,
-}: {
+interface RaceDetailProps {
   race: Race;
   agencies: Agency[];
   packages: Package[];
@@ -78,7 +61,72 @@ export default function RaceDetail({
   isFavorite?: (id: string) => boolean;
   isRegistered?: (id: string) => boolean;
   onOpenRace?: (race: Race) => void;
-}) {
+}
+
+/**
+ * 목록 파일의 대회에는 상세 필드(공식 링크·메모·출처·코스·확인일)와 패키지·경비가 없다 → 열 때 fetchRaceDetail 로 받아
+ * 목록 값 위에 덮어 그린다. DB 에서 바로 읽은 대회(관리자 등)는 전체 필드가 있어 바로 그린다
+ * (official_url 이 빈 문자열인 대회도 있어 값이 아니라 키가 있는지로 본다).
+ */
+export default function RaceDetail(props: RaceDetailProps) {
+  const { race } = props;
+  const { t } = useLang();
+  const hasDetail = 'official_url' in (race as object);
+  const [detail, setDetail] = useState<RaceDetailData | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (hasDetail) return;
+    let alive = true;
+    fetchRaceDetail(race.id).then(
+      (d) => alive && setDetail(d),
+      () => alive && setFailed(true),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [race.id, hasDetail]);
+
+  if (hasDetail) return <RaceDetailView {...props} />;
+  if (!detail)
+    return (
+      <div className="relative h-full overflow-y-auto">
+        <div className="sticky top-0 z-10 flex h-16 items-center justify-end bg-bg px-5 sm:h-14 sm:px-7">
+          <CloseButton onClick={props.onClose} />
+        </div>
+        <p className="px-5 pt-1 text-[15px] text-ink-3 sm:px-7" role={failed ? 'alert' : 'status'}>
+          {failed ? t('detail.loadError') : t('detail.loading')}
+        </p>
+      </div>
+    );
+  return (
+    <RaceDetailView
+      {...props}
+      race={{ ...race, ...detail.race }}
+      packages={detail.packages}
+      agencies={detail.agencies}
+      costs={detail.costs}
+    />
+  );
+}
+
+function RaceDetailView({
+  race,
+  agencies,
+  packages,
+  costs,
+  rating,
+  favorite,
+  onToggleFavorite,
+  registered,
+  onToggleRegistered,
+  onClose,
+  onLogin,
+  races,
+  ratingMap,
+  isFavorite,
+  isRegistered,
+  onOpenRace,
+}: RaceDetailProps) {
   const { lang, t } = useLang();
   const [tab, setTab] = useState<Tab>('overview');
   const [copied, setCopied] = useState(false);
@@ -430,6 +478,13 @@ export default function RaceDetail({
         {view === 'cost' && <CostCalculator race={race} costs={costs} />}
         {view === 'alert' && <AlertForm race={race} />}
       </div>
+
+      <p className="max-w-[60ch] px-5 pb-8 text-[13px] leading-relaxed text-ink-3 sm:px-7">
+        {t('footer.notice')}{' '}
+        <a href={langPath('/terms', lang)} className="underline underline-offset-2 hover:no-underline">
+          {t('footer.terms')}
+        </a>
+      </p>
     </div>
   );
 }

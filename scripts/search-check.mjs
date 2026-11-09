@@ -3,9 +3,11 @@
 //   node scripts/search-check.mjs --strict   (SKIP 도 실패)
 import { readFileSync } from 'node:fs';
 import { buildIndex, searchRaces, suggestRaces } from '../src/lib/search.ts';
+import { splitData } from './data-split.mjs';
 
 const strict = process.argv.includes('--strict');
-const data = JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'));
+// 앱은 목록 파일(목록 필드만, 메모 본문 없음)로 검색하므로 같은 값으로 검사한다 (scripts/data-split.mjs)
+const data = splitData(JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'))).list;
 // 앱과 같은 '오늘' (한국 날짜) 이후 대회만 검색한다
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const races = data.races.filter((r) => r.race_date >= today);

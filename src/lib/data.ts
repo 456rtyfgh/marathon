@@ -18,8 +18,16 @@ export interface Dataset {
   packages: Package[];
   costs: CostBaseline[];
   ratings: RaceRating[];
-  /** static: CDN 의 /data.json (매일 갱신) · supabase: DB 직접 · none: 둘 다 실패 */
+  /** static: 목록 파일 /d/<hash>.json (매일 갱신, 상세 필드 없음) · supabase: DB 직접 · none: 둘 다 실패 */
   source: 'static' | 'supabase' | 'none';
+}
+
+/** 대회 하나를 열 때 받는 상세 (/r/<id>.json, worker/site.ts) */
+export interface RaceDetailData {
+  race: Race;
+  packages: Package[];
+  agencies: Agency[];
+  costs: CostBaseline[];
 }
 
 export const emptyDataset = (): Dataset => ({ races: [], agencies: [], packages: [], costs: [], ratings: [], source: 'none' });
@@ -28,9 +36,9 @@ const withTimeout = <T,>(p: Promise<T>, ms: number) =>
   Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
 
 /**
- * 방문자가 많아도 DB 를 거의 안 쓰도록, 대회 목록은 배포 때(매일) 만든 정적 파일 /data.json 을
- * Cloudflare CDN 에서 받는다. 후기 별점만 DB 에서 가볍게 따로 받는다.
- * live=true (관리자 저장 직후 등) 면 DB 에서 바로 읽는다.
+ * 방문자가 많아도 DB 를 거의 안 쓰도록, 대회 목록은 배포 때(매일) 만든 목록 파일(/d/<hash>.json, 목록 필드만)을
+ * 받는다. 공식 링크·메모·여행사 패키지·경비 같은 상세는 대회를 열 때 fetchRaceDetail 로 하나씩 받는다.
+ * 후기 별점만 DB 에서 가볍게 따로 받는다. live=true (관리자 저장 직후 등) 면 DB 에서 바로 읽는다(전체 필드).
  */
 export async function loadDataset(opts: { live?: boolean } = {}): Promise<Dataset> {
   if (opts.live && supabase) {
@@ -39,12 +47,12 @@ export async function loadDataset(opts: { live?: boolean } = {}): Promise<Datase
   }
   try {
     const [res, ratings] = await Promise.all([
-      withTimeout(fetch('/data.json'), 8000),
+      withTimeout(fetch(__DATA_LIST_URL__), 8000),
       withTimeout(loadRatings(), 3000).catch(() => [] as RaceRating[]),
     ]);
     if (res.ok) {
-      const j = (await res.json()) as Omit<Dataset, 'ratings' | 'source'>;
-      if (j.races?.length) return { ...j, ratings, source: 'static' };
+      const j = (await res.json()) as { races?: Race[] };
+      if (j.races?.length) return { races: j.races, agencies: [], packages: [], costs: [], ratings, source: 'static' };
     }
   } catch {
     /* 아래 DB 로 */
@@ -72,8 +80,41 @@ async function loadRatings(): Promise<RaceRating[]> {
   return (data ?? []) as RaceRating[];
 }
 
+/**
+ * 대회 하나의 상세(전체 필드 + 그 대회 패키지·여행사, 그 나라 경비 기준).
+ * 워커의 /r/<id>.json → 실패하면 DB 직접 → 둘 다 실패하면 throw.
+ */
+export async function fetchRaceDetail(id: string): Promise<RaceDetailData> {
+  try {
+    const res = await withTimeout(fetch(`/r/${encodeURIComponent(id)}.json`), 8000);
+    if (res.ok) {
+      const j = (await res.json()) as Partial<RaceDetailData>;
+      if (j.race?.id === id) return { race: j.race, packages: j.packages ?? [], agencies: j.agencies ?? [], costs: j.costs ?? [] };
+    }
+  } catch {
+    /* 아래 DB 로 */
+  }
+  const d = supabase ? await withTimeout(loadRemoteDetail(id), 8000).catch(() => null) : null;
+  if (d) return d;
+  throw new Error('race detail unavailable');
+}
+
+async function loadRemoteDetail(id: string): Promise<RaceDetailData | null> {
+  const r = await supabase!.from('races').select('*').eq('id', id).maybeSingle();
+  if (r.error || !r.data) return null;
+  const race = r.data as Race;
+  const [p, c] = await Promise.all([
+    supabase!.from('packages').select('*').eq('race_id', id),
+    supabase!.from('cost_baselines').select('*').eq('race_id', race.country_code),
+  ]);
+  const packages = (p.data ?? []) as Package[];
+  const agencyIds = [...new Set(packages.map((x) => x.agency_id))];
+  const a = agencyIds.length ? await supabase!.from('agencies').select('*').in('id', agencyIds) : { data: [] };
+  return { race, packages, agencies: (a.data ?? []) as Agency[], costs: (c.data ?? []) as CostBaseline[] };
+}
+
 /** DB 는 한 번에 최대 1000줄만 준다 — 대회가 그보다 많아 나눠 받는다 */
-async function loadAllRaces(): Promise<{ data: Race[] | null; error: unknown }> {
+export async function loadAllRaces(): Promise<{ data: Race[] | null; error: unknown }> {
   const all: Race[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase!
