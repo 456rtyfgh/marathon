@@ -2,14 +2,22 @@
  * 빌드 뒤 이용약관 정적 페이지를 만든다: dist/terms.html (/terms), dist/en/terms.html (/en/terms).
  * 인용한 법 조항은 국가법령정보센터 원문으로 확인한 것만 (.duo-data/antiscrape-legal.md).
  * 조(條)는 <section id="…"> 하나씩이다 — 개인정보 처리 조항 등을 붙일 때는 SECTIONS 에 같은 꼴로 한 칸 더 넣는다.
+ * 회원 조항(제6~11조)도 여기가 원본이다 (예전 SPA 의 src/legal/TermsMember.tsx 를 옮김). 시행일·개정 이력은 src/lib/policy.ts.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { ORIGIN, esc, headLinks } from './seo-lib.mjs';
 import { TERMS_PATH, noticeHtml } from '../src/lib/notice.ts';
+import { CONTACT_EMAIL, POLICY_VERSION, PRIVACY_PATH, REVISIONS } from '../src/lib/policy.ts';
 
-/** 시행일 */
-const EFFECTIVE = { iso: '2026-11-09', ko: '2026년 11월 9일', en: 'November 9, 2026' };
-const MAIL = 'marathon82@kakao.com';
+/** 시행일 (처리방침과 같은 POLICY_VERSION) */
+const [Y, M, D] = POLICY_VERSION.split('-').map(Number);
+const EFFECTIVE = {
+  iso: POLICY_VERSION,
+  ko: `${Y}년 ${M}월 ${D}일`,
+  en: new Date(Date.UTC(Y, M - 1, D)).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }),
+};
+const MAIL = CONTACT_EMAIL;
+const PRIVACY = { ko: PRIVACY_PATH, en: `/en${PRIVACY_PATH}` };
 const mail = `<a href="mailto:${MAIL}">${MAIL}</a>`;
 const LAW = {
   copyright: 'https://www.law.go.kr/법령/저작권법',
@@ -26,6 +34,11 @@ main{max-width:48rem;margin:0 auto;padding:0 1rem 3rem}h1{font-size:1.6rem;line-
 h2{font-size:1.1rem;margin:2rem 0 .5rem;padding-top:1rem;border-top:1px solid var(--line)}
 .lead,.meta{color:var(--mute)}ol,ul{padding-left:1.4rem}li{margin:.25rem 0}
 footer{max-width:48rem;margin:0 auto;padding:2rem 1rem;color:var(--mute);font-size:.9rem}`;
+
+/** 개정 이력 (최신이 앞, 처리방침 페이지와 같은 REVISIONS) */
+const revisions = (lang) => `<ul>
+${REVISIONS.map((r) => `<li>${r.version} — ${esc(r[lang])}</li>`).join('\n')}
+</ul>`;
 
 const SECTIONS = {
   ko: [
@@ -70,10 +83,66 @@ const SECTIONS = {
       body: `<p>대회 정보를 제3조에서 제한하는 방법으로 이용하려면 이용 목적과 범위를 적어 ${mail} 로 문의해 주세요. 운영자가 서면(이메일 포함)으로 허락한 범위에서만 이용할 수 있습니다.</p>`,
     },
     {
+      id: 'signup',
+      h: '제6조 (회원가입)',
+      body: `<p>대회 일정 보기와 일정 알림 신청은 회원가입 없이 쓸 수 있습니다. 회원 계정은 후기 작성과 대회 추가 요청에만 필요합니다.</p>
+<ol>
+<li>만 14세 이상이고 이 약관과 개인정보 수집·이용에 동의하면 가입할 수 있습니다.</li>
+<li>실제로 쓰는 이메일로 가입하고, 그 메일로 확인하면 가입이 끝납니다. 다른 사람의 이메일로 가입할 수 없습니다.</li>
+<li>모으는 정보와 처리 방법은 <a href="${PRIVACY.ko}">개인정보 처리방침</a>에 적혀 있습니다.</li>
+</ol>`,
+    },
+    {
+      id: 'account',
+      h: '제7조 (계정 관리)',
+      body: `<ol>
+<li>비밀번호는 회원이 직접 관리하며, 다른 사람이 계정을 쓰게 해서는 안 됩니다.</li>
+<li>다른 사람이 계정을 쓴 것 같으면 비밀번호를 바꾸고 ${mail} 로 알려 주세요.</li>
+</ol>`,
+    },
+    {
+      id: 'nickname',
+      h: '제8조 (닉네임)',
+      body: `<ol>
+<li>닉네임은 후기와 대회 요청의 작성자로 표시됩니다. 2~16자이고 다른 회원과 겹치지 않아야 합니다.</li>
+<li>운영자로 오해할 수 있는 이름(관리자·운영자·마라톤 캘린더 등), 다른 사람을 사칭하는 이름, 욕설·광고성 이름은 쓸 수 없습니다. 이런 닉네임은 바꾸도록 요청하거나 운영자가 바꿀 수 있습니다.</li>
+</ol>`,
+    },
+    {
+      id: 'posts',
+      h: '제9조 (게시물)',
+      body: `<ol>
+<li>후기와 대회 요청의 책임은 작성한 회원에게 있습니다. 사실이 아닌 내용, 욕설·비방, 광고, 다른 사람의 권리를 침해하는 내용은 올릴 수 없습니다.</li>
+<li>전화번호·주소처럼 다른 사람의 개인정보를 올려서는 안 됩니다.</li>
+<li>자기 후기는 언제든 지울 수 있습니다. 이 약관을 어긴 게시물은 운영자가 알리지 않고 가리거나 지울 수 있습니다.</li>
+</ol>`,
+    },
+    {
+      id: 'delete-account',
+      h: '제10조 (회원 탈퇴와 게시물 처리)',
+      body: `<ol>
+<li>회원은 언제든 ‘내 정보’에서 탈퇴할 수 있으며, 기다리는 기간은 없습니다.</li>
+<li>탈퇴하면 계정·이메일·닉네임을 즉시 파기하고 작성한 후기도 함께 삭제합니다. 대회 추가 요청·조기 마감 제보는 모든 이용자를 위한 대회 정보라서 작성자 표시 없이 남습니다. 탈퇴는 되돌릴 수 없습니다.</li>
+</ol>`,
+    },
+    {
+      id: 'restriction',
+      h: '제11조 (이용 제한)',
+      body: `<ol>
+<li>이 약관을 되풀이해 어기거나 스팸을 올리거나 서비스 운영을 방해하면 글쓰기를 제한하거나 계정을 삭제할 수 있습니다. 급한 경우가 아니면 먼저 이메일로 이유를 알립니다.</li>
+<li>제한에 이의가 있으면 ${mail} 로 알려 주세요.</li>
+</ol>`,
+    },
+    {
       id: 'addendum',
       h: '부칙',
       body: `<p>이 약관은 ${EFFECTIVE.ko}부터 시행합니다.</p>
 <p class="meta">관련 법령 원문: <a href="${LAW.copyright}">저작권법</a> · <a href="${LAW.unfair}">부정경쟁방지 및 영업비밀보호에 관한 법률</a> · <a href="${LAW.network}">정보통신망 이용촉진 및 정보보호 등에 관한 법률</a> (국가법령정보센터)</p>`,
+    },
+    {
+      id: 'revisions',
+      h: '개정 이력',
+      body: revisions('ko'),
     },
   ],
   en: [
@@ -118,10 +187,66 @@ const SECTIONS = {
       body: `<p>To use race information in a way restricted by Article 3, contact ${mail} with the purpose and scope of the use. You may use it only within the scope the operator permits in writing (including by email).</p>`,
     },
     {
+      id: 'signup',
+      h: 'Article 6 (Signing up)',
+      body: `<p>You can browse races and sign up for date alerts without an account. An account is only needed to write reviews and send race requests.</p>
+<ol>
+<li>You can sign up if you are 14 or older and agree to these terms and to the collection and use of your personal information.</li>
+<li>Sign up with an email address you actually use; the account is created once you confirm it. One person may use only their own email.</li>
+<li>What we collect and how we handle it is set out in the <a href="${PRIVACY.en}">Privacy Policy</a>.</li>
+</ol>`,
+    },
+    {
+      id: 'account',
+      h: 'Article 7 (Looking after your account)',
+      body: `<ol>
+<li>You are responsible for keeping your password safe. Do not let anyone else use your account.</li>
+<li>If you think someone else has used your account, change your password and let us know at ${mail}.</li>
+</ol>`,
+    },
+    {
+      id: 'nickname',
+      h: 'Article 8 (Nickname)',
+      body: `<ol>
+<li>Your nickname is shown as the author of your reviews and race requests. It must be 2–16 characters and not already taken.</li>
+<li>You may not use a nickname that impersonates the operator (such as “admin” or “Marathon Calendar”), impersonates someone else, or is offensive or promotional. We may ask you to change such a nickname, or change it for you.</li>
+</ol>`,
+    },
+    {
+      id: 'posts',
+      h: 'Article 9 (What you post)',
+      body: `<ol>
+<li>You are responsible for the reviews and race requests you post. Do not post anything false, insulting, promotional, or that infringes someone else’s rights.</li>
+<li>Do not post anyone’s personal information, such as phone numbers or addresses.</li>
+<li>You can delete your own reviews at any time. We may hide or delete posts that break these rules without notice.</li>
+</ol>`,
+    },
+    {
+      id: 'delete-account',
+      h: 'Article 10 (Deleting your account)',
+      body: `<ol>
+<li>You can delete your account at any time from “My account”. There is no waiting period.</li>
+<li>When you do, your account, email and nickname are destroyed immediately, and your reviews are deleted with them. Race requests and sold-out reports you sent stay without an author name, because they are race information for everyone. This cannot be undone.</li>
+</ol>`,
+    },
+    {
+      id: 'restriction',
+      h: 'Article 11 (Restricting use)',
+      body: `<ol>
+<li>If you repeatedly break these terms, post spam, or interfere with the service, we may limit your ability to post or delete your account. Except in urgent cases, we will tell you the reason by email first.</li>
+<li>If you disagree with a restriction, email us at ${mail}.</li>
+</ol>`,
+    },
+    {
       id: 'addendum',
       h: 'Addendum',
       body: `<p>These Terms take effect on ${EFFECTIVE.en}.</p>
 <p>These Terms are a translation of the Korean version. If the two differ, the <a href="${TERMS_PATH.ko}">Korean version</a> prevails.</p>`,
+    },
+    {
+      id: 'revisions',
+      h: 'Revision history',
+      body: revisions('en'),
     },
   ],
 };
@@ -130,7 +255,7 @@ const TEXT = {
   ko: {
     title: '이용약관 | 마라톤 캘린더',
     h1: '이용약관',
-    desc: '마라톤 캘린더 이용약관: 대회 정보 데이터베이스의 권리와 자동 수집·무단 복제·재배포 금지, 위반 시 조치.',
+    desc: '마라톤 캘린더 이용약관: 대회 정보 데이터베이스의 권리와 자동 수집·무단 복제·재배포 금지, 위반 시 조치, 회원 가입·계정·게시물·탈퇴.',
     site: '마라톤 캘린더',
     home: '/',
     back: '전체 일정·검색',
@@ -139,7 +264,7 @@ const TEXT = {
   en: {
     title: 'Terms of Use | Marathon Calendar',
     h1: 'Terms of Use',
-    desc: 'Marathon Calendar Terms of Use: rights in the race database, the ban on automated collection, unauthorized copying and redistribution, and measures against violations.',
+    desc: 'Marathon Calendar Terms of Use: rights in the race database, the ban on automated collection, unauthorized copying and redistribution, measures against violations, and accounts, posts and account deletion.',
     site: 'Marathon Calendar',
     home: '/en/',
     back: 'All races & search',
