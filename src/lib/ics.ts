@@ -1,8 +1,14 @@
 import type { Race } from './types';
+import type { Lang } from '../i18n/lang.ts';
+import { CAL_TEXT } from '../i18n/format.ts';
+import { whereText } from '../i18n/names.ts';
 
 export type CalKind = 'race' | 'open' | 'close';
 
 export const CAL_LABEL: Record<CalKind, string> = { race: '대회 날', open: '접수 시작', close: '접수 마감' };
+
+/** 캘린더 항목 이름 (ko 는 CAL_LABEL 그대로) */
+export const calLabel = (kind: CalKind, lang: Lang = 'ko'): string => (lang === 'en' ? CAL_TEXT.en[kind] : CAL_LABEL[kind]);
 
 /** 한국 시간 오늘 'YYYY-MM-DD'. 워커에서도 쓰므로 util.ts 를 끌어오지 않고 여기서 계산한다 */
 const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
@@ -28,8 +34,23 @@ export function calDates(
   return out;
 }
 
-const title = (race: Pick<Race, 'name_ko'>, kind: CalKind) =>
-  kind === 'race' ? race.name_ko : `${race.name_ko} ${CAL_LABEL[kind]}`;
+type Named = Pick<Race, 'name_ko'> & { name_en?: string | null };
+const nameOf = (race: Named, lang: Lang) => (lang === 'en' ? race.name_en?.trim() || race.name_ko : race.name_ko);
+
+const title = (race: Named, kind: CalKind, lang: Lang = 'ko') =>
+  lang === 'en'
+    ? kind === 'race' ? nameOf(race, 'en') : `${nameOf(race, 'en')} — ${calLabel(kind, 'en')}`
+    : kind === 'race' ? race.name_ko : `${race.name_ko} ${CAL_LABEL[kind]}`;
+
+/** 일정 설명 (ko 는 지금 글자 그대로) */
+const details = (
+  race: Pick<Race, 'city_ko' | 'country_ko' | 'official_url'> & { country_code?: string | null },
+  pageUrl: string,
+  lang: Lang,
+) =>
+  lang === 'en'
+    ? `${whereText({ country_code: race.country_code ?? '', city_ko: race.city_ko, country_ko: race.country_ko }, 'en')}\nOfficial site ${race.official_url}\n${pageUrl}`
+    : `${race.city_ko}, ${race.country_ko}\n공식 홈페이지 ${race.official_url}\n${pageUrl}`;
 
 const ymd = (iso: string) => iso.replace(/-/g, '');
 const nextDay = (iso: string) => {
@@ -42,9 +63,12 @@ const nextDay = (iso: string) => {
 export function raceIcs(
   race: Pick<Race, 'id' | 'name_ko' | 'city_ko' | 'country_ko' | 'official_url' | 'race_date' | 'entry_opens' | 'entry_closes' | 'sold_out_on'> & {
     entry_confidence?: string | null;
+    name_en?: string | null;
+    country_code?: string | null;
   },
   pageUrl: string,
   kinds: CalKind[] = ['race', 'open', 'close'],
+  lang: Lang = 'ko',
 ): string {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/[,;]/g, (m) => '\\' + m).replace(/\n/g, '\\n');
@@ -52,21 +76,21 @@ export function raceIcs(
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//marathon-calendar//ko',
+    `PRODID:-//marathon-calendar//${lang}`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    `X-WR-CALNAME:${esc(race.name_ko)}`,
+    `X-WR-CALNAME:${esc(nameOf(race, lang))}`,
     ...events.flatMap((e) => [
       'BEGIN:VEVENT',
       `UID:${race.id}-${e.kind}-${e.date}@marathon-calendar`,
       `DTSTAMP:${stamp}`,
       `DTSTART;VALUE=DATE:${ymd(e.date)}`,
       `DTEND;VALUE=DATE:${nextDay(e.date)}`,
-      `SUMMARY:${esc(title(race, e.kind))}`,
-      `DESCRIPTION:${esc(`${race.city_ko}, ${race.country_ko}\n공식 홈페이지 ${race.official_url}\n${pageUrl}`)}`,
+      `SUMMARY:${esc(title(race, e.kind, lang))}`,
+      `DESCRIPTION:${esc(details(race, pageUrl, lang))}`,
       `URL:${pageUrl}`,
       ...(e.kind !== 'race'
-        ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(title(race, e.kind))}`, 'TRIGGER:-P1D', 'END:VALARM']
+        ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(title(race, e.kind, lang))}`, 'TRIGGER:-P1D', 'END:VALARM']
         : []),
       'END:VEVENT',
     ]),
@@ -76,16 +100,19 @@ export function raceIcs(
 }
 
 /** 구글 캘린더 '일정 추가' 화면 링크 (앱·브라우저 어디서나 열린다) */
-export function googleCalUrl(race: Race, kind: CalKind): string {
+export function googleCalUrl(race: Race, kind: CalKind, lang: Lang = 'ko'): string {
   const d = calDates(race).find((e) => e.kind === kind);
   if (!d) return '';
-  const page = `${location.origin}/r/${encodeURIComponent(race.id)}`;
+  const page = `${location.origin}${lang === 'en' ? '/en' : ''}/r/${encodeURIComponent(race.id)}`;
   const q = new URLSearchParams({
     action: 'TEMPLATE',
-    text: title(race, kind),
+    text: title(race, kind, lang),
     dates: `${ymd(d.date)}/${nextDay(d.date)}`,
-    details: `${race.city_ko}, ${race.country_ko}\n공식 홈페이지 ${race.official_url}\n${page}`,
-    location: race.country_code === 'KR' ? race.city_ko : `${race.city_ko}, ${race.country_ko}`,
+    details: details(race, page, lang),
+    location:
+      lang === 'en'
+        ? whereText(race, 'en')
+        : race.country_code === 'KR' ? race.city_ko : `${race.city_ko}, ${race.country_ko}`,
   });
   return `https://calendar.google.com/calendar/render?${q}`;
 }
@@ -108,8 +135,8 @@ export function openOutside(url: string) {
  * 아이폰·맥·기본 캘린더용 .ics. 파일을 내려받게 하지 않고 서버 주소(text/calendar)로 열어서
  * 아이폰 사파리는 바로 '캘린더에 추가' 화면이 뜬다.
  */
-export function openIcs(race: Race, kinds: CalKind[]) {
-  const url = `${location.origin}/cal/${encodeURIComponent(race.id)}.ics?e=${kinds.join(',')}`;
+export function openIcs(race: Race, kinds: CalKind[], lang: Lang = 'ko') {
+  const url = `${location.origin}/cal/${encodeURIComponent(race.id)}.ics?e=${kinds.join(',')}${lang === 'en' ? '&lang=en' : ''}`;
   if (isKakao()) {
     location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(url)}`;
     return;
