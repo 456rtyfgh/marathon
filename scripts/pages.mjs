@@ -22,6 +22,6 @@ await build({
 });
 writeFileSync(
   new URL('../dist/_routes.json', import.meta.url),
-  JSON.stringify({ version: 1, include: ['/r/*', '/en/r/*', '/cal/*'], exclude: [] }),
+  JSON.stringify({ version: 1, include: ['/r/*', '/en/r/*', '/cal/*', '/data.json'], exclude: [] }),
 );
 console.log(`pages: _worker.js (${DATA_PATH}), _routes.json`);

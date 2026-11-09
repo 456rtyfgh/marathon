@@ -491,6 +491,8 @@ export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
   const url = new URL(req.url);
   // 예전 주소로 연 공유 링크는 대표 주소로 (미리보기 주소 xxx.marathoncalendar.pages.dev 는 그대로)
   if (url.hostname === OLD_HOST) return Response.redirect(SITE + url.pathname + url.search, 301);
+  // 예전 고정 목록 주소는 없앴다 — Pages 캐시에 남은 옛 파일이 나가지 않게 함수에서 막는다
+  if (url.pathname === '/data.json') return new Response('Not found. 대회 정보의 무단 수집·복제를 금지합니다.', { status: 404, headers: { 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' } });
   const m = url.pathname.match(/^\/(en\/)?r\/([a-z0-9-]{2,40})(\/?)$/);
   // 대회 주소는 끝 슬래시 없는 꼴 하나로 (canonical 과 같게, 언어 접두는 그대로)
   if (m?.[3]) return Response.redirect(`${url.origin}${m[1] ? '/en' : ''}/r/${m[2]}${url.search}`, 301);
