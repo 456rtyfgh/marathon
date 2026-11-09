@@ -11,8 +11,10 @@ import { fetchRealtime, fetchReport, GaFail, parseServiceAccount } from './ga';
 // Supabase 주소·anon 키 (scripts/pages.mjs 가 빌드 때 esbuild define 으로 넣는다 — anon 키는 원래 공개 값)
 declare const __SUPABASE_URL__: string;
 declare const __SUPABASE_ANON_KEY__: string;
-const BUILT_SB_URL = typeof __SUPABASE_URL__ === 'string' ? __SUPABASE_URL__ : '';
-const BUILT_SB_KEY = typeof __SUPABASE_ANON_KEY__ === 'string' ? __SUPABASE_ANON_KEY__ : '';
+// 공개 값(브라우저에도 들어 있는 publishable key) — 빌드 환경의 예전 anon 키가 꺼져 있어도 관리자 확인이 되게 이것을 먼저 쓴다
+const PUBLIC_SB = { url: 'https://zhwmfvkwtmakieatlqtz.supabase.co', key: 'sb_publishable_uOBwP5-BbK7keBuq3gsMAg_Oil1yg6O' };
+const BUILT_SB_URL = PUBLIC_SB.url || (typeof __SUPABASE_URL__ === 'string' ? __SUPABASE_URL__ : '');
+const BUILT_SB_KEY = PUBLIC_SB.key || (typeof __SUPABASE_ANON_KEY__ === 'string' ? __SUPABASE_ANON_KEY__ : '');
 
 export interface GaEnv {
   GA_SERVICE_ACCOUNT?: string;
@@ -81,8 +83,8 @@ async function isAdmin(sbUrl: string, sbKey: string, token: string, fetchFn: Fet
 
 export async function gaRoute(req: Request, env: GaEnv, fetchFn: FetchFn = netFetch, nowMs = Date.now()): Promise<Response> {
   if (req.method !== 'GET') return fail('method', 405);
-  const sbUrl = env.SUPABASE_URL || BUILT_SB_URL;
-  const sbKey = env.SUPABASE_ANON_KEY || BUILT_SB_KEY;
+  const sbUrl = BUILT_SB_URL || env.SUPABASE_URL || '';
+  const sbKey = BUILT_SB_KEY || env.SUPABASE_ANON_KEY || '';
   if (!sbUrl || !sbKey) return fail('no_supabase', 500);
 
   const token = (req.headers.get('Authorization') ?? '').match(/^Bearer\s+(\S{1,4096})$/i)?.[1];
