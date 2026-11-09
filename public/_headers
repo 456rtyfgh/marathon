@@ -6,13 +6,16 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Cross-Origin-Opener-Policy: same-origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net https://www.google.com https://www.google.co.kr; font-src 'self' data:; connect-src 'self' https://zhwmfvkwtmakieatlqtz.supabase.co wss://zhwmfvkwtmakieatlqtz.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.doubleclick.net https://www.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; font-src 'self' data:; connect-src 'self' https://zhwmfvkwtmakieatlqtz.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
 
-# 해시가 붙은 빌드 파일은 1년 캐시, 대회 목록(data.json)은 5분 캐시 + 하루 동안은 낡은 사본을 먼저 보여 주고 뒤에서 갱신
+# 해시가 붙은 빌드 파일은 1년 캐시. 대회 목록(/data/<내용 해시>.json, scripts/prerender.mjs)도 주소가 내용마다 바뀌어 1년 캐시,
+# 다른 사이트 브라우저에서 못 읽게 Pages 기본 CORS 허용(*)을 떼고, 검색 결과에는 안 나오게(렌더링용으로 읽는 건 허용)
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
-/data.json
-  Cache-Control: public, max-age=300, stale-while-revalidate=86400
+/data/*
+  ! Access-Control-Allow-Origin
+  Cache-Control: public, max-age=31536000, immutable
+  X-Robots-Tag: noindex
 /og.png
   Cache-Control: public, max-age=86400
 /rss.xml

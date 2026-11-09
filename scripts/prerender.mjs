@@ -4,7 +4,8 @@
  * 월별·나라별 목록 페이지(/m/…, /c/… — scripts/seo-pages.mjs)로 따라갈 수 있게 하기 위함.
  * 화면이 뜨면 React 가 이 내용을 바로 갈아 끼운다.
  */
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { ENTRY, LANDINGS, ORIGIN, countries, countryPath, esc, fmt, isCancelled, ldJson, monthLabel, monthPath, months, today, upcoming, whereOf } from './seo-lib.mjs';
 import { LANDINGS_EN, SITE_NAME_EN, countryNameEn, enPath, entryEn, fmtEn, monthLabelEn, raceNameEn, whereEn } from './seo-lib.mjs';
 
@@ -50,15 +51,25 @@ const ld = {
 
 // 첫 화면에 먼저 필요한 것 미리 받기 (lighthouse 로 첫 화면이 실제로 받는 순서를 보고 고름, .duo-data/seo-report.md)
 //  - 글꼴: Wanted Sans 라틴·숫자 조각(split.90)과 Barlow Condensed 700. 파일명에 해시가 붙어 원본 index.html 에는 못 넣는다.
-//  - /data.json: 앱이 JS 를 다 받은 뒤에야 요청해 LCP 가 늦어진다. src/lib/data.ts 의 fetch('/data.json') 과 같은 모드(crossorigin)로.
+//  - 대회 목록(/data/<해시>.json): 앱이 JS 를 다 받은 뒤에야 요청해 LCP 가 늦어진다. src/lib/data.ts 의 fetch 와 같은 모드(crossorigin)로.
 //  - Supabase: 첫 화면 통계(race_public_stats)를 바로 부른다 → 연결만 미리.
+// 대회 목록은 고정 주소(/data.json) 대신 내용 해시 주소(/data/<해시>.json)로 낸다 — 데이터가 바뀐 배포마다 주소가 바뀌어
+// 고정 주소로 긁어 가기 어렵다. 주소는 이 미리받기 줄에만 적고, 앱(src/lib/data.ts)이 이 줄의 href 를 읽는다.
+const dataSrc = new URL('../dist/data.json', import.meta.url);
+const dataBody = readFileSync(dataSrc);
+const DATA_PATH = `/data/${createHash('sha256').update(dataBody).digest('hex').slice(0, 12)}.json`;
+rmSync(new URL('../dist/data/', import.meta.url), { recursive: true, force: true });
+mkdirSync(new URL('../dist/data/', import.meta.url));
+writeFileSync(new URL(`../dist${DATA_PATH}`, import.meta.url), dataBody);
+rmSync(dataSrc);
+console.log(`prerender: 대회 목록 ${DATA_PATH}`);
 const assets = readdirSync(new URL('../dist/assets/', import.meta.url));
 const FONTS = [/^WantedSansVariable\.split\.90-[\w-]+\.woff2$/, /^barlow-condensed-latin-700-normal-[\w-]+\.woff2$/];
 const preloads = [
   ...FONTS.map((re) => assets.find((f) => re.test(f)))
     .filter(Boolean)
     .map((f) => `<link rel="preload" href="/assets/${f}" as="font" type="font/woff2" crossorigin>`),
-  '<link rel="preload" href="/data.json" as="fetch" crossorigin>',
+  `<link rel="preload" href="${DATA_PATH}" as="fetch" crossorigin>`,
   '<link rel="preconnect" href="https://zhwmfvkwtmakieatlqtz.supabase.co" crossorigin>',
 ];
 

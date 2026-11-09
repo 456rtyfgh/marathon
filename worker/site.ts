@@ -1,14 +1,12 @@
 /**
  * 마라톤 캘린더 사이트 (Cloudflare Pages, 주소 marathon82.com)
- * 정적 파일(첫 화면, /data.json …)은 Pages 가 함수 없이 바로 내보낸다 — 방문이 몰려도 함수·DB 를 거의 안 쓴다.
- * 여기 함수는 _routes.json 으로 두 경로에서만 돈다.
+ * 정적 파일(첫 화면, 대회 목록 /data/<해시>.json …)은 Pages 가 함수 없이 바로 내보낸다 — 방문이 몰려도 함수·DB 를 거의 안 쓴다.
+ * 여기 함수는 _routes.json 으로 아래 경로에서만 돈다.
  *  - /r/대회id      : 공유 링크. 대회별 제목·설명(og 태그), 검색엔진용 본문, 구조화 데이터를 넣는다.
  *  - /en/r/대회id   : 같은 내용의 영어판 (영어 첫 화면 dist/en/index.html 을 바탕으로).
  *  - /cal/대회id.ics: 캘린더 일정 파일 (아이폰 사파리는 열자마자 '캘린더에 추가'). ?lang=en 이면 영어.
- *  - /__ping        : DB 연결 확인 (한 번 깨우기)
  */
 import { raceIcs, type CalKind } from '../src/lib/ics';
-import { keepalive } from './keepalive';
 import { PROVINCE_NAME, provinceOf } from '../src/lib/places';
 import type { Lang } from '../src/i18n/lang.ts';
 import { DIST_TEXT, ENTRY_TEXT, fmtDate, fmtMoney, fmtMonth } from '../src/i18n/format.ts';
@@ -19,9 +17,9 @@ export const CSP = [
   "default-src 'self'",
   "script-src 'self' https://www.googletagmanager.com",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com https://*.doubleclick.net https://www.google.com https://www.google.co.kr",
+  "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com",
   "font-src 'self' data:",
-  "connect-src 'self' https://zhwmfvkwtmakieatlqtz.supabase.co wss://zhwmfvkwtmakieatlqtz.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.doubleclick.net https://www.google.com",
+  "connect-src 'self' https://zhwmfvkwtmakieatlqtz.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -33,8 +31,9 @@ export const CSP = [
 export const SITE = 'https://marathon82.com';
 const OLD_HOST = 'marathoncalendar.pages.dev';
 
-// 공개 값(브라우저에도 들어 있는 publishable key)
-const DB = { SUPABASE_URL: 'https://zhwmfvkwtmakieatlqtz.supabase.co', SUPABASE_KEY: 'sb_publishable_uOBwP5-BbK7keBuq3gsMAg_Oil1yg6O' };
+// 대회 목록 주소 — 빌드 때 scripts/pages.mjs 가 /data/<해시>.json 을 넣는다(없으면 예전 주소)
+declare const __DATA_PATH__: string | undefined;
+const DATA_PATH = typeof __DATA_PATH__ === 'string' ? __DATA_PATH__ : '/data.json';
 
 export interface SiteEnv {
   ASSETS: { fetch: (req: Request | string) => Promise<Response> };
@@ -412,12 +411,12 @@ function eventLd(r: RaceMeta, url: string, desc: string, lang: Lang = 'ko') {
   return [ev, bc];
 }
 
-// 워커 인스턴스마다 data.json 을 10분 동안 기억해 둔다
+// 워커 인스턴스마다 대회 목록을 10분 동안 기억해 둔다
 let cache: { at: number; byId: Map<string, RaceMeta>; list: RaceMeta[] } | null = null;
 async function loadRaces(req: Request, env: Env) {
   if (!cache || Date.now() - cache.at > 600_000) {
-    const r = await env.ASSETS.fetch(new URL('/data.json', req.url).toString());
-    if (!r.ok) throw new Error(`data.json ${r.status}`);
+    const r = await env.ASSETS.fetch(new URL(DATA_PATH, req.url).toString());
+    if (!r.ok) throw new Error(`${DATA_PATH} ${r.status}`);
     const j = (await r.json()) as { races: RaceMeta[] };
     cache = { at: Date.now(), byId: new Map(j.races.map((x) => [x.id, x])), list: j.races };
   }
@@ -490,10 +489,6 @@ async function withRaceMeta(req: Request, env: Env, id: string, lang: Lang = 'ko
 
 export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
   const url = new URL(req.url);
-  if (url.pathname === '/__ping') {
-    const r = await keepalive(DB);
-    return new Response(`supabase ${r.status} ${r.body}`, { status: r.ok ? 200 : 502, headers: { 'Cache-Control': 'no-store' } });
-  }
   // 예전 주소로 연 공유 링크는 대표 주소로 (미리보기 주소 xxx.marathoncalendar.pages.dev 는 그대로)
   if (url.hostname === OLD_HOST) return Response.redirect(SITE + url.pathname + url.search, 301);
   const m = url.pathname.match(/^\/(en\/)?r\/([a-z0-9-]{2,40})(\/?)$/);

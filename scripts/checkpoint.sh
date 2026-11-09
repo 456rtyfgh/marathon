@@ -17,7 +17,9 @@ save)
   [[ -z "$(git status --porcelain -- . ':!checkpoints')" ]] || { echo "커밋 안 된 변경이 있습니다. 먼저 커밋하세요."; git status --short; exit 1; }
   name="cp-$(date +%Y%m%d-%H%M)"
   mkdir -p checkpoints
-  if curl -fsS -m 30 "$SITE/data.json" | gzip -9 > "checkpoints/$name.json.gz"; then
+  # 대회 목록 주소는 배포마다 바뀐다(/data/<해시>.json) → 첫 화면의 미리받기 줄에서 찾고, 없으면 예전 /data.json
+  data_path="$(curl -fsS -m 30 "$SITE/" | grep -oE '/data/[0-9a-f]{12}\.json' | head -1 || true)"
+  if curl -fsS -m 30 "$SITE${data_path:-/data.json}" | gzip -9 > "checkpoints/$name.json.gz" && [[ "$(gzip -dc "checkpoints/$name.json.gz" | head -c 1)" == "{" ]]; then
     git add "checkpoints/$name.json.gz"
     git commit -qm "체크포인트 데이터: $name ($memo)"
   else
