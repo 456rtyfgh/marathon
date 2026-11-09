@@ -1,6 +1,6 @@
 /**
  * 화면 언어 (PLAN 2-1). 영어 주소는 '/en' 접두, ?lang=en|ko 는 들어오는 주소로만 받고 곧바로 '/en' 꼴로 바꾼다.
- * 첫 언어: ?lang → 경로 /en → localStorage → 브라우저 언어(검색 로봇은 한국어). 브라우저 언어로 정한 값은 저장하지 않는다.
+ * 첫 언어: ?lang → 경로 /en → localStorage → 한국어(브라우저 언어는 보지 않는다).
  */
 import { createContext, createElement, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { tFor, translate, type Key, type T, type Vars } from './t.ts';
@@ -10,7 +10,6 @@ export type { Key, Lang, T, Vars };
 export { translate };
 
 export const LANG_KEY = 'marathon-cal:lang';
-const BOT = /bot|crawl|spider|slurp|Yeti|Googlebot|bingpreview|facebookexternalhit|Twitterbot|kakaotalk-scrap/i;
 
 const isLang = (v: unknown): v is Lang => v === 'ko' || v === 'en';
 const isEnPath = (p: string) => p === '/en' || p.startsWith('/en/');
@@ -47,11 +46,9 @@ export function initialLang(): Lang {
     const s = localStorage.getItem(LANG_KEY);
     if (isLang(s)) return s;
   } catch {
-    /* 읽지 못하면 브라우저 언어로 */
+    /* 읽지 못하면 한국어로 */
   }
-  if (BOT.test(navigator.userAgent)) return 'ko';
-  const b = (navigator.languages?.[0] ?? navigator.language ?? '').toLowerCase();
-  return b && !b.startsWith('ko') ? 'en' : 'ko';
+  return 'ko';
 }
 
 /** 주소·<html lang> 을 그 언어에 맞춘다 (?lang 은 지우고 경로를 /en 꼴로). 바뀐 게 없으면 손대지 않는다 */
