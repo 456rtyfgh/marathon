@@ -12,18 +12,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12'
       - name: 링크 점검 (+ 문제 링크 내리기)
         env:
           AUTOMATION_KEY: ${{ secrets.AUTOMATION_KEY }}
+          # 0012 [M5] 뒤 자동화 RPC 는 service 키로만 부를 수 있다 (Secret 이 없으면 빈 값 → 공개 키로)
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: python3 scripts/link_audit.py --fix --out audit
       - name: 결과 요약
         if: always()
         run: cat audit/link-audit.md >> "$GITHUB_STEP_SUMMARY" || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: link-audit

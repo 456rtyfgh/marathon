@@ -14,6 +14,7 @@
 사이트에 이상한 링크가 남지 않게 한다. (공식 주소로 다시 바꾸는 건 주간 갱신 작업이 맡는다)
 
 환경변수: AUTOMATION_KEY (없으면 ~/Documents/.tools/secrets/automation.key)
+         SUPABASE_SECRET_KEY (있으면 자동화 호출에 씀 — 0012 [M5] 뒤엔 필수, 없으면 공개 키로)
 사용: python3 link_audit.py [--fix] [--out 폴더] [--only id1,id2]
 """
 import json, os, re, ssl, sys, socket, time, urllib.parse, urllib.request, urllib.error
@@ -160,10 +161,20 @@ def classify_page(r):
     return dict(res, verdict='ok', moved=moved)
 
 
+def rpc_headers():
+    """자동화 RPC 헤더. 0012 [M5] 뒤엔 service 키(SUPABASE_SECRET_KEY)로만 부를 수 있다.
+    새 sb_secret_ 키는 apikey 만, 예전 service_role JWT(eyJ…)는 Authorization 도 붙인다."""
+    sk = os.environ.get('SUPABASE_SECRET_KEY', '').strip()
+    h = {'apikey': sk or PUB, 'Content-Type': 'application/json'}
+    if sk.startswith('eyJ'):
+        h['Authorization'] = f'Bearer {sk}'
+    return h
+
+
 def upsert(row, key):
     body = json.dumps({'p_key': key, 'p_race': row}).encode()
     req = urllib.request.Request(f'{SB}/rest/v1/rpc/automation_upsert_race', data=body, method='POST',
-                                 headers={'apikey': PUB, 'Content-Type': 'application/json'})
+                                 headers=rpc_headers())
     with urllib.request.urlopen(req, timeout=30) as r:
         return r.status
 
