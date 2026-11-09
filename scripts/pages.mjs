@@ -1,6 +1,6 @@
 /**
  * Cloudflare Pages 고급 모드: worker/pages.ts 를 dist/_worker.js 로 묶고,
- * 함수가 /r/*, /en/r/*, /cal/*, /d/*, /data.json, /api/* 에서만 돌게 dist/_routes.json 을 쓴다 (나머지는 정적 파일이라 무료 한도를 안 쓴다).
+ * 함수가 /r/*, /en/r/*, /cal/*, /d/*, /data.json, /api/*, /community(/*) 에서만 돌게 dist/_routes.json 을 쓴다 (나머지는 정적 파일이라 무료 한도를 안 쓴다).
  * 그 전에 대회 데이터를 목록 파일·전체 파일로 나눠 dist/d/ 에 쓰고 dist/data.json 을 지운다 (scripts/data-split.mjs).
  * /api/admin/ga 의 관리자 확인에 쓰는 Supabase 주소·anon 키(공개 값)도 넣는다:
  * 환경변수 VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY → .duo-data/snap.env → .env 순 (scripts/evidence.mjs 와 같음).
@@ -53,6 +53,11 @@ await build({
 });
 writeFileSync(
   new URL('../dist/_routes.json', import.meta.url),
-  JSON.stringify({ version: 1, include: ['/r/*', '/en/r/*', '/cal/*', '/d/*', '/data.json', '/api/*'], exclude: [] }),
+  JSON.stringify({
+    version: 1,
+    // 러닝톡 목록·글 페이지(worker/community.ts)도 함수로 — 검색엔진용 제목·구조화 데이터
+    include: ['/r/*', '/en/r/*', '/cal/*', '/d/*', '/data.json', '/api/*', '/community', '/community/*', '/en/community', '/en/community/*'],
+    exclude: [],
+  }),
 );
 console.log(`pages: _worker.js, _routes.json, 목록 ${listPath}, 전체 ${fullPath}, Supabase ${sbUrl ? '있음' : '없음(/api/admin/ga 는 500)'}`);
