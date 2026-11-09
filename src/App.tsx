@@ -897,6 +897,12 @@ function Main() {
                 marathon82@kakao.com
               </a>
             </p>
+            <p className="mt-2 max-w-[70ch]">
+              {t('footer.notice')}{' '}
+              <a href={langPath('/terms', lang)} className="py-3 underline underline-offset-2 hover:no-underline">
+                {t('footer.terms')}
+              </a>
+            </p>
           </div>
         </footer>
       </main>
