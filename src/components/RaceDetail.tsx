@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, CalendarPlus, LinkSimple, Check, BookmarkSimple, CheckSquare, Square } from '@phosphor-icons/react';
-import { calDates, calLabel, googleCalUrl, openIcs, openOutside, type CalKind } from '../lib/ics';
+import { calDates, calLabel, googleCalUrl, openOutside, type CalKind } from '../lib/ics';
 import { track } from '../lib/analytics';
 import type { Race, Agency, Package, CostBaseline, RaceRating } from '../lib/types';
 import { useLang, langPath, type Key } from '../i18n';
@@ -34,10 +34,14 @@ import PackageTable from './PackageTable';
 import AlertForm from './AlertForm';
 import ReviewsTab from './ReviewsTab';
 import SimilarRaces from './SimilarRaces';
-import { Button, CloseButton, Input, Note, Tabs } from './ui';
+import { Button, CloseButton, Field, Input, Note, Tabs, inputCls } from './ui';
+import MemberGate, { type OnLogin } from './MemberGate';
 import { useAuth } from '../lib/auth';
 import { fetchRaceDetail, submitSoldOutReport, type RaceDetailData } from '../lib/data';
 import { spamReason, friendlyError } from '../lib/spam';
+import { distanceKm, downloadIcs, fmtFinish, parseFinish, type RaceRecord } from '../lib/member';
+import type { GateAction } from '../lib/memberGate';
+import type { RecordInput } from '../lib/registered';
 
 const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
 
@@ -54,7 +58,15 @@ interface RaceDetailProps {
   registered: boolean;
   onToggleRegistered: () => void;
   onClose: () => void;
-  onLogin: () => void;
+  /** 로그인 시트 열기. intent 를 주면 로그인 뒤 그 대회·그 동작으로 이어진다 */
+  onLogin: OnLogin;
+  /** 로그인 뒤 이어 하기: 'cal' 캘린더 고르기 펼침, 'alert' 알림 탭, 'record' 기록 입력 펼침 */
+  initialAction?: GateAction;
+  /** 내 기록(회원). recordsReady = 계정과 맞춘 상태(아니면 저장 불가) */
+  record?: RaceRecord;
+  recordsReady?: boolean;
+  onSaveRecord?: (r: RecordInput) => Promise<unknown>;
+  onClearRecord?: (id: string) => Promise<unknown>;
   /** 아래 다섯 개는 '비슷한 대회' 용. races 가 없으면 그 구역을 그리지 않는다 */
   races?: Race[];
   ratingMap?: Map<string, RaceRating>;
@@ -121,6 +133,11 @@ function RaceDetailView({
   onToggleRegistered,
   onClose,
   onLogin,
+  initialAction,
+  record,
+  recordsReady = false,
+  onSaveRecord,
+  onClearRecord,
   races,
   ratingMap,
   isFavorite,
@@ -128,9 +145,20 @@ function RaceDetailView({
   onOpenRace,
 }: RaceDetailProps) {
   const { lang, t } = useLang();
+  const { session } = useAuth();
   const [tab, setTab] = useState<Tab>('overview');
   const [copied, setCopied] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
+  // 로그인 뒤 이어 하기 — 파일 받기 자체는 자동으로 하지 않고 고르는 화면까지만 연다 (prop 이 바뀔 때 렌더 중 상태 맞추기)
+  const [seenAction, setSeenAction] = useState<GateAction | undefined>(undefined);
+  if (initialAction !== seenAction) {
+    setSeenAction(initialAction);
+    if (initialAction === 'cal') {
+      setTab('overview');
+      setCalOpen(true);
+    } else if (initialAction === 'alert') setTab('alert');
+    else if (initialAction === 'record') setTab('overview');
+  }
   // 패널 전체가 하나의 스크롤 상자: 위쪽 요약은 같이 올라가고 맨 윗줄(지역·관심·닫기)과 탭 줄만 붙어 있다
   const scrollRef = useRef<HTMLDivElement>(null);
   const headRef = useRef<HTMLElement>(null);
@@ -318,6 +346,20 @@ function RaceDetailView({
             </span>
           </button>
         )}
+
+        {/* 지난 대회: '참가했어요' + 종목·기록 (회원만) */}
+        {raceDay.days == null && !cancelled && (
+          <FinishedRecord
+            key={race.id}
+            race={race}
+            record={record}
+            ready={recordsReady}
+            autoOpen={initialAction === 'record'}
+            onSave={onSaveRecord}
+            onClear={onClearRecord}
+            onLogin={onLogin}
+          />
+        )}
       </header>
 
       <div className="sticky top-16 z-10 bg-bg sm:top-14">
@@ -456,7 +498,26 @@ function RaceDetailView({
                 </a>
               )}
             </div>
-            {calOpen && !cancelled && <CalendarPicker race={race} />}
+            {calOpen &&
+              !cancelled &&
+              (session ? (
+                <CalendarPicker race={race} onLogin={onLogin} />
+              ) : (
+                <MemberGate raceId={race.id} action="cal" onLogin={onLogin} className="-mt-5" />
+              ))}
+            {/* 비회원에게 회원 혜택 한 줄 (안내 상자가 열려 있으면 거기 이미 있다) */}
+            {!session && !(calOpen && !cancelled) && (
+              <p className="-mt-5 max-w-[60ch] text-[13px] leading-relaxed text-ink-3">
+                {t('member.perks')}{' '}
+                <button
+                  type="button"
+                  onClick={() => onLogin('up')}
+                  className="font-semibold whitespace-nowrap text-ink-2 underline underline-offset-2 hover:text-ink"
+                >
+                  {t('member.signup')}
+                </button>
+              </p>
+            )}
 
             <p className="max-w-[60ch] text-[13px] leading-relaxed text-ink-3">{t('detail.disclaimer')}</p>
 
@@ -473,10 +534,11 @@ function RaceDetailView({
           </div>
         )}
 
-        {view === 'reviews' && <ReviewsTab race={race} onLogin={onLogin} />}
+        {/* ReviewsTab 은 onClick={onLogin} 으로 바로 걸어 이벤트가 인자로 들어가므로 감싸서 넘긴다 */}
+        {view === 'reviews' && <ReviewsTab race={race} onLogin={() => onLogin('in')} />}
         {view === 'packages' && <PackageTable packages={racePackages} agencies={agencies} />}
         {view === 'cost' && <CostCalculator race={race} costs={costs} />}
-        {view === 'alert' && <AlertForm race={race} />}
+        {view === 'alert' && <AlertForm race={race} onLogin={onLogin} />}
       </div>
 
       <p className="max-w-[60ch] px-5 pb-8 text-[13px] leading-relaxed text-ink-3 sm:px-7">
@@ -520,14 +582,27 @@ function Fact({ label, value, sub, num }: { label: string; value: string; sub?: 
   );
 }
 
-/** 대회 날·접수 시작·접수 마감을 각각 골라 구글 캘린더 또는 휴대폰 기본 캘린더에 넣는다 */
-function CalendarPicker({ race }: { race: Race }) {
+/**
+ * 대회 날·접수 시작·접수 마감을 각각 골라 구글 캘린더 또는 휴대폰 기본 캘린더에 넣는다 (회원만).
+ * .ics 는 서버가 로그인 토큰을 확인하고 내주므로 fetch 로 받아 파일로 저장한다.
+ */
+function CalendarPicker({ race, onLogin }: { race: Race; onLogin: OnLogin }) {
   const { lang, t } = useLang();
   const dates = calDates(race);
-  const save = (kind: CalKind | 'all', target: 'google' | 'ics') => {
+  const [busy, setBusy] = useState<CalKind | 'all' | null>(null);
+  const [fail, setFail] = useState<'unauthorized' | 'kakao' | 'error' | null>(null);
+  const save = async (kind: CalKind | 'all', target: 'google' | 'ics') => {
     track('calendar_add', { race_id: race.id, kind, target });
-    if (target === 'google') openOutside(googleCalUrl(race, kind as CalKind, lang));
-    else openIcs(race, kind === 'all' ? dates.map((d) => d.kind) : [kind], lang);
+    if (target === 'google') return openOutside(googleCalUrl(race, kind as CalKind, lang));
+    if (busy) return;
+    setBusy(kind);
+    setFail(null);
+    const r = await downloadIcs(race, kind === 'all' ? dates.map((d) => d.kind) : [kind], lang);
+    setBusy(null);
+    if (r === 'ok') return;
+    setFail(r);
+    // 카카오톡 안 브라우저: 파일도 로그인도 안 되니 휴대폰 기본 브라우저로 이 대회 페이지를 연다
+    if (r === 'kakao') openOutside(`${location.origin}${langPath(`/r/${encodeURIComponent(race.id)}`, lang)}`);
   };
   const btn =
     'inline-flex h-11 items-center rounded-ctl bg-bg px-3 text-[15px] font-semibold whitespace-nowrap text-ink transition hover:bg-sunken active:translate-y-px sm:h-10';
@@ -544,8 +619,8 @@ function CalendarPicker({ race }: { race: Race }) {
               <button className={btn} onClick={() => save(d.kind, 'google')}>
                 {t('cal.google')}
               </button>
-              <button className={btn} onClick={() => save(d.kind, 'ics')}>
-                {t('cal.ics')}
+              <button className={btn} disabled={busy != null} onClick={() => save(d.kind, 'ics')}>
+                {busy === d.kind ? t('cal.downloading') : t('cal.ics')}
               </button>
             </span>
           </li>
@@ -554,15 +629,208 @@ function CalendarPicker({ race }: { race: Race }) {
       {dates.length > 1 && (
         <button
           onClick={() => save('all', 'ics')}
-          className="mt-2 inline-flex min-h-11 items-center rounded-ctl bg-ink px-3 py-2 text-left text-[15px] font-semibold text-bg transition hover:opacity-85 sm:min-h-10"
+          disabled={busy != null}
+          className="mt-2 inline-flex min-h-11 items-center rounded-ctl bg-ink px-3 py-2 text-left text-[15px] font-semibold text-bg transition hover:opacity-85 disabled:opacity-60 sm:min-h-10"
         >
-          {t('cal.all', { list: dates.map((d) => calLabel(d.kind, lang).toLowerCase()).join(t('cal.allSep')) })}
+          {busy === 'all'
+            ? t('cal.downloading')
+            : t('cal.all', { list: dates.map((d) => calLabel(d.kind, lang).toLowerCase()).join(t('cal.allSep')) })}
         </button>
+      )}
+      {fail === 'unauthorized' && <MemberGate raceId={race.id} action="cal" onLogin={onLogin} className="mt-3 bg-bg" />}
+      {fail === 'kakao' && (
+        <div className="mt-3">
+          <Note>{t('cal.kakaoOpen')}</Note>
+        </div>
+      )}
+      {fail === 'error' && (
+        <div className="mt-3">
+          <Note tone="error">{t('cal.icsFail')}</Note>
+        </div>
       )}
       <p className="mt-3 text-[13px] leading-relaxed text-ink-3">
         {dates.length > 1 ? t('cal.reminder') : race.sold_out_on ? t('cal.soldOnly') : t('cal.raceOnly')}
         {t('cal.kakao')}
       </p>
+    </div>
+  );
+}
+
+/**
+ * 지난 대회 '참가했어요' + 종목·기록(선택). 회원만 — 비회원은 누르면 회원 안내.
+ * 계정과 아직 못 맞췄으면(0013 실행 전) '곧 열립니다'. 선택 상태는 테두리로만 표시(검정 채움 없음).
+ */
+function FinishedRecord({
+  race,
+  record,
+  ready,
+  autoOpen,
+  onSave,
+  onClear,
+  onLogin,
+}: {
+  race: Race;
+  record?: RaceRecord;
+  ready: boolean;
+  autoOpen: boolean;
+  onSave?: (r: RecordInput) => Promise<unknown>;
+  onClear?: (id: string) => Promise<unknown>;
+  onLogin: OnLogin;
+}) {
+  const { session } = useAuth();
+  const { lang, t } = useLang();
+  const finished = record?.status === 'finished';
+  const [open, setOpen] = useState(false);
+  const [gate, setGate] = useState(false);
+  const [soon, setSoon] = useState(false);
+  const [dist, setDist] = useState('');
+  const [time, setTime] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  const startEdit = () => {
+    setDist(record?.distance ?? (race.distances.length === 1 ? race.distances[0] : ''));
+    setTime(record?.finish_sec != null ? fmtFinish(record.finish_sec) : '');
+    setErr('');
+    setOpen(true);
+  };
+  // 로그인 뒤 이어 하기 (렌더 중 상태 맞추기)
+  const want = autoOpen && !!session;
+  const [seenWant, setSeenWant] = useState(false);
+  if (want !== seenWant) {
+    setSeenWant(want);
+    if (want) startEdit();
+  }
+
+  const press = () => {
+    if (!session) return setGate((v) => !v);
+    if (!ready || !onSave) return setSoon(true);
+    startEdit();
+  };
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const raw = time.trim();
+    const sec = raw ? parseFinish(raw) : null;
+    if (raw && sec == null) return setErr(t('record.timeBad'));
+    if (!ready || !onSave) return setErr(t('member.soon'));
+    setBusy(true);
+    setErr('');
+    try {
+      await onSave({ race_id: race.id, status: 'finished', distance: dist || null, distance_km: dist ? distanceKm(dist) : null, finish_sec: sec });
+      if (!finished) track('race_finished', { race_id: race.id });
+      setOpen(false);
+    } catch (e2) {
+      setErr(e2 instanceof Error && lang === 'ko' && /[가-힣]/.test(e2.message) ? e2.message : t('record.fail'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!onClear) return;
+    setBusy(true);
+    setErr('');
+    try {
+      await onClear(race.id);
+      setOpen(false);
+    } catch {
+      setErr(t('record.fail'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const summary = finished
+    ? [record?.distance ? DIST_TEXT[lang](record.distance) : null, record?.finish_sec != null ? fmtFinish(record.finish_sec) : t('record.noTime')]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
+
+  return (
+    <div className="mt-4">
+      {!open &&
+        (finished ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex min-h-11 flex-wrap items-center gap-x-2 rounded-ctl border border-ink bg-surface px-4 py-2 text-[15px] font-semibold text-ink sm:min-h-10">
+              <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                <CheckSquare size={18} weight="fill" />
+                {t('record.doneOn')}
+              </span>
+              <span className="num text-[13px] font-normal text-ink-2">{summary}</span>
+            </span>
+            <Button size="sm" tone="quiet" type="button" onClick={startEdit}>
+              {t('record.edit')}
+            </Button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={press}
+            aria-expanded={gate}
+            className="inline-flex min-h-11 flex-wrap items-center gap-x-2 rounded-ctl bg-surface px-4 py-2 text-left text-[15px] font-semibold text-ink transition hover:bg-sunken active:translate-y-px sm:min-h-10"
+          >
+            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+              <Square size={18} weight="bold" />
+              {t('record.done')}
+            </span>
+            <span className="text-[13px] font-normal text-ink-3">{t('record.hint')}</span>
+          </button>
+        ))}
+
+      {gate && !session && <MemberGate raceId={race.id} action="record" onLogin={onLogin} className="mt-3 max-w-[60ch]" />}
+      {soon && session && !ready && <p className="mt-2 text-[13px] text-ink-3">{t('member.soon')}</p>}
+
+      {open && session && (
+        <form onSubmit={submit} className="max-w-[60ch] space-y-3 rounded-box border border-line p-4">
+          <p className="inline-flex items-center gap-2 text-[15px] font-semibold">
+            <CheckSquare size={18} weight="fill" />
+            {t('record.done')}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={t('record.distance')} hint={t('common.optional')}>
+              <select value={dist} onChange={(e) => setDist(e.target.value)} className={inputCls}>
+                <option value="">{t('record.distanceNone')}</option>
+                {race.distances.map((d) => (
+                  <option key={d} value={d}>
+                    {DIST_TEXT[lang](d)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label={t('record.time')} hint={t('common.optional')}>
+              <Input
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={9}
+                placeholder={t('record.timeHint')}
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="num"
+              />
+            </Field>
+          </div>
+          {err && <Note tone="error">{err}</Note>}
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" type="submit" disabled={busy}>
+              {busy ? t('common.saving') : t('record.save')}
+            </Button>
+            <Button size="sm" tone="quiet" type="button" onClick={() => setOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            {finished && (
+              <Button size="sm" tone="danger" type="button" disabled={busy} onClick={remove}>
+                {t('record.remove')}
+              </Button>
+            )}
+          </div>
+        </form>
+      )}
+      {!open && err && (
+        <div className="mt-3">
+          <Note tone="error">{err}</Note>
+        </div>
+      )}
     </div>
   );
 }
@@ -578,7 +846,7 @@ const reportedIds = (): string[] => {
 };
 
 /** '마감됐어요 제보' — 대회 추가 요청과 같은 표(race_requests)·같은 로그인·하루 제한 규칙 */
-function SoldOutReport({ race, onLogin }: { race: Race; onLogin: () => void }) {
+function SoldOutReport({ race, onLogin }: { race: Race; onLogin: OnLogin }) {
   const { session, profile } = useAuth();
   const { lang, t } = useLang();
   const [open, setOpen] = useState(false);
@@ -591,7 +859,7 @@ function SoldOutReport({ race, onLogin }: { race: Race; onLogin: () => void }) {
   async function send(e: React.FormEvent) {
     e.preventDefault();
     setErr('');
-    if (!session) return onLogin();
+    if (!session) return onLogin('in');
     const spam = spamReason(memo, lang);
     if (spam) return setErr(spam);
     setBusy(true);
@@ -627,7 +895,7 @@ function SoldOutReport({ race, onLogin }: { race: Race; onLogin: () => void }) {
   if (!open)
     return (
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <Button tone="quiet" size="sm" type="button" onClick={() => (session ? setOpen(true) : onLogin())}>
+        <Button tone="quiet" size="sm" type="button" onClick={() => (session ? setOpen(true) : onLogin('in'))}>
           {t('report.button')}
         </Button>
         <span className="text-[13px] text-ink-3">{t('report.hint')}</span>

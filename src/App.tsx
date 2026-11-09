@@ -18,6 +18,7 @@ import {
 import { AuthProvider, useAuth } from './lib/auth';
 import { useFavorites } from './lib/favorites';
 import { useRegistered } from './lib/registered';
+import { clearIntent, peekIntent, saveIntent, type AfterLogin, type GateAction, type GateIntent } from './lib/memberGate';
 import RaceRow from './components/RaceRow';
 import { AuthBar, AuthForm } from './components/AuthPanel';
 import { Panel, Note, MoreButton } from './components/ui';
@@ -104,7 +105,14 @@ function Main() {
   }, [reg.ids.length]);
 
   const [selected, setSelected] = useState<Race | null>(null);
-  const [authMode, setAuthMode] = useState<null | 'in' | 'reset'>(null);
+  const [authMode, setAuthMode] = useState<null | 'in' | 'up' | 'reset'>(null);
+  // 비회원이 회원 기능을 눌러 로그인 시트를 열 때: 무엇을 하려던 건지 남겨 두고 로그인 뒤 이어 한다 (lib/memberGate)
+  const openLogin = useCallback((mode: 'in' | 'up' = 'in', intent?: GateIntent) => {
+    if (intent) saveIntent(intent);
+    setAuthMode(mode);
+  }, []);
+  const [resume, setResume] = useState<AfterLogin | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ raceId: string; action: GateAction } | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
 
@@ -134,6 +142,30 @@ function Main() {
   useEffect(() => {
     if (auth.recovering) setAuthMode('reset');
   }, [auth.recovering]);
+
+  // 세션이 생기면(로그인·가입 확인 링크·새로고침) 남겨 둔 의도를 꺼내 바로 지우고,
+  // 대회 목록에 그 대회가 들어오면 열어서 하려던 동작(캘린더 고르기·알림 탭·기록 입력)을 펼친다
+  const uid = auth.session?.user.id;
+  const [seenUid, setSeenUid] = useState(uid);
+  if (uid !== seenUid) {
+    setSeenUid(uid);
+    const i = uid ? peekIntent() : null;
+    if (i) setResume(i);
+  }
+  useEffect(() => {
+    if (uid) clearIntent();
+  }, [uid]);
+  // (아래 둘은 렌더 중 상태 맞추기 — 조건이 바로 풀려 한 번만 다시 그린다)
+  if (resume) {
+    const r = data.races.find((x) => x.id === resume.raceId);
+    if (r || remote !== 'loading') setResume(null);
+    if (r) {
+      setSelected(r);
+      setPendingAction({ raceId: r.id, action: resume.action });
+    }
+  }
+  // 다른 대회로 옮기거나 닫으면 이어 하기는 끝
+  if (pendingAction && selected?.id !== pendingAction.raceId && !resume) setPendingAction(null);
 
   // /r/대회id (또는 예전 ?r=대회id) 로 들어오면 그 대회를 바로 연다 (공유 링크)
   const [deepLinked, setDeepLinked] = useState(false);
@@ -467,7 +499,7 @@ function Main() {
                 <span className={lang === 'ko' ? 'text-ink' : undefined}>한</span>
               </span>
             </button>
-            <AuthBar onOpen={() => setAuthMode('in')} />
+            <AuthBar onOpen={() => openLogin('in')} />
           </nav>
         </div>
       </header>
@@ -935,7 +967,12 @@ function Main() {
               registered={reg.has(selected.id)}
               onToggleRegistered={() => reg.toggle(selected.id)}
               onClose={() => setSelected(null)}
-              onLogin={() => setAuthMode('in')}
+              onLogin={openLogin}
+              initialAction={pendingAction?.raceId === selected.id ? pendingAction.action : undefined}
+              record={reg.records.get(selected.id)}
+              recordsReady={reg.synced}
+              onSaveRecord={reg.saveRecord}
+              onClearRecord={reg.clearRecord}
               {...similarProps}
             />
           </Suspense>
@@ -944,7 +981,7 @@ function Main() {
 
       <Panel open={showRequest} onClose={() => setShowRequest(false)} label={t('header.request')}>
         <Suspense fallback={null}>
-          <RequestPanel onClose={() => setShowRequest(false)} onLogin={() => setAuthMode('in')} />
+          <RequestPanel onClose={() => setShowRequest(false)} onLogin={() => openLogin('in')} />
         </Suspense>
       </Panel>
 

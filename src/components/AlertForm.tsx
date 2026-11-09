@@ -7,13 +7,15 @@ import { Button, Field, Input, Note } from './ui';
 import { track } from '../lib/analytics';
 import { langPath, useLang } from '../i18n';
 import { COLLECT_ALERT, PRIVACY_PATH } from '../lib/policy';
+import MemberGate, { type OnLogin } from './MemberGate';
 
 const OPTIONS = [30, 14, 7, 3, 1];
 
-export default function AlertForm({ race }: { race: Race }) {
+/** 알림 신청은 회원만(서버 subscribe_alert 도 비로그인을 거절). 회원은 계정 이메일로만 — 서버 규칙과 같게 고쳐 쓸 수 없다 */
+export default function AlertForm({ race, onLogin }: { race: Race; onLogin: OnLogin }) {
   const { session } = useAuth();
   const { lang, t } = useLang();
-  const [email, setEmail] = useState(session?.user.email ?? '');
+  const email = session?.user.email ?? '';
   const [days, setDays] = useState<number[]>([14, 3]);
   const [state, setState] = useState<'idle' | 'busy' | 'ok' | 'err'>('idle');
   const [msg, setMsg] = useState('');
@@ -80,57 +82,54 @@ export default function AlertForm({ race }: { race: Race }) {
         )}
       </div>
 
-      <form onSubmit={submit} className="space-y-5">
-        <fieldset>
-          <legend className="mb-2 text-[13px] font-semibold text-ink-2">{t('alert.when')}</legend>
-          <div className="flex flex-wrap gap-2">
-            {OPTIONS.map((n) => {
-              const on = days.includes(n);
-              return (
-                <button
-                  type="button"
-                  key={n}
-                  aria-pressed={on}
-                  onClick={() => toggle(n)}
-                  className={`num h-11 min-w-14 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition active:translate-y-px sm:h-10 ${
-                    on ? 'bg-ink text-bg' : 'bg-surface text-ink-2 hover:bg-sunken'
-                  }`}
-                >
-                  D-{n}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
+      {!session ? (
+        <MemberGate raceId={race.id} action="alert" onLogin={onLogin} />
+      ) : (
+        <form onSubmit={submit} className="space-y-5">
+          <fieldset>
+            <legend className="mb-2 text-[13px] font-semibold text-ink-2">{t('alert.when')}</legend>
+            <div className="flex flex-wrap gap-2">
+              {OPTIONS.map((n) => {
+                const on = days.includes(n);
+                return (
+                  <button
+                    type="button"
+                    key={n}
+                    aria-pressed={on}
+                    onClick={() => toggle(n)}
+                    className={`num h-11 min-w-14 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition active:translate-y-px sm:h-10 ${
+                      on ? 'bg-ink text-bg' : 'bg-surface text-ink-2 hover:bg-sunken'
+                    }`}
+                  >
+                    D-{n}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
 
-        <Field label={t('alert.email')}>
-          <div className="flex gap-2">
-            <Input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-            />
-            <Button type="submit" disabled={state === 'busy' || !days.length}>
-              {state === 'busy' ? t('common.saving') : t('alert.submit')}
-            </Button>
-          </div>
-        </Field>
-        {/* 수집·이용 고지(목적·항목·보유기간·거부 권리) — 문구는 lib/policy 의 COLLECT_ALERT */}
-        <p className="text-[13px] leading-relaxed text-ink-3">
-          <span className="font-semibold text-ink-2">{t('consent.alertTitle')}</span> · {t('consent.purpose')}: {COLLECT_ALERT.purpose[lang]} ·{' '}
-          {t('consent.items')}: {COLLECT_ALERT.items[lang]} · {t('consent.retention')}: {COLLECT_ALERT.retention[lang]} ·{' '}
-          {COLLECT_ALERT.refusal[lang]}{' '}
-          <a href={langPath(PRIVACY_PATH, lang)} target="_blank" rel="noopener" className="py-1 underline underline-offset-2 hover:no-underline">
-            {t('rights.policy')}
-          </a>
-        </p>
+          <Field label={t('alert.email')} hint={t('alert.memberEmail')}>
+            <div className="flex gap-2">
+              <Input type="email" required readOnly value={email} className="text-ink-2" />
+              <Button type="submit" disabled={state === 'busy' || !days.length}>
+                {state === 'busy' ? t('common.saving') : t('alert.submit')}
+              </Button>
+            </div>
+          </Field>
+          {/* 수집·이용 고지(목적·항목·보유기간·거부 권리) — 문구는 lib/policy 의 COLLECT_ALERT */}
+          <p className="text-[13px] leading-relaxed text-ink-3">
+            <span className="font-semibold text-ink-2">{t('consent.alertTitle')}</span> · {t('consent.purpose')}: {COLLECT_ALERT.purpose[lang]} ·{' '}
+            {t('consent.items')}: {COLLECT_ALERT.items[lang]} · {t('consent.retention')}: {COLLECT_ALERT.retention[lang]} ·{' '}
+            {COLLECT_ALERT.refusal[lang]}{' '}
+            <a href={langPath(PRIVACY_PATH, lang)} target="_blank" rel="noopener" className="py-1 underline underline-offset-2 hover:no-underline">
+              {t('rights.policy')}
+            </a>
+          </p>
 
-        {state === 'ok' && <Note tone="ok">{msg}</Note>}
-        {state === 'err' && <Note tone="error">{msg}</Note>}
-      </form>
+          {state === 'ok' && <Note tone="ok">{msg}</Note>}
+          {state === 'err' && <Note tone="error">{msg}</Note>}
+        </form>
+      )}
     </div>
   );
 }
