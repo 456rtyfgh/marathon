@@ -29,7 +29,7 @@ import { scrollToResults, RESULTS_EMPTY_ID } from './lib/scrollToResults';
 import { ResultsAnnouncer } from './components/ResultsAnnouncer';
 import { track, pageView } from './lib/analytics';
 import { langPath, useLang, type Key } from './i18n';
-import { DISCIPLINE_TEXT, ENTRY_TEXT, fmtMonth } from './i18n/format';
+import { DISCIPLINE_TEXT, ENTRY_TEXT, fmtCount, fmtMonth } from './i18n/format';
 import { countryName, raceName, whereText } from './i18n/names';
 
 // 상세·요청·관리 패널은 열 때만 필요하므로 첫 화면 번들에서 뺀다 (목록이 뜬 뒤 미리 받아 둔다 —
@@ -489,7 +489,7 @@ function Main() {
               {t('site.name')}
             </h1>
             <p className="mt-4 max-w-[42ch] text-[16px] leading-relaxed text-balance text-ink-2 sm:text-[17px]">
-              {remote === 'loading' ? t('app.lead') : t('app.leadCount', { kr: stats.kr, abroad: stats.abroad })}</p>
+              {remote === 'loading' ? t('app.lead') : t('app.leadCount', { kr: fmtCount(stats.kr, lang), abroad: fmtCount(stats.abroad, lang) })}</p>
           </div>
 
           <div className="grid grid-cols-3 gap-px overflow-hidden rounded-box bg-line md:w-[27rem]">
@@ -595,7 +595,7 @@ function Main() {
                   }`}
                 >
                   {label}
-                  <span className="num text-[15px] text-ink-3">{n}</span>
+                  <span className="num text-[15px] text-ink-3">{fmtCount(n, lang)}</span>
                 </button>
               ))}
             </div>
@@ -816,7 +816,7 @@ function Main() {
                 <div className="flex items-baseline justify-between gap-3 px-3 pb-2 sm:px-5">
                   <h2 className="flex items-baseline gap-2">
                     <span className="text-[19px] font-extrabold tracking-tight">{g.title}</span>
-                    <span className="num text-[18px] font-semibold text-ink-3">{g.total}</span>
+                    <span className="num text-[18px] font-semibold text-ink-3">{fmtCount(g.total, lang)}</span>
                   </h2>
                   {/* 하단 안내까지 내려가지 않아도 보이게 첫 묶음 제목 줄에 (헤더 버튼은 휴대폰에서 숨김) */}
                   {i === 0 && (
@@ -853,7 +853,7 @@ function Main() {
                 aria-expanded={showPast}
                 className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-ink-3 hover:text-ink"
               >
-                {t(showPast ? 'past.hide' : 'past.show', { n: pastRaces.length })}
+                {t(showPast ? 'past.hide' : 'past.show', { n: fmtCount(pastRaces.length, lang) })}
                 <CaretDown size={14} className={showPast ? 'rotate-180' : ''} />
               </button>
               {showPast && (

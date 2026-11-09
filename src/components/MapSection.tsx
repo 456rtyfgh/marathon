@@ -9,7 +9,7 @@ import { EAST_ASIA, EAST_ASIA_ENTRY, countryRegion } from '../lib/geo';
 import { track } from '../lib/analytics';
 import type { MapBack } from './MapView';
 import { useLang } from '../i18n';
-import { REGION_TEXT } from '../i18n/format';
+import { REGION_TEXT, fmtCount } from '../i18n/format';
 import { countryName, provinceName, subregionName } from '../i18n/names';
 
 const MapView = lazy(() => import('./MapView'));
@@ -406,7 +406,7 @@ function MapSection({
           {scope !== 'kr' && places.includes('kr') && (
             <p className="mt-2 px-1.5 text-[13px] text-ink-2">
               {t('map.krPre')}
-              {geo.country.kr ?? 0}
+              {fmtCount(geo.country.kr ?? 0, lang)}
               {t('map.krPost', { count: geo.country.kr ?? 0 })}{' '}
               <button
                 type="button"

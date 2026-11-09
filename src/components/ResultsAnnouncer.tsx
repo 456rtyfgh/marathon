@@ -4,6 +4,7 @@
  * 결과 0개 문장은 화면 문구('‘○○’ 대회를 찾지 못했습니다.', '혹시 이 대회인가요?') 그대로.
  */
 import { useLang } from '../i18n';
+import { fmtCount } from '../i18n/format';
 
 export function ResultsAnnouncer({
   query,
@@ -16,12 +17,12 @@ export function ResultsAnnouncer({
   suggestions: number;
   loading: boolean;
 }) {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const text =
     loading || !query
       ? ''
       : count > 0
-        ? t('announce.results', { q: query, count })
+        ? t('announce.results', { q: query, count: fmtCount(count, lang) })
         : `${t('list.notFound', { q: query })}${suggestions > 0 ? t('announce.suggest', { n: suggestions }) : ''}`;
   return (
     <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">

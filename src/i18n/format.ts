@@ -50,6 +50,11 @@ export function fmtNumber(n: number, lang: Lang): string {
   return lang === 'en' ? n.toLocaleString('en-US') : n.toLocaleString();
 }
 
+/** 화면의 대회 수: ko 는 지금처럼 쉼표 없이 그대로, en 은 '1,056' */
+export function fmtCount(n: number, lang: Lang): string {
+  return lang === 'en' ? n.toLocaleString('en-US') : String(n);
+}
+
 const SYM: Record<string, string> = {
   USD: '$', JPY: '¥', EUR: '€', GBP: '£', AUD: 'A$', CAD: 'C$',
   SGD: 'S$', HKD: 'HK$', TWD: 'NT$', CNY: '¥', ZAR: 'R',
