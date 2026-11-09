@@ -95,8 +95,8 @@ const navEn = `<nav aria-label="Marathons by month"><h2>Marathons by Month</h2><
 <nav aria-label="Marathons by topic"><h2>Marathons by Topic</h2><p>${LANDINGS_EN.map((l) => `<a href="${l.path}">${esc(l.name)}</a>`).join(' · ')}</p></nav>`;
 const htmlEn = `<main class="seo-pre" style="max-width:72rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
 <h1>${SITE_NAME_EN}</h1>
-<p>Marathon dates and registration windows in Korea and worldwide, sorted by upcoming registration. ${kr} in Korea, ${upcoming.length - kr} abroad.</p>
-<p>Race dates, registration open and close dates, lottery or first-come entry, entry fees, tour packages and estimated costs for ${kr} races in Korea and ${upcoming.length - kr} abroad, marathons and trail races alike. See Seoul, Chuncheon, JTBC Seoul, Tokyo, Osaka, Boston, New York, Berlin and London marathon dates at a glance.</p>
+<p>Marathon dates and registration windows in Korea and worldwide, sorted by upcoming registration. ${kr.toLocaleString('en-US')} in Korea, ${(upcoming.length - kr).toLocaleString('en-US')} abroad.</p>
+<p>Race dates, registration open and close dates, lottery or first-come entry, entry fees, tour packages and estimated costs for ${kr.toLocaleString('en-US')} races in Korea and ${(upcoming.length - kr).toLocaleString('en-US')} abroad, marathons and trail races alike. See Seoul, Chuncheon, JTBC Seoul, Tokyo, Osaka, Boston, New York, Berlin and London marathon dates at a glance.</p>
 ${navEn}
 ${[...byMonth.entries()].map(([ym, rs]) => `<h2><a href="${enPath(monthPath(ym))}">${monthLabelEn(ym)} Marathons</a></h2><ul>${rs.map(itemEn).join('')}</ul>`).join('\n')}
 </main>`;

@@ -327,6 +327,8 @@ for (const y of years) {
 
 
 // ── 영어판: dist/en/… (한국어 페이지와 같은 목록·같은 순서, 주소만 /en 접두). 위 한국어 코드는 그대로 두고 따로 만든다 ──
+/** 영어 숫자: 1056 → '1,056' (PLAN 2-2) */
+const num = (n) => n.toLocaleString('en-US');
 const logoEn = () => {
   if (!SYMBOL) return `<span class="brand-text">${SITE_NAME_EN}</span>`;
   const pic = (base, size) =>
@@ -402,7 +404,7 @@ const monthNavEn = (current) =>
     .join('')}</nav>`;
 const countryNavEn = (current) =>
   `<h2>Marathons by Country</h2><nav class="links" aria-label="By country">${countries
-    .map((c) => (c.code === current ? `<strong>${esc(countryLabelEn(c))}</strong>` : `<a href="${enPath(countryPath(c.code))}">${esc(countryLabelEn(c))} (${c.races.length})</a>`))
+    .map((c) => (c.code === current ? `<strong>${esc(countryLabelEn(c))}</strong>` : `<a href="${enPath(countryPath(c.code))}">${esc(countryLabelEn(c))} (${num(c.races.length)})</a>`))
     .join('')}</nav>`;
 const topicNavEn = (current) =>
   `<h2>Marathons by Topic</h2><nav class="links" aria-label="By topic">${LANDINGS_EN.map((l) =>
@@ -419,14 +421,14 @@ const byMonthBodyEn = (rs, { split = true } = {}) => {
   for (const r of rs) byM.set(r.race_date.slice(0, 7), [...(byM.get(r.race_date.slice(0, 7)) ?? []), r]);
   return [...byM.entries()]
     .map(([ym, ms]) => {
-      const head = `<h2><a href="${enPath(monthPath(ym))}">${monthLabelEn(ym)}</a> Marathons (${ms.length})</h2>`;
+      const head = `<h2><a href="${enPath(monthPath(ym))}">${monthLabelEn(ym)}</a> Marathons (${num(ms.length)})</h2>`;
       if (!split) return `${head}<ul class="races">${ms.map(itemEn).join('')}</ul>`;
       const kr = ms.filter(isKr);
       const ab = ms.filter((r) => !isKr(r));
       return [
         head,
-        kr.length ? `<h3>Korea (${kr.length})</h3><ul class="races">${kr.map(itemEn).join('')}</ul>` : '',
-        ab.length ? `<h3>Abroad (${ab.length})</h3><ul class="races">${ab.map(itemEn).join('')}</ul>` : '',
+        kr.length ? `<h3>Korea (${num(kr.length)})</h3><ul class="races">${kr.map(itemEn).join('')}</ul>` : '',
+        ab.length ? `<h3>Abroad (${num(ab.length)})</h3><ul class="races">${ab.map(itemEn).join('')}</ul>` : '',
       ].join('');
     })
     .join('\n');
@@ -444,8 +446,8 @@ for (const [i, ym] of months.entries()) {
   const koPath = monthPath(ym);
   const body = [
     `<nav class="links" aria-label="Previous and next month">${prev ? `<a href="${enPath(monthPath(prev))}">← ${monthLabelEn(prev)}</a>` : ''}${next ? `<a href="${enPath(monthPath(next))}">${monthLabelEn(next)} →</a>` : ''}</nav>`,
-    kr.length ? `<h2>${label} Races in Korea (${kr.length})</h2><ul class="races">${kr.map(itemEn).join('')}</ul>` : '',
-    abroad.length ? `<h2>${label} Races Abroad (${abroad.length})</h2><ul class="races">${abroad.map(itemEn).join('')}</ul>` : '',
+    kr.length ? `<h2>${label} Races in Korea (${num(kr.length)})</h2><ul class="races">${kr.map(itemEn).join('')}</ul>` : '',
+    abroad.length ? `<h2>${label} Races Abroad (${num(abroad.length)})</h2><ul class="races">${abroad.map(itemEn).join('')}</ul>` : '',
     monthNavEn(ym),
     countryNavEn(null),
     topicNavEn(null),
@@ -454,10 +456,10 @@ for (const [i, ym] of months.entries()) {
     enPath(koPath),
     pageEn({
       koPath,
-      title: `${label} Marathons — ${kr.length} in Korea, ${abroad.length} Abroad | ${SITE_NAME_EN}`,
-      description: `Dates, locations, distances and registration windows for ${rs.length} marathons and trail races ${when} in ${label} (${kr.length} in Korea, ${abroad.length} abroad).${etcEn(rs)}`.slice(0, 160),
+      title: `${label} Marathons — ${num(kr.length)} in Korea, ${num(abroad.length)} Abroad | ${SITE_NAME_EN}`,
+      description: `Dates, locations, distances and registration windows for ${num(rs.length)} marathons and trail races ${when} in ${label} (${num(kr.length)} in Korea, ${num(abroad.length)} abroad).${etcEn(rs)}`.slice(0, 160),
       h1: `${label} Marathons`,
-      lead: `${kr.length} races in Korea and ${abroad.length} abroad ${when} in ${label}. ${SELECT}`,
+      lead: `${num(kr.length)} races in Korea and ${num(abroad.length)} abroad ${when} in ${label}. ${SELECT}`,
       crumbs: crumbsEn(enPath(koPath), `${label} Marathons`),
       body,
       list: rs,
@@ -477,9 +479,9 @@ for (const c of countries) {
   const koPath = countryPath(c.code);
   const body = [
     ...[...byM.entries()].map(
-      ([ym, rs]) => `<h2><a href="${enPath(monthPath(ym))}">${monthLabelEn(ym)}</a> — ${esc(name)} (${rs.length})</h2><ul class="races">${rs.map(itemEn).join('')}</ul>`,
+      ([ym, rs]) => `<h2><a href="${enPath(monthPath(ym))}">${monthLabelEn(ym)}</a> — ${esc(name)} (${num(rs.length)})</h2><ul class="races">${rs.map(itemEn).join('')}</ul>`,
     ),
-    past.length ? `<h2>Past races (${past.length})</h2><ul class="races">${[...past].reverse().map(itemEn).join('')}</ul>` : '',
+    past.length ? `<h2>Past races (${num(past.length)})</h2><ul class="races">${[...past].reverse().map(itemEn).join('')}</ul>` : '',
     countryNavEn(c.code),
     monthNavEn(null),
     topicNavEn(null),
@@ -489,9 +491,9 @@ for (const c of countries) {
     pageEn({
       koPath,
       title: `Marathons in ${name}${ys ? ` ${ys}` : ''} — Race Dates & Registration | ${SITE_NAME_EN}`,
-      description: `Dates, cities, distances, registration open and close dates, and official websites for ${c.races.length} marathon${trail ? ' and trail' : ''} races in ${name}.${etcEn(up)}`.slice(0, 160),
+      description: `Dates, cities, distances, registration open and close dates, and official websites for ${num(c.races.length)} marathon${trail ? ' and trail' : ''} races in ${name}.${etcEn(up)}`.slice(0, 160),
       h1: `Marathons in ${name}${ys ? ` ${ys}` : ''}`,
-      lead: `${up.length} upcoming races in ${name}, sorted by date${trail ? ` (including ${trail} trail races)` : ''}. Select a race to see its entry type, fee and official website.`,
+      lead: `${num(up.length)} upcoming races in ${name}, sorted by date${trail ? ` (including ${num(trail)} trail races)` : ''}. Select a race to see its entry type, fee and official website.`,
       crumbs: crumbsEn(enPath(koPath), `Marathons in ${name}`),
       body,
       list: c.races,
@@ -511,10 +513,10 @@ for (const y of years) {
     enPath(koPath),
     pageEn({
       koPath,
-      title: `${y} Marathon Calendar — ${kr} in Korea, ${ab} Abroad | ${SITE_NAME_EN}`,
-      description: `Dates, locations, distances and registration open and close dates for ${rs.length} marathons and trail races in ${y} (${kr} in Korea, ${ab} abroad), month by month.${etcEn(up.length ? up : rs)}`.slice(0, 160),
+      title: `${y} Marathon Calendar — ${num(kr)} in Korea, ${num(ab)} Abroad | ${SITE_NAME_EN}`,
+      description: `Dates, locations, distances and registration open and close dates for ${num(rs.length)} marathons and trail races in ${y} (${num(kr)} in Korea, ${num(ab)} abroad), month by month.${etcEn(up.length ? up : rs)}`.slice(0, 160),
       h1: `${y} Marathon Calendar`,
-      lead: `${kr} races in Korea and ${ab} abroad in ${y}, month by month${hasPast ? ' (including races already held)' : ''}. ${SELECT}`,
+      lead: `${num(kr)} races in Korea and ${num(ab)} abroad in ${y}, month by month${hasPast ? ' (including races already held)' : ''}. ${SELECT}`,
       crumbs: crumbsEn(enPath(koPath), `${y} Marathon Calendar`),
       body: [byMonthBodyEn(rs), footNavEn(enPath(koPath))].join('\n'),
       list: rs,
@@ -532,9 +534,9 @@ for (const y of years) {
     pageEn({
       koPath,
       title: `Marathons in South Korea ${ys} — Race Registration | ${SITE_NAME_EN}`,
-      description: `Dates, cities, distances, registration open and close dates, and lottery or first-come entry for ${rs.length} upcoming marathons and trail races in South Korea.${etcEn(rs)}`.slice(0, 160),
+      description: `Dates, cities, distances, registration open and close dates, and lottery or first-come entry for ${num(rs.length)} upcoming marathons and trail races in South Korea.${etcEn(rs)}`.slice(0, 160),
       h1: 'Marathons in South Korea',
-      lead: `${rs.length} upcoming races in South Korea, sorted by date. Select a race to see its entry type, fee and official website.`,
+      lead: `${num(rs.length)} upcoming races in South Korea, sorted by date. Select a race to see its entry type, fee and official website.`,
       crumbs: crumbsEn(enPath(koPath), 'Marathons in South Korea'),
       body: [`<p><a href="${enPath(countryPath('kr'))}">Include past races (all marathons in South Korea)</a></p>`, byMonthBodyEn(rs, { split: false }), footNavEn(enPath(koPath))].join('\n'),
       list: rs,
@@ -553,9 +555,9 @@ for (const y of years) {
     pageEn({
       koPath,
       title: `Marathons Outside Korea ${ys} — Race Registration by Country | ${SITE_NAME_EN}`,
-      description: `Dates, cities, distances and lottery or first-come registration windows for ${rs.length} upcoming marathons and trail races in ${n} countries outside Korea.${etcEn(rs)}`.slice(0, 160),
+      description: `Dates, cities, distances and lottery or first-come registration windows for ${num(rs.length)} upcoming marathons and trail races in ${n} countries outside Korea.${etcEn(rs)}`.slice(0, 160),
       h1: 'Marathons Outside Korea',
-      lead: `${rs.length} upcoming races in ${n} countries outside Korea, sorted by date. Select a race to see its entry type, fee and tour packages.`,
+      lead: `${num(rs.length)} upcoming races in ${n} countries outside Korea, sorted by date. Select a race to see its entry type, fee and tour packages.`,
       crumbs: crumbsEn(enPath(koPath), 'Marathons Outside Korea'),
       body: [byMonthBodyEn(rs, { split: false }), footNavEn(enPath(koPath))].join('\n'),
       list: rs,
@@ -574,9 +576,9 @@ for (const y of years) {
     pageEn({
       koPath,
       title: `Trail Races ${ys} — Korea and Worldwide Registration | ${SITE_NAME_EN}`,
-      description: `Dates, locations, distances and registration open and close dates for ${rs.length} upcoming trail races (${kr} in Korea, ${rs.length - kr} abroad).${etcEn(rs)}`.slice(0, 160),
+      description: `Dates, locations, distances and registration open and close dates for ${num(rs.length)} upcoming trail races (${num(kr)} in Korea, ${num(rs.length - kr)} abroad).${etcEn(rs)}`.slice(0, 160),
       h1: 'Trail Races',
-      lead: `${kr} upcoming trail races in Korea and ${rs.length - kr} abroad, sorted by date. Select a race to see its entry type, fee and official website.`,
+      lead: `${num(kr)} upcoming trail races in Korea and ${num(rs.length - kr)} abroad, sorted by date. Select a race to see its entry type, fee and official website.`,
       crumbs: crumbsEn(enPath(koPath), 'Trail Races'),
       body: [byMonthBodyEn(rs), footNavEn(enPath(koPath))].join('\n'),
       list: rs,
@@ -597,15 +599,15 @@ for (const y of years) {
     enPath(koPath),
     pageEn({
       koPath,
-      title: `${rs.length} Races Open for Registration — as of ${day} | ${SITE_NAME_EN}`,
-      description: `Marathons and trail races open for registration as of ${day}: ${kr.length} in Korea and ${ab.length} abroad, sorted by closing date.${etcEn(rs)}`.slice(0, 160),
+      title: `${num(rs.length)} Races Open for Registration — as of ${day} | ${SITE_NAME_EN}`,
+      description: `Marathons and trail races open for registration as of ${day}: ${num(kr.length)} in Korea and ${num(ab.length)} abroad, sorted by closing date.${etcEn(rs)}`.slice(0, 160),
       h1: 'Races Open for Registration',
-      lead: `${rs.length} races open for registration as of ${fmtEn(today)} (${kr.length} in Korea, ${ab.length} abroad), sorted by closing date. This list is rebuilt daily (as of the build date). First-come races can sell out before the closing date.`,
+      lead: `${num(rs.length)} races open for registration as of ${fmtEn(today)} (${num(kr.length)} in Korea, ${num(ab.length)} abroad), sorted by closing date. This list is rebuilt daily (as of the build date). First-come races can sell out before the closing date.`,
       crumbs: crumbsEn(enPath(koPath), 'Races Open for Registration'),
       body: [
         rs.length ? '' : '<p>No races are open for registration right now.</p>',
-        kr.length ? `<h2>Open in Korea (${kr.length})</h2><ul class="races">${kr.map(itemEn).join('')}</ul>` : '',
-        ab.length ? `<h2>Open Abroad (${ab.length})</h2><ul class="races">${ab.map(itemEn).join('')}</ul>` : '',
+        kr.length ? `<h2>Open in Korea (${num(kr.length)})</h2><ul class="races">${kr.map(itemEn).join('')}</ul>` : '',
+        ab.length ? `<h2>Open Abroad (${num(ab.length)})</h2><ul class="races">${ab.map(itemEn).join('')}</ul>` : '',
         footNavEn(enPath(koPath)),
       ].join('\n'),
       list: rs,
