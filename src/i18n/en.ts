@@ -159,7 +159,7 @@ export const en: Record<Key, string> & Partial<Record<`${Key}_one`, string>> = {
   'detail.domestic': '{city}, South Korea',
   'detail.saved': 'Saved',
   'detail.save': 'Save',
-  'detail.majorWorld': 'One of the 7 Abbott World Marathon Majors',
+  'detail.majorWorld': 'One of the 8 Abbott World Marathon Majors',
   'detail.majorKorea': "One of Korea's big three marathons",
   'detail.cancelled': 'Cancelled',
   'detail.wasScheduled': 'Was scheduled for {w}, {mon} {d}',

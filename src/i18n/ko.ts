@@ -161,7 +161,7 @@ export const ko = {
   'detail.domestic': '국내, {city}',
   'detail.saved': '관심 대회',
   'detail.save': '관심 추가',
-  'detail.majorWorld': '세계 7대 마라톤 메이저(애벗 WMM) 대회',
+  'detail.majorWorld': '세계 8대 마라톤 메이저(애벗 WMM) 대회',
   'detail.majorKorea': '국내 3대 마라톤 대회',
   'detail.cancelled': '대회 취소',
   'detail.wasScheduled': '{m}월 {d}일 ({w}) 예정이던 대회',
