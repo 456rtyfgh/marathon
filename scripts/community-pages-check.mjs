@@ -146,7 +146,7 @@ try {
   ok(!lds.some((x) => x['@type'] === 'ItemList'), '홈 ItemList 는 뺌');
   ok(r.h.get('Cache-Control') === 'public, max-age=60' && (r.h.get('Content-Security-Policy') ?? '').includes("default-src 'self'"), '캐시 60초 · 보안 헤더', String(r.h.get('Cache-Control')));
   r = await get(`/en/community/${VIS}`);
-  ok(r.status === 200 && r.text.includes('Running Talk') && r.text.includes(`href="https://marathon82.com/community/${VIS}"`) && r.text.includes('lang="en"'), '/en/community/<글> → 영어 화면, canonical 은 한국어 주소');
+  ok(r.status === 200 && r.text.includes('Run Talk') && r.text.includes(`href="https://marathon82.com/community/${VIS}"`) && r.text.includes('lang="en"'), '/en/community/<글> → 영어 화면, canonical 은 한국어 주소');
 
   for (const [name, p] of [
     ['지운 글', `/community/${DEL}`],

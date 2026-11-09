@@ -41,8 +41,8 @@ const LIST_TTL = 45; // 초
 const PAGE_TTL = 60;
 
 const CAT_TEXT: Record<Lang, Record<Category, string>> = {
-  ko: { question: '질문', companion: '동행·크루', info: '대회 정보', free: '자유' },
-  en: { question: 'Questions', companion: 'Buddies & crews', info: 'Race info', free: 'Open chat' },
+  ko: { question: '질문', companion: '동행/크루', info: '대회 정보', free: '자유' },
+  en: { question: 'Question', companion: 'Buddies/Crew', info: 'Race info', free: 'Chat' },
 };
 const TEXT = {
   ko: {
@@ -60,15 +60,15 @@ const TEXT = {
     crumb: '위치',
   },
   en: {
-    name: 'Running Talk',
+    name: 'Run Talk',
     site: 'Marathon Calendar',
-    listTitle: 'Running Talk — Marathon Q&A, Buddies & Race Info | Marathon Calendar',
+    listTitle: 'Run Talk — Marathon Q&A, Buddies & Race Info | Marathon Calendar',
     listDesc: 'A runners’ board for race questions, finding buddies and crews, race info and open chat. Posts and comments are visible to members with a confirmed email.',
     locked: 'Members only. Sign up and confirm your email to read this post.',
     comments: (n: number) => `${n} comment${n === 1 ? '' : 's'}`,
     likes: (n: number) => `${n} like${n === 1 ? '' : 's'}`,
     tail: 'Post and comments are visible to members with a confirmed email.',
-    post: 'Running Talk post',
+    post: 'Run Talk post',
     raceLink: 'Race dates & registration',
     empty: 'No posts yet.',
     crumb: 'Breadcrumb',

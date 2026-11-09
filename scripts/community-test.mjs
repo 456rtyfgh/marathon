@@ -207,9 +207,9 @@ for (const [name, f] of [
   ok(p.root.includes(`class="${m.MEMBERS_ONLY_CLASS}"`), '본문 자리에 회원 전용 클래스');
   ok(posting.author.name === '러너"B' && posting.about?.name === '서울마라톤' && posting.commentCount === 7, '작성자·대회·댓글 수');
   ok(p.canonical === `${SITE}/community/${uuid(7)}` && p.desc.length <= 160, 'canonical·설명 길이');
-  ok(p.desc.includes('동행·크루') && p.desc.includes('서울마라톤') && p.desc.includes('2026년 11월 9일'), '설명: 카테고리·대회·작성일');
+  ok(p.desc.includes('동행/크루') && p.desc.includes('서울마라톤') && p.desc.includes('2026년 11월 9일'), '설명: 카테고리·대회·작성일');
   const en = m.postParts(detail, 'Seoul Marathon', 'en');
-  ok(en.canonical === p.canonical && en.title.includes('Running Talk') && en.root.includes('href="/en/community"'), '영어: canonical 은 한국어 주소, 경로는 /en');
+  ok(en.canonical === p.canonical && en.title.includes('Run Talk') && en.root.includes('href="/en/community"'), '영어: canonical 은 한국어 주소, 경로는 /en');
   ok(p.lds[1]['@type'] === 'BreadcrumbList', 'BreadcrumbList');
 
   const lp = m.listParts(
