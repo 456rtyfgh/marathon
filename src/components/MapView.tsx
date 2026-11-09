@@ -613,7 +613,7 @@ export default function MapView({
           <div className="rounded-ctl bg-surface px-2.5 py-1.5 text-[14px] shadow-[0_1px_3px_var(--shadow-strong)]">
             <span className="font-semibold">{names[tip] ?? tip}</span>
             <span className="num ml-1.5 text-[16px] font-semibold">{counts[tip]}</span>
-            <span className="text-ink-3">{t('map.tipUnit')}</span>
+            <span className="text-ink-3">{t('map.tipUnit', { count: counts[tip] })}</span>
           </div>
         ) : null}
       </div>

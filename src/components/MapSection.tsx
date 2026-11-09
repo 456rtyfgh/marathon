@@ -407,7 +407,7 @@ function MapSection({
             <p className="mt-2 px-1.5 text-[13px] text-ink-2">
               {t('map.krPre')}
               {geo.country.kr ?? 0}
-              {t('map.krPost')}{' '}
+              {t('map.krPost', { count: geo.country.kr ?? 0 })}{' '}
               <button
                 type="button"
                 onClick={() => {
