@@ -994,10 +994,13 @@ function Stat({
 
 function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
-    // 칩이 두 줄이 돼도 둘째 줄이 라벨 밑이 아니라 칩 칸에서 시작하게
-    <div className="grid grid-cols-[4rem_1fr] items-start gap-x-2">
+    // 휴대폰: 칩 한 줄 가로 스크롤(화면 끝까지, 끝 여백 16px, 위아래 4px 는 초점 테두리 자리)
+    // sm 이상: 줄바꿈, 둘째 줄도 라벨 밑이 아니라 칩 칸에서 시작
+    <div className="grid grid-cols-[4rem_minmax(0,1fr)] items-start gap-x-2">
       <span className="flex h-11 items-center text-[13px] font-semibold text-ink-3 sm:h-10">{label}</span>
-      <div className="flex min-h-11 flex-wrap items-center gap-2 sm:min-h-10">{children}</div>
+      <div className="-my-1 -mr-4 flex min-h-11 items-center gap-2 overflow-x-auto py-1 pr-4 [scrollbar-width:none] sm:my-0 sm:mr-0 sm:min-h-10 sm:flex-wrap sm:overflow-visible sm:py-0 sm:pr-0 [&>*]:shrink-0">
+        {children}
+      </div>
     </div>
   );
 }
