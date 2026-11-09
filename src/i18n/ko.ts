@@ -137,7 +137,8 @@ export const ko = {
   // 목록 행
   'row.saved': '관심 대회',
   'row.trail': '트레일',
-  'row.major': '메이저',
+  'row.majorWorld': '세계 메이저',
+  'row.majorKorea': '국내 메이저',
   'row.fcfsShort': '선착순 · 조기 마감 가능',
   'row.fcfsLong': '선착순 · 조기 마감될 수 있음',
   'row.dateExpected': ', 날짜 예상',
@@ -160,6 +161,8 @@ export const ko = {
   'detail.domestic': '국내, {city}',
   'detail.saved': '관심 대회',
   'detail.save': '관심 추가',
+  'detail.majorWorld': '세계 7대 마라톤 메이저(애벗 WMM) 대회',
+  'detail.majorKorea': '국내 3대 마라톤 대회',
   'detail.cancelled': '대회 취소',
   'detail.wasScheduled': '{m}월 {d}일 ({w}) 예정이던 대회',
   'detail.cancelledPre': '주최 측이 개최 취소를 알렸습니다. 환불·참가비 처리는',

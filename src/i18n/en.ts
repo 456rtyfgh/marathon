@@ -135,7 +135,8 @@ export const en: Record<Key, string> & Partial<Record<`${Key}_one`, string>> = {
 
   'row.saved': 'Saved',
   'row.trail': 'Trail',
-  'row.major': 'Major',
+  'row.majorWorld': 'World Major',
+  'row.majorKorea': 'Korea Major',
   'row.fcfsShort': 'FCFS · may sell out',
   'row.fcfsLong': 'First come, first served · may sell out early',
   'row.dateExpected': ', date expected',
@@ -158,6 +159,8 @@ export const en: Record<Key, string> & Partial<Record<`${Key}_one`, string>> = {
   'detail.domestic': '{city}, South Korea',
   'detail.saved': 'Saved',
   'detail.save': 'Save',
+  'detail.majorWorld': 'One of the 7 Abbott World Marathon Majors',
+  'detail.majorKorea': "One of Korea's big three marathons",
   'detail.cancelled': 'Cancelled',
   'detail.wasScheduled': 'Was scheduled for {w}, {mon} {d}',
   'detail.cancelledPre': 'The organizer has cancelled this race. For refunds and entry fees, see the',

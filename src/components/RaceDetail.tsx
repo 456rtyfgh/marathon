@@ -27,6 +27,7 @@ import {
   isEntryConfirmed,
   expectedEntryText,
   monthDay,
+  majorKind,
 } from '../lib/util';
 import CostCalculator from './CostCalculator';
 import PackageTable from './PackageTable';
@@ -117,6 +118,7 @@ export default function RaceDetail({
   const canReport =
     raceDay.days != null && (race.entry_type === 'fcfs' || race.entry_type === 'open') && entryStatus(race, today) === 'open';
   const trail = isTrail(race);
+  const major = majorKind(race);
   const p = dateParts(race.race_date, lang);
   const feeKrw = feeToKrw(race);
   const racePackages = packages.filter((x) => x.race_id === race.id);
@@ -168,14 +170,15 @@ export default function RaceDetail({
               {t('row.trail')}
             </span>
           )}
-          {race.is_major && (
+          {major && (
             <span className="ml-2 inline-flex h-5 items-center rounded-tag bg-ink px-2 align-middle text-[12px] font-bold tracking-normal whitespace-nowrap text-bg">
-              {t('row.major')}
+              {t(major === 'korea' ? 'row.majorKorea' : 'row.majorWorld')}
             </span>
           )}
         </h2>
         {/* 한국어 화면은 영문 이름을 덧붙인다. 영어 화면은 제목이 이미 영문 이름이라 비운다(한글을 섞지 않게) */}
         <p className="mt-1 text-[15px] text-ink-3">{lang === 'en' ? null : race.name_en}</p>
+        {major && <p className="mt-1 text-[15px] text-ink-2">{t(major === 'korea' ? 'detail.majorKorea' : 'detail.majorWorld')}</p>}
 
         {cancelled ? (
           <div className="mt-5 rounded-box border border-line bg-surface px-4 py-4">

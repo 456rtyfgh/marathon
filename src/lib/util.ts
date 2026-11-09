@@ -200,6 +200,11 @@ export function entrySortKey(race: Race, today = TODAY()): number {
 
 export const isDomestic = (race: Race) => race.region === '한국';
 
+export type MajorKind = 'world' | 'korea';
+/** 메이저 종류 — is_major 가 아니면 null. 국내/해외는 country_code 로 가른다 */
+export const majorKind = (race: Race): MajorKind | null =>
+  race.is_major ? (race.country_code === 'KR' ? 'korea' : 'world') : null;
+
 export const isTrail = (race: Race) => race.discipline === 'trail';
 
 /** 1234 → '누적 상승 1,234m' */

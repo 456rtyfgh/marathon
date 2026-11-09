@@ -163,7 +163,7 @@ function RaceForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
         <Text label="국가" value={f.country_ko} onChange={(v) => set('country_ko', v)} placeholder="예: 일본" />
         <Text label="국가 코드" hint="비용 계산 기준 (KR, JP, US…)" value={f.country_code} onChange={(v) => set('country_code', v.toUpperCase())} />
         <Select label="지역" value={f.region} onChange={(v) => set('region', v as Region)} options={REGIONS.map((r) => [r, r])} />
-        <Check label="세계 메이저 대회" checked={f.is_major} onChange={(v) => set('is_major', v)} />
+        <Check label="메이저 대회 (국내·해외)" checked={f.is_major} onChange={(v) => set('is_major', v)} />
       </Group>
 
       <Group title="일정">
