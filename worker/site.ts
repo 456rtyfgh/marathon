@@ -8,6 +8,7 @@
  *  - /d/<hash>.json : 앱의 대회 목록 파일(목록 필드만). 우리 사이트 안에서 부른 것만. 전체 파일(/d/f-…)은 늘 404.
  *  - /data.json     : 예전 주소 — 404 (원본은 빌드 입력일 뿐 내보내지 않는다).
  *  - /cal/대회id.ics: 캘린더 일정 파일 (아이폰 사파리는 열자마자 '캘린더에 추가'). ?lang=en 이면 영어.
+ *  - /api/admin/ga  : 관리 화면 GA 분석 숫자 (관리자만, worker/gaRoute.ts). 그 밖 /api/* 는 404.
  */
 import { raceIcs, type CalKind } from '../src/lib/ics';
 import { PROVINCE_NAME, provinceOf } from '../src/lib/places';
@@ -15,6 +16,7 @@ import type { Lang } from '../src/i18n/lang.ts';
 import { DIST_TEXT, ENTRY_TEXT, fmtDate, fmtMoney, fmtMonth } from '../src/i18n/format.ts';
 import { cityName, countryName, provinceName, whereText } from '../src/i18n/names.ts';
 import { BLOCKED_TEXT, DATA_NOTICE, noticeHtml } from '../src/lib/notice.ts';
+import { gaRoute, type GaEnv } from './gaRoute';
 
 // 목록·전체 파일 주소 (scripts/pages.mjs 가 esbuild define 으로 넣는다 — scripts/data-split.mjs)
 declare const __LIST_PATH__: string;
@@ -41,7 +43,7 @@ export const CSP = [
 export const SITE = 'https://marathon82.com';
 const OLD_HOST = 'marathoncalendar.pages.dev';
 
-export interface SiteEnv {
+export interface SiteEnv extends GaEnv {
   ASSETS: { fetch: (req: Request | string) => Promise<Response> };
 }
 type Env = SiteEnv;
@@ -567,6 +569,8 @@ async function raceDetailJson(req: Request, env: Env, id: string): Promise<Respo
 
 export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
   const url = new URL(req.url);
+  if (url.pathname === '/api/admin/ga') return gaRoute(req, env);
+  if (url.pathname.startsWith('/api/')) return json(JSON.stringify({ error: 'not_found', message: '없는 주소입니다.' }), 404);
   if (url.pathname === '/data.json') return notFound();
   if (url.pathname.startsWith('/d/')) {
     if (!LIST_PATH || url.pathname !== LIST_PATH) return notFound();
