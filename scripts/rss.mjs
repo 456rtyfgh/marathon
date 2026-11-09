@@ -1,14 +1,14 @@
 /**
  * 네이버 서치어드바이저용 RSS (dist/rss.xml).
  * 다가오는 대회 중 최근 추가·확인된 50개 + 대회일이 가까운 순으로 채워 100개. 항목 링크는 대회 상세 /r/<id>.
+ * 항목에는 대회명·날짜·상세 링크만 넣는다 (데이터 무단 수집 막기 — 장소·종목·접수 같은 상세는 상세 페이지에서).
  * 값은 seo-lib.mjs 에서 가져오기만 한다 (정적 목록 페이지와 같은 기준).
  */
 import { writeFileSync } from 'node:fs';
-import { ORIGIN, esc, fmt, ENTRY, isCancelled, whereOf, upcoming, today } from './seo-lib.mjs';
+import { ORIGIN, esc, fmt, isCancelled, upcoming, today } from './seo-lib.mjs';
 
 const TOTAL = 100;
 const RECENT = 50;
-const DIST_LABEL = { 풀: '풀코스', 하프: '하프' };
 
 const live = upcoming.filter((r) => !isCancelled(r));
 // 최근 추가·확인 (data.json 에 추가 날짜가 없어 last_verified 로 본다)
@@ -31,15 +31,6 @@ const rfc822 = (iso) => {
 };
 const pubOf = (r) => r.last_verified?.slice(0, 10) || today;
 
-/** 정적 목록 페이지(seo-pages.mjs item) 와 같은 문구 */
-const describe = (r) => {
-  const entry = [ENTRY[r.entry_type], r.entry_opens && `접수 ${fmt(r.entry_opens)}부터`, r.entry_closes && `${fmt(r.entry_closes)}까지`]
-    .filter(Boolean)
-    .join(' ');
-  const dist = (r.distances ?? []).map((d) => DIST_LABEL[d] ?? d).join('·');
-  return [fmt(r.race_date), whereOf(r), dist, entry].filter(Boolean).join(' · ');
-};
-
 const items = [...picked.values()].sort((a, b) => pubOf(b).localeCompare(pubOf(a)) || a.race_date.localeCompare(b.race_date));
 
 const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -54,14 +45,12 @@ const xml = `<?xml version="1.0" encoding="UTF-8"?>
 ${items
   .map((r) => {
     const url = `${ORIGIN}/r/${encodeURIComponent(r.id)}`;
-    const cats = [r.country_code === 'KR' ? '국내' : '해외', ...(r.discipline === 'trail' ? ['트레일러닝'] : [])];
     return `<item>
 <title>${esc(`${r.name_ko} ${r.race_date.slice(0, 4)}`)}</title>
 <link>${url}</link>
 <guid isPermaLink="true">${url}</guid>
 <pubDate>${rfc822(pubOf(r))}</pubDate>
-<description>${esc(describe(r))}</description>
-${cats.map((c) => `<category>${c}</category>`).join('\n')}
+<description>${esc(fmt(r.race_date))}</description>
 </item>`;
   })
   .join('\n')}
