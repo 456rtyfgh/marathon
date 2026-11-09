@@ -73,7 +73,6 @@ async function as(who, fn) {
     await db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false);`);
   }
 }
-const SU = { role: '', id: '' }; // superuser, 로그인 사용자 없음 (SQL 편집기와 같음)
 
 // ── 바탕 데이터 ─────────────────────────────────────────────────────────────────────
 await db.exec(`insert into public.races (id, name_ko) values ('seoul-2027', '서울마라톤'), ('jeju-2027', '제주마라톤');`);
