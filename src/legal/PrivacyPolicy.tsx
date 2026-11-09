@@ -3,10 +3,9 @@
  * 수집 항목 표는 policy.ts 의 COLLECT_MEMBER·COLLECT_ALERT 를 그대로 그린다(가입 화면·알림 고지와 같은 문구).
  * 파기 내용은 파트 A 의 delete_my_account(0011_privacy.sql)와 같아야 한다.
  */
-import { useState } from 'react';
 import { langPath, useLang } from '../i18n';
 import { COLLECT_ALERT, COLLECT_MEMBER, CONTACT_EMAIL, TERMS_PATH, type CollectionItem } from '../lib/policy';
-import { getAnalyticsConsent, setAnalyticsConsent } from '../lib/analytics';
+import { AnalyticsToggle } from '../components/AnalyticsToggle';
 
 const Mail = () => <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
 
@@ -201,32 +200,6 @@ function Processors() {
   );
 }
 
-/** [GA 끄기/켜기] — localStorage 'mc:ga-consent' 에 남기고 다음 방문부터 적용(끄면 이 탭에서도 바로 멈춤) */
-function GaToggle() {
-  const { lang } = useLang();
-  const ko = lang === 'ko';
-  const [denied, setDenied] = useState(() => getAnalyticsConsent() === 'denied');
-  return (
-    <p className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span className="text-ink">
-        {ko ? '이 브라우저의 방문 통계: ' : 'Visit statistics in this browser: '}
-        <strong>{denied ? (ko ? '꺼짐' : 'Off') : ko ? '켜짐' : 'On'}</strong>
-      </span>
-      <button
-        type="button"
-        onClick={() => {
-          const next = denied ? 'granted' : 'denied';
-          setAnalyticsConsent(next);
-          setDenied(next === 'denied');
-        }}
-        className="inline-flex h-11 items-center rounded-ctl border border-line px-4 text-[15px] font-semibold text-ink transition-colors hover:bg-sunken sm:h-9"
-      >
-        {denied ? (ko ? 'Google Analytics 켜기' : 'Turn on Google Analytics') : ko ? 'Google Analytics 끄기' : 'Turn off Google Analytics'}
-      </button>
-    </p>
-  );
-}
-
 function Cookies() {
   const { lang } = useLang();
   return lang === 'ko' ? (
@@ -248,7 +221,7 @@ function Cookies() {
           설치
         </li>
       </ul>
-      <GaToggle />
+      <AnalyticsToggle />
     </section>
   ) : (
     <section id="cookies">
@@ -268,7 +241,7 @@ function Cookies() {
           </a>
         </li>
       </ul>
-      <GaToggle />
+      <AnalyticsToggle />
     </section>
   );
 }
