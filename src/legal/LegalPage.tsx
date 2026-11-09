@@ -31,6 +31,12 @@ export default function LegalPage({ kind }: { kind: LegalKind }) {
     document.title = `${title} — ${lang === 'ko' ? '마라톤 캘린더' : 'Marathon Calendar'}`;
   }, [title, lang]);
 
+  // 본문을 동적 import 로 늦게 그려서 브라우저가 #cookies 같은 앵커로 못 내려간다 → 처음 그린 뒤 직접 내려 준다
+  useEffect(() => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (id) document.getElementById(id)?.scrollIntoView();
+  }, []);
+
   return (
     <div className="min-h-dvh bg-bg text-ink">
       <header className="border-b border-line">
