@@ -17,10 +17,8 @@ export const ldJson = (v) =>
   `<script type="application/ld+json">${JSON.stringify(v).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')}</script>`;
 
 export const ENTRY = { lottery: '추첨', fcfs: '선착순', qualifying: '기록 기준', tour_only: '여행사 전용', open: '상시 접수' };
-export const fmt = (iso) => {
-  const [y, m, d] = iso.split('-').map(Number);
-  return `${y}년 ${m}월 ${d}일`;
-};
+/** '2027년 2월 28일' — 공용 날짜 규칙(src/lib/dateFormat.ts) */
+export const fmt = (iso) => fmtDate(iso, 'ko');
 /** src/lib/util.ts 의 CANCEL_TAG_RE 와 같은 규칙 */
 export const isCancelled = (r) => !!r.notes_ko && /^\s*\[(취소|중단)\]\s*/.test(r.notes_ko);
 export const whereOf = (r) => (r.country_code === 'KR' ? r.city_ko : `${r.country_ko} ${r.city_ko}`);

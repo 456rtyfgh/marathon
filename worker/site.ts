@@ -89,10 +89,8 @@ const ENTRY: Record<string, string> = {
 
 // 무료 플랜 자동 일시정지 방지: 읽기만으로는 활동으로 안 잡힐 때가 있어 매일 한 줄을 쓴다.
 // 일시적 실패에 대비해 세 번까지 다시 시도한다.
-const fmt = (iso: string) => {
-  const [y, m, d] = iso.split('-').map(Number);
-  return `${y}년 ${m}월 ${d}일`;
-};
+/** '2027년 2월 28일' — 공용 날짜 규칙(src/lib/dateFormat.ts) */
+const fmt = (iso: string) => fmtDate(iso, 'ko');
 
 /** 한국 시간 오늘 'YYYY-MM-DD' */
 const todayKst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
