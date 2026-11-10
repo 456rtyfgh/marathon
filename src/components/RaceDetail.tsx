@@ -19,7 +19,8 @@ import {
   isSoldOut,
   mayFillEarly,
   isTrail,
-  dateParts,
+  fmtDateShort,
+  fmtDateShortWd,
   isSearchLink,
   safeUrl,
   isCancelled,
@@ -193,7 +194,7 @@ function RaceDetailView({
   const today = TODAY();
   const raceDay = raceDayLine(race, today, lang);
   const st = statusLine(race, today, registered, lang);
-  const soldOut = isSoldOut(race, today) ? dateParts(race.sold_out_on!, lang) : null;
+  const soldOut = isSoldOut(race, today) ? race.sold_out_on! : null;
   // 예상 접수일은 '미정' 으로 보이고 작은 글씨로만 '예상 M/D~M/D'. 이미 끝난·취소된 대회는 예전처럼 날짜 그대로
   const entryConfirmed = isEntryConfirmed(race) || raceDay.days == null;
   const expectedText = expectedEntryText(race, today, lang);
@@ -202,7 +203,6 @@ function RaceDetailView({
     raceDay.days != null && (race.entry_type === 'fcfs' || race.entry_type === 'open') && entryStatus(race, today) === 'open';
   const trail = isTrail(race);
   const major = majorKind(race);
-  const p = dateParts(race.race_date, lang);
   const feeKrw = feeToKrw(race);
   const racePackages = packages.filter((x) => x.race_id === race.id);
   const domestic = isDomestic(race);
@@ -269,7 +269,7 @@ function RaceDetailView({
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
               <span className="text-[20px] leading-tight font-bold">{t('detail.cancelled')}</span>
               <span className="text-[13px] text-ink-3">
-                {t('detail.wasScheduled', { m: p.m, d: p.d, w: p.w, mon: p.mon })}
+                {t('detail.wasScheduled', { date: fmtDate(race.race_date, lang) })}
               </span>
             </div>
             <p className="mt-2 max-w-[60ch] text-[15px] leading-relaxed text-ink-2">
@@ -290,7 +290,7 @@ function RaceDetailView({
           <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-box bg-line">
             <div className={`${sumCell} bg-surface`}>
               <div className="text-[13px] text-ink-3">
-                {t('detail.raceDay')} {t('detail.raceDate', { m: p.m, d: p.d, mon: p.mon })} {p.w}
+                {t('detail.raceDay')} {t('detail.raceDate', { date: fmtDateShortWd(race.race_date, lang) })}
               </div>
               <div className="num text-[26px] leading-none font-bold">
                 {raceDay.days != null ? dday(raceDay.days) : t('detail.over')}
@@ -317,7 +317,7 @@ function RaceDetailView({
                 </div>
                 <div className={`text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>
                   {soldOut ? (
-                    t('detail.soldOutOn', { m: soldOut.m, d: soldOut.d, mon: soldOut.mon })
+                    t('detail.soldOutOn', { date: fmtDateShort(soldOut, lang) })
                   ) : (
                     <>
                       {entryLabel}
@@ -412,7 +412,7 @@ function RaceDetailView({
                 {soldOut ? (
                   <Fact
                     label={t('detail.closes')}
-                    value={t('detail.soldOutOn', { m: soldOut.m, d: soldOut.d, mon: soldOut.mon })}
+                    value={t('detail.soldOutOn', { date: fmtDate(soldOut, lang) })}
                     sub={
                       race.entry_closes && race.sold_out_on! < race.entry_closes
                         ? t('detail.originalClose', { d: fmtDate(race.entry_closes, lang) })

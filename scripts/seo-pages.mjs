@@ -305,7 +305,7 @@ for (const y of years) {
     .sort((a, b) => (a.entry_closes ?? '9999').localeCompare(b.entry_closes ?? '9999') || a.race_date.localeCompare(b.race_date));
   const kr = rs.filter(isKr);
   const ab = rs.filter((r) => !isKr(r));
-  const day = `${Number(today.slice(5, 7))}월 ${Number(today.slice(8, 10))}일`;
+  const day = fmt(today);
   out(
     path,
     page({
@@ -596,7 +596,7 @@ for (const y of years) {
     .sort((a, b) => (a.entry_closes ?? '9999').localeCompare(b.entry_closes ?? '9999') || a.race_date.localeCompare(b.race_date));
   const kr = rs.filter(isKr);
   const ab = rs.filter((r) => !isKr(r));
-  const day = fmtEn(today).replace(/, \d{4}$/, '');
+  const day = fmtEn(today);
   out(
     enPath(koPath),
     pageEn({

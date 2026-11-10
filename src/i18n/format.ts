@@ -1,6 +1,6 @@
 /**
  * 언어별 날짜·숫자·돈 형식과 고정 용어 (PLAN 2-2·2-3).
- * 워커(worker/site.ts)·Node 스크립트도 import 하므로 브라우저 API·React 를 쓰지 않고, 값 import 도 하지 않는다(타입만).
+ * 워커(worker/site.ts)·Node 스크립트도 import 하므로 브라우저 API·React 를 쓰지 않고, 값 import 는 같은 조건의 src/lib/dateFormat.ts 뿐이다.
  * 날짜는 'YYYY-MM-DD' 를 UTC 자정으로 읽는다 — 시간대로 하루 밀리지 않게.
  */
 import type { Lang } from './lang.ts';
@@ -8,42 +8,8 @@ import type { Confidence, Course, Discipline, EntryType, Region } from '../lib/t
 
 export type { Lang };
 
-const utc = (iso: string) => new Date(iso.slice(0, 10) + 'T00:00:00Z');
-const EN_DATE = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-const EN_MD = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-const EN_MONTH = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-const EN_MONTH_SHORT = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' });
-const EN_WD = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
-const KO_WD = ['일', '월', '화', '수', '목', '금', '토'];
-
-/** '2027년 2월 28일' | 'Feb 28, 2027' */
-export function fmtDate(iso: string, lang: Lang): string {
-  const d = utc(iso);
-  if (lang === 'en') return EN_DATE.format(d);
-  return `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`;
-}
-
-/** '2/28' | 'Feb 28' */
-export function fmtMonthDay(iso: string, lang: Lang): string {
-  const d = utc(iso);
-  if (lang === 'en') return EN_MD.format(d);
-  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
-}
-
-/** 'YYYY-MM' → '2027년 2월' | 'February 2027' */
-export function fmtMonth(ym: string, lang: Lang): string {
-  if (lang === 'en') return EN_MONTH.format(utc(ym.slice(0, 7) + '-01'));
-  return `${Number(ym.slice(0, 4))}년 ${Number(ym.slice(5, 7))}월`;
-}
-
-/** 'Feb' (영어 짧은 달 이름) */
-export const monthShortEn = (iso: string) => EN_MONTH_SHORT.format(utc(iso));
-
-/** '일' | 'Sun' */
-export function fmtWeekday(iso: string, lang: Lang): string {
-  const d = utc(iso);
-  return lang === 'en' ? EN_WD.format(d) : KO_WD[d.getUTCDay()];
-}
+// 날짜 형식은 src/lib/dateFormat.ts 한 곳에 모았다 (늘 연도를 붙이는 규칙). 예전 import 경로를 위해 다시 내보낸다
+export { fmtDate, fmtDateLong, fmtDateShort, fmtDateShortWd, fmtDateRange, fmtMonth, fmtMonthDay, fmtWeekday, monthShortEn } from '../lib/dateFormat.ts';
 
 /** 숫자: ko 는 지금처럼 기본 로캘, en 은 en-US */
 export function fmtNumber(n: number, lang: Lang): string {

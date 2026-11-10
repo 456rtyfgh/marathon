@@ -12,6 +12,7 @@ import {
   isDomestic,
   isTrail,
   dateParts,
+  fmtDateShort,
   shortCount,
   type EntryStatus,
 } from './lib/util';
@@ -662,7 +663,6 @@ function Main() {
             <ol className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
               {hotList.map((r, i) => {
                 const st = ratingMap.get(r.id);
-                const p = dateParts(r.race_date);
                 return (
                   <li key={r.id} className="w-[11.5rem] shrink-0 sm:w-auto">
                     <button
@@ -672,7 +672,7 @@ function Main() {
                       <span className="num text-[13px] font-semibold text-ink-3">{t('hot.rank', { n: i + 1 })}</span>
                       <span className="line-clamp-2 text-[15px] leading-snug font-bold">{raceName(r, lang)}</span>
                       <span className="text-[13px] text-ink-3">
-                        {t('date.md', { m: p.m, d: p.d, mon: p.mon })} ·{' '}
+                        {fmtDateShort(r.race_date, lang)} ·{' '}
                         {lang === 'en'
                           ? isDomestic(r)
                             ? whereText(r, 'en').split(', ').at(-1)

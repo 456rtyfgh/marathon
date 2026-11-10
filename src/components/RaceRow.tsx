@@ -49,7 +49,6 @@ function RaceRow({
   const { lang, t } = useLang();
   const today = TODAY();
   const p = dateParts(race.race_date, lang);
-  const thisYear = dateParts(today.toISOString().slice(0, 10)).y;
   const st = statusLine(race, today, registered, lang);
   const domestic = isDomestic(race);
   const trail = isTrail(race);
@@ -77,7 +76,7 @@ function RaceRow({
         {/* 대회 날짜 (취소는 흐린 글자색으로 — 투명도는 대비가 모자람) */}
         <div className="flex flex-col items-start leading-none">
           <span className="num text-[12px] font-semibold text-ink-3">
-            {p.y !== thisYear ? t('date.ym', { y: p.y, m: p.m, mon: p.mon }) : t('date.m', { m: p.m, mon: p.mon })}
+            {t('date.ym', { y: p.y, m: p.m, mon: p.mon })}
           </span>
           <span className={`num mt-0.5 text-[34px] font-bold sm:text-[40px] ${cancelled ? 'text-ink-3' : 'text-ink'}`}>{p.d}</span>
           <span className="text-[12px] text-ink-3">{t('date.weekday', { w: p.w })}</span>
@@ -186,7 +185,8 @@ function RaceRow({
               {dday(st.days)}
             </span>
           ) : expected ? (
-            <span className="num mt-0.5 text-[12px] whitespace-nowrap text-ink-3">{expected}</span>
+            // 휴대폰: 영어 'Expected Aug 21–Nov 13, 2026' 이 칸을 넓혀 대회명을 꺾지 않게 'Expected' / 날짜 두 줄까지 허용 (날짜 안은 안 꺾임)
+            <span className="num mt-0.5 max-w-[6.25rem] text-[12px] text-ink-3 sm:max-w-none sm:whitespace-nowrap">{expected}</span>
           ) : (
             <span className="mt-1 text-[15px] font-semibold whitespace-nowrap text-ink-3">
               {st.label === t('st.untilFull') ? t('row.open') : st.label === t('st.soldout') ? t('row.full') : ''}
