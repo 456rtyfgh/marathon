@@ -64,6 +64,8 @@ const ENTRY_TYPES: EntryType[] = ['lottery', 'fcfs', 'qualifying', 'open', 'tour
 const ON_BORDERED = 'border-ink bg-surface text-ink shadow-[inset_0_0_0_1px_var(--ink)]';
 /** 도구 막대(검색·범위·정렬·필터) id — 휴대폰 아래 고정 줄의 '필터' 가 여기로 올라온다 */
 const TOOLS_ID = 'tools';
+/** 머리말 높이(px, h-14) — 그 뒤로 올라간 것은 안 보인다 */
+const HEADER_H = 56;
 /** 인기 대회 1·2·3위 배지 (금·은·동 — 색은 home.css) */
 const MEDAL = ['medal medal-1', 'medal medal-2', 'medal medal-3'];
 
@@ -1210,9 +1212,11 @@ function MobileListBar({
   useEffect(() => {
     const el = watch.current;
     if (!el || typeof IntersectionObserver === 'undefined') return;
-    // 위쪽 56px 은 머리말에 가린 자리. 줄이 그 위로 다 올라갔을 때(아래쪽에 있을 때는 아님)만 켠다
-    const io = new IntersectionObserver(([e]) => setShown(!e.isIntersecting && e.boundingClientRect.top < 0), {
-      rootMargin: '-56px 0px 0px 0px',
+    // 위쪽 56px 은 머리말에 가린 자리. 줄이 그 위로 다 올라갔을 때(아래쪽에 있을 때는 아님)만 켠다.
+    // 알림은 '보임 ↔ 안 보임'이 바뀌는 순간 한 번만 온다 — 그때 줄은 머리말 바로 뒤(top 이 0~12px)에 있으므로
+    // 'top < 0' 으로 보면 천천히 내릴 때 끝내 켜지지 않는다. 머리말 아래 선(56px)보다 위인지로 본다
+    const io = new IntersectionObserver(([e]) => setShown(!e.isIntersecting && e.boundingClientRect.top < HEADER_H), {
+      rootMargin: `-${HEADER_H}px 0px 0px 0px`,
     });
     io.observe(el);
     return () => io.disconnect();

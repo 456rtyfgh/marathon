@@ -8,6 +8,21 @@
   scrollTo({ top: 0, behavior: 'instant' });
   await wait(300);
   out.topHidden = !bar();
+  // 1-2) 손가락으로 끌듯 프레임마다 6px 씩 천천히 내려도, 정렬·필터 줄이 머리말 뒤로 사라지는 순간 켜지는지
+  //      (한 번에 크게 뛰면 늘 켜진다 — 천천히 내릴 때 안 켜지던 버그는 이 확인으로만 잡힌다)
+  {
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+    const row = document.querySelector('#tools select').parentElement.parentElement;
+    let at = null;
+    for (let i = 0; i < 600 && at === null; i++) {
+      scrollBy({ top: 6, behavior: 'instant' });
+      await frame();
+      await frame();
+      if (bar()) at = Math.round(row.getBoundingClientRect().bottom);
+      else if (row.getBoundingClientRect().bottom < -300) break;
+    }
+    out.slowShownWhenRowBottom = at; // 56(머리말 아래 선) 바로 위 값이어야 한다. null 이면 안 켜진 것
+  }
   scrollTo({ top: 3000, behavior: 'instant' });
   await wait(400);
   out.midShown = !!bar();
