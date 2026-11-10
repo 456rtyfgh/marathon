@@ -1,6 +1,7 @@
 import { Fragment, memo, type ReactNode } from 'react';
 import { CaretRight, Star, BookmarkSimple, Eye, CalendarCheck, Check } from '@phosphor-icons/react';
 import type { Race, RaceRating } from '../lib/types';
+import { isRunEvent, RUN_EVENT_TEXT } from '../lib/runEvent';
 import { dateParts, feeLabel, isDomestic, isTrail, statusLine, raceDayLine, TODAY, shortCount, mayFillEarly, isCancelled, expectedEntryText, majorKind } from '../lib/util';
 import { useLang } from '../i18n';
 import { ENTRY_TEXT } from '../i18n/format';
@@ -52,6 +53,7 @@ function RaceRow({
   const st = statusLine(race, today, registered, lang);
   const domestic = isDomestic(race);
   const trail = isTrail(race);
+  const runEvent = isRunEvent(race);
   const major = majorKind(race);
   const raceDay = raceDayLine(race, today, lang);
   // 선착순 접수 중인데 아직 마감 확인이 안 된 대회. 접수한 사람에게는 필요 없는 말이라 뺀다
@@ -90,6 +92,7 @@ function RaceRow({
               <BookmarkSimple size={14} weight="fill" className="ml-2 inline-block align-[-1px] text-ink" aria-label={t('row.saved')} />
             )}
             {trail && <span className={`${TAG} ml-2 border border-ink-3 align-[2px] text-ink-2`}>{t('row.trail')}</span>}
+            {runEvent && <span className={`${TAG} ml-2 border border-ink-3 align-[2px] text-ink-2`}>{RUN_EVENT_TEXT[lang].badge}</span>}
             {major && (
               <span className={`${TAG} ml-2 bg-ink align-[2px] text-bg`}>{t(major === 'korea' ? 'row.majorKorea' : 'row.majorWorld')}</span>
             )}

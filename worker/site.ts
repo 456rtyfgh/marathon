@@ -105,7 +105,8 @@ const eun = (w: string) => {
   const c = w.trim().slice(-1).charCodeAt(0) - 0xac00;
   return c >= 0 && c <= 11171 && c % 28 === 0 ? '는' : '은';
 };
-const kindText = (r: RaceMeta) => (r.discipline === 'trail' ? '트레일러닝 대회' : '마라톤 대회');
+const kindText = (r: RaceMeta) =>
+  r.discipline === 'trail' ? '트레일러닝 대회' : r.discipline === 'event' ? '러닝 이벤트' : '마라톤 대회';
 
 function entryText(r: RaceMeta): string {
   const how = ENTRY[r.entry_type] ? `${ENTRY[r.entry_type]} 접수` : '접수';
@@ -272,7 +273,7 @@ function entryTextEn(r: RaceMeta): string {
 
 /** 검색 결과 설명 (영어, 160자 안쪽 — 넘치면 꼬리부터 뺀다) */
 function describeEn(r: RaceMeta): string {
-  const head = `${isCancelled(r) ? '[Cancelled] ' : ''}${nameEn(r)} is a ${r.discipline === 'trail' ? 'trail race' : 'marathon'} on ${fmtEn(r.race_date)} in ${whereEn(r)}.`;
+  const head = `${isCancelled(r) ? '[Cancelled] ' : ''}${nameEn(r)} is a ${r.discipline === 'trail' ? 'trail race' : r.discipline === 'event' ? 'running event' : 'marathon'} on ${fmtEn(r.race_date)} in ${whereEn(r)}.`;
   const dist = distTextEn(r) ? ` Distances: ${distTextEn(r)}.` : '';
   const entry = ` ${entryTextEn(r)}.`;
   const tail = ' See dates, costs and reviews.';
@@ -382,7 +383,7 @@ function eventLd(r: RaceMeta, url: string, desc: string, lang: Lang = 'ko') {
     endDate: r.race_date,
     eventStatus: isCancelled(r) ? 'https://schema.org/EventCancelled' : 'https://schema.org/EventScheduled',
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-    sport: r.discipline === 'trail' ? 'Trail running' : 'Marathon',
+    sport: r.discipline === 'trail' ? 'Trail running' : r.discipline === 'event' ? 'Running' : 'Marathon',
     description: desc,
     url,
     image: [`${SITE}/og.png`],

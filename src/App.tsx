@@ -10,7 +10,6 @@ import {
   daysBetween,
   todayISO,
   isDomestic,
-  isTrail,
   dateParts,
   fmtDateShort,
   shortCount,
@@ -299,7 +298,7 @@ function Main() {
       const x = info.get(r)!;
       if (favOnly && !fav.ids.includes(r.id)) return false;
       if (regOnly && !reg.ids.includes(r.id)) return false;
-      if (discipline && (isTrail(r) ? 'trail' : 'road') !== discipline) return false;
+      if (discipline && (r.discipline ?? 'road') !== discipline) return false;
       if (!inScope(r, scope)) return false;
       if (majorOnly && !r.is_major) return false;
       if (regions.length && !regions.includes(r.region)) return false;
