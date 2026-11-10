@@ -29,7 +29,7 @@ import { hasSupabase } from '../lib/supabase';
 import { track } from '../lib/analytics';
 import { fmtDate, todayISO } from '../lib/util';
 import type { Race } from '../lib/types';
-import { Button, CloseButton, Field, Input, Note, Panel, inputCls } from './ui';
+import { Button, CloseButton, Field, Note, Panel, TimeInput, inputCls } from './ui';
 
 /* ── 대회 목록 (목록 파일 → 안 되면 DB). 내 정보를 여러 번 열어도 한 번만 받는다 ── */
 
@@ -672,15 +672,7 @@ function RecordForm({
       </fieldset>
 
       <Field label={t(many ? 'pastrace.bestTime' : 'record.time')} hint={t('common.optional')}>
-        <Input
-          inputMode="numeric"
-          autoComplete="off"
-          maxLength={9}
-          placeholder={t('record.timeHint')}
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          className="num"
-        />
+        <TimeInput value={time} onChange={setTime} />
       </Field>
 
       {err && <Note tone="error">{err}</Note>}

@@ -6,7 +6,7 @@ import { loadReviews, loadExternalReviews, saveReview, deleteReview } from '../l
 import { useAuth } from '../lib/auth';
 import { hasSupabase } from '../lib/supabase';
 import StarRating from './StarRating';
-import { Button, Field, Input, Note, inputCls } from './ui';
+import { Button, Field, Input, Note, TimeInput, inputCls } from './ui';
 import { track } from '../lib/analytics';
 import { spamReason, friendlyError } from '../lib/spam';
 import { safeUrl } from '../lib/util';
@@ -233,7 +233,7 @@ function ReviewForm({
           <Input type="number" inputMode="numeric" min={1990} max={2100} value={year} onChange={(e) => setYear(e.target.value)} placeholder="2026" />
         </Field>
         <Field label={t('rev.timeLabel')} hint={t('common.optional')}>
-          <Input value={time} onChange={(e) => setTime(e.target.value)} placeholder="3:45:12" maxLength={12} />
+          <TimeInput value={time} onChange={setTime} />
         </Field>
       </div>
 

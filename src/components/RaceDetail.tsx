@@ -39,7 +39,7 @@ import RaceTalkTab from '../community/RaceTalkTab';
 import { COMMUNITY_TEXT } from '../community/strings';
 import SimilarRaces from './SimilarRaces';
 import RaceEditor, { EDIT_TAB_LABEL } from './RaceEditor';
-import { Button, CloseButton, Field, Input, Note, Tabs, inputCls } from './ui';
+import { Button, CloseButton, Field, Input, Note, Tabs, TimeInput, inputCls } from './ui';
 import MemberGate, { type OnLogin } from './MemberGate';
 import { useAuth } from '../lib/auth';
 import { fetchRaceDetail, submitSoldOutReport, type RaceDetailData } from '../lib/data';
@@ -869,15 +869,7 @@ function FinishedRecord({
               </select>
             </Field>
             <Field label={t('record.time')} hint={t('common.optional')}>
-              <Input
-                inputMode="numeric"
-                autoComplete="off"
-                maxLength={9}
-                placeholder={t('record.timeHint')}
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="num"
-              />
+              <TimeInput value={time} onChange={setTime} />
             </Field>
           </div>
           {err && <Note tone="error">{err}</Note>}

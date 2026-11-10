@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes } from 'react';
 import { X } from '@phosphor-icons/react';
 import { useLang } from '../i18n';
 import { fmtCount } from '../i18n/format';
@@ -259,6 +259,72 @@ export const inputCls =
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${inputCls} ${props.className ?? ''}`} />;
+}
+
+/**
+ * 기록 입력: 시간·분·초를 따로 받아 'H:MM:SS' 로 합쳐 onChange 로 넘긴다.
+ * 휴대폰 숫자 자판에는 ':' 가 없어서 칸을 나눴다. 세 칸이 다 비면 ''.
+ * 분·초가 59를 넘으면 그대로 넘겨 저장할 때 parseFinish 가 걸러 낸다.
+ */
+export function TimeInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useLang();
+  const split = (v: string): [string, string, string] => {
+    const p = v.trim().split(':');
+    if (p.length === 3) return [p[0], p[1], p[2]];
+    if (p.length === 2) return ['', p[0], p[1]];
+    return [v.trim().replace(/\D/g, ''), '', ''];
+  };
+  const join = ([h, m, s]: [string, string, string]) =>
+    !h && !m && !s ? '' : `${Number(h || 0)}:${(m || '0').padStart(2, '0')}:${(s || '0').padStart(2, '0')}`;
+  const [parts, setParts] = useState<[string, string, string]>(() => split(value));
+  const [last, setLast] = useState(value);
+  // 바깥에서 값이 바뀌면(초기화 등) 칸을 다시 채운다
+  if (value !== last) {
+    setLast(value);
+    if (value !== join(parts)) setParts(split(value));
+  }
+  const refs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+  const max = [3, 2, 2];
+  const set = (i: number, raw: string) => {
+    const d = raw.replace(/\D/g, '').slice(0, max[i]);
+    const next = [...parts] as [string, string, string];
+    next[i] = d;
+    setParts(next);
+    const out = join(next);
+    setLast(out);
+    onChange(out);
+    // 분은 두 자리를 다 넣으면 초 칸으로
+    if (i === 1 && d.length === 2) refs[2].current?.focus();
+  };
+  const units = [t('time.h'), t('time.m'), t('time.s')];
+  const ph = ['3', '45', '20'];
+  return (
+    <div className="flex items-center gap-2">
+      {parts.map((p, i) => (
+        <span key={i} className="flex min-w-0 flex-1 items-center gap-1.5">
+          <input
+            ref={refs[i]}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="off"
+            enterKeyHint={i < 2 ? 'next' : 'done'}
+            aria-label={units[i]}
+            placeholder={ph[i]}
+            value={p}
+            onChange={(e) => set(i, e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Backspace' && !p && i > 0) refs[i - 1].current?.focus();
+            }}
+            className={`${inputCls} num min-w-0 text-center`}
+          />
+          <span aria-hidden="true" className="shrink-0 text-[15px] text-ink-2">
+            {units[i]}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 /* ── 탭 ───────────────────────────────────────────────────────── */
