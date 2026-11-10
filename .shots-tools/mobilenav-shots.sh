@@ -10,7 +10,8 @@
 #  - node_modules 가 다른 폴더를 가리키는 심볼릭 링크(git worktree)면 글꼴이 'serving allow list 밖' 으로 막혀
 #    글자 폭이 달라진다 → server.fs.allow 에 그 node_modules 를 더한 설정으로 띄운다 (vite --config <설정>).
 #  - agent-browser screenshot 의 상대 경로는 브라우저 데몬 기준이라 저장 폴더를 절대 경로로 바꿔 쓴다.
-#  - 화면 크기 흉내(set viewport)로는 resize·matchMedia change 이벤트가 나지 않는다 ('넓히면 메뉴 닫힘' 은 여기서 확인 못 함).
+#  - 탭이 hidden 상태라 화면이 그려지기 전에는 resize·matchMedia change·dialog close 이벤트가 오지 않는다.
+#    set viewport 뒤에 screenshot 을 한 번 찍으면(화면을 그리면) 온다 — '넓히면 메뉴 닫힘' 은 그렇게 확인한다 (이 스크립트엔 없음).
 set -u
 mkdir -p "${1:-.duo-shots/mobilenav}"
 OUT=$(cd "${1:-.duo-shots/mobilenav}" && pwd)

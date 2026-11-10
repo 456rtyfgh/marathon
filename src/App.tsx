@@ -517,7 +517,8 @@ function Main() {
                 e.preventDefault();
                 openTalk();
               }}
-              className="inline-flex h-11 items-center rounded-ctl px-2.5 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink md:h-9 md:px-3"
+              // 360px 미만(확대 표시한 휴대폰 320px 등)은 로고 옆에 자리가 없어 숨긴다 — 넘치면 메뉴 버튼이 화면 밖으로 밀린다. 메뉴 안에는 늘 있다
+              className="inline-flex h-11 items-center rounded-ctl px-2.5 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink max-[360px]:hidden md:h-9 md:px-3"
             >
               {COMMUNITY_NAV[lang]}
             </a>
