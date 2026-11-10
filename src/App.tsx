@@ -106,7 +106,7 @@ function Main() {
   const [favOnly, setFavOnly] = useState(false);
   const reg = useRegistered();
   const [regOnly, setRegOnly] = useState(false);
-  const [discipline, setDiscipline] = useState<Discipline | null>(null);
+  const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   // 마지막 접수 표시를 지우면 버튼이 사라지므로 필터도 같이 끈다
   useEffect(() => {
     if (!reg.ids.length) setRegOnly(false);
@@ -300,7 +300,7 @@ function Main() {
       const x = info.get(r)!;
       if (favOnly && !fav.ids.includes(r.id)) return false;
       if (regOnly && !reg.ids.includes(r.id)) return false;
-      if (discipline && (r.discipline ?? 'road') !== discipline) return false;
+      if (disciplines.length && !disciplines.includes(r.discipline ?? 'road')) return false;
       if (!inScope(r, scope)) return false;
       if (majorOnly && !r.is_major) return false;
       if (regions.length && !regions.includes(r.region)) return false;
@@ -359,7 +359,7 @@ function Main() {
             ? t('group.saves')
             : t('group.views');
     return [{ key: 'all', title, races: sorted }];
-  }, [upcomingRaces, info, hits, scope, regions, places, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, discipline, lang, t]);
+  }, [upcomingRaces, info, hits, scope, regions, places, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, disciplines, lang, t]);
 
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
   // 검색 결과 0개일 때 '혹시 이 대회인가요?' (필터와 무관하게 다가오는 대회 중). 결과 수(shown)에는 넣지 않는다 → search_empty 기록 그대로
@@ -368,7 +368,7 @@ function Main() {
     [shown, dq, searchIndex],
   );
   const activeFilters =
-    types.length + status.length + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0) + (discipline ? 1 : 0);
+    types.length + status.length + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0) + disciplines.length;
 
   const reset = () => {
     setQ('');
@@ -381,7 +381,7 @@ function Main() {
     setMaxFlight(24);
     setFavOnly(false);
     setRegOnly(false);
-    setDiscipline(null);
+    setDisciplines([]);
   };
 
   const openRace = useCallback((r: Race) => setSelected(r), []);
@@ -439,7 +439,7 @@ function Main() {
 
   // 묶음(접수 중·곧 시작…)마다 처음 GROUP_PAGE 개만, '더 보기' 한 번에 GROUP_MORE 개씩 더.
   // 다시 접는 건 필터·정렬 값이 바뀔 때만 — groups 는 저장·접수 표시에도 다시 만들어져서 거기에 걸면 ☆ 하나에 접혀 버린다
-  const foldKey = JSON.stringify([dq.trim(), scope, regions, places, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, discipline]);
+  const foldKey = JSON.stringify([dq.trim(), scope, regions, places, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, disciplines]);
   const [unfold, setUnfold] = useState<{ key: string; n: Record<string, number> }>({ key: foldKey, n: {} });
   // 키가 바뀌는 순간 비운다 (렌더 중 갱신). 비교만 하면 검색어를 지워 원래 키로 돌아올 때 예전 펼침이 되살아난다
   if (unfold.key !== foldKey) setUnfold({ key: foldKey, n: {} });
@@ -763,13 +763,13 @@ function Main() {
             <div className="border-t border-line">
               <div className="mx-auto grid max-w-6xl gap-4 px-4 py-4 sm:px-6 md:grid-cols-2">
                 <FilterGroup label={t('filter.discipline')}>
-                  {DISCIPLINES.map((d) => (
+                  {DISCIPLINES.filter((d) => d !== 'event').map((d) => (
                     <Chip
                       key={d}
-                      on={discipline === d}
+                      on={disciplines.includes(d)}
                       onClick={() => {
-                        if (discipline !== d) track('filter', { name: 'discipline', value: d });
-                        setDiscipline(discipline === d ? null : d);
+                        if (!disciplines.includes(d)) track('filter', { name: 'discipline', value: d });
+                        toggle(disciplines, setDisciplines, d);
                       }}
                     >
                       {DISCIPLINE_TEXT[lang][d]}
