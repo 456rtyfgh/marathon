@@ -36,6 +36,9 @@ export const CSP = [
   "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com",
   "font-src 'self' data:",
   "connect-src 'self' https://zhwmfvkwtmakieatlqtz.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com",
+  // 서비스 워커(public/sw.js, 휴대폰 알림)는 우리 주소의 파일만
+  "worker-src 'self'",
+  "manifest-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
