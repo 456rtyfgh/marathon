@@ -131,7 +131,8 @@ export default function GaSection() {
               col={t('ga.col.count')}
               rows={report.events.map((r) => {
                 const k = `ga.event.${r.label}`;
-                return hasKey(k) ? { label: t(k), extra: r.label, value: r.value } : r;
+                // 이벤트 코드명(race_view 등)은 보이지 않게 — 번역 없는 것만 코드명 그대로
+                return hasKey(k) ? { label: t(k), value: r.value } : r;
               })}
             />
           </div>
