@@ -23,9 +23,9 @@ export const en: Record<Key, string> & Partial<Record<`${Key}_one`, string>> = {
   'header.admin': 'Admin',
   'header.menu': 'Menu',
   'app.confirmed': "Your email is verified. You can now write reviews.",
-  'app.lead': 'Race dates and registration windows for marathons in Korea and around the world, sorted by what opens or closes next.',
+  'app.lead': 'Race dates and registration windows for marathons in Korea and around the world, in race-date order.',
   'app.leadCount':
-    'Race dates and registration windows for marathons in Korea and around the world, sorted by what opens or closes next. {kr} in Korea, {abroad} elsewhere.',
+    'Race dates and registration windows for marathons in Korea and around the world, in race-date order. {kr} in Korea, {abroad} elsewhere.',
   'stat.open': 'Open now',
   'stat.closing7': 'Closing within 7 days',
   'stat.opening30': 'Opening within 30 days',

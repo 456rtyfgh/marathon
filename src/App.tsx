@@ -25,6 +25,7 @@ import { Panel, Note, MoreButton } from './components/ui';
 import { Logo } from './components/Logo';
 import { MobileMenu, type MenuItem } from './components/MobileMenu';
 import MapSection, { type Scope } from './components/MapSection';
+import { byRaceDate, inScope, matchesAnyStatus, matchesStatus, picksFromSearch, resolveListPrefs, type ListPicks, type ListSort, type StatusFilter } from './lib/listPrefs';
 import { matchesPlaces, placeOf } from './lib/places';
 import { buildIndex, searchRaces, suggestRaces } from './lib/search';
 import { scrollToResults, RESULTS_EMPTY_ID } from './lib/scrollToResults';
@@ -56,8 +57,6 @@ const GROUP_MORE = 24;
 const SHOW_ALL_UNDER = 30;
 
 const ENTRY_TYPES: EntryType[] = ['lottery', 'fcfs', 'qualifying', 'open', 'tour_only'];
-type Sort = 'entry' | 'race_date' | 'views' | 'saves' | 'size' | 'flight';
-type StatusFilter = EntryStatus | 'closing7' | 'opening30';
 
 const STATUS_GROUP: Record<EntryStatus, Key> = {
   open: 'group.open',
@@ -85,16 +84,18 @@ function Main() {
   const [remote, setRemote] = useState<'loading' | 'ok' | 'fallback'>('loading');
   // ?q=검색어 로 들어오면 (구글 검색창 바로가기 등) 그 검색어로 시작
   const [q, setQ] = useState(() => new URLSearchParams(location.search).get('q') ?? '');
-  const [scope, setScope] = useState<Scope>('all');
+  // 범위·정렬·접수 상태: 사용자가 고른 값(주소 ?scope= ?sort= ?status= 포함). 안 고른 값(null)은 기본값(국내·대회 날짜·접수 중)
+  // — 실제 적용 값은 아래 resolveListPrefs (lib/listPrefs)
+  const [picks, setPicks] = useState<ListPicks>(() => picksFromSearch(location.search));
+  const setScope = useCallback((v: Scope) => setPicks((p) => ({ ...p, scope: v })), []);
+  const setStatus = useCallback((v: StatusFilter[]) => setPicks((p) => ({ ...p, status: v })), []);
+  const setSort = useCallback((v: ListSort) => setPicks((p) => ({ ...p, sort: v })), []);
   const [regions, setRegions] = useState<Region[]>([]);
   // 지도·칩에서 고른 곳들 (여러 곳이면 합집합): 국내는 시·도 id, 해외는 나라 코드(소문자)·주·도('US-CA'), 'kr' 은 국내 전체
   const [places, setPlaces] = useState<string[]>([]);
   const [types, setTypes] = useState<EntryType[]>([]);
-  // 접수 상태 (여러 개면 합집합)
-  const [status, setStatus] = useState<StatusFilter[]>([]);
   const [majorOnly, setMajorOnly] = useState(false);
   const [maxFlight, setMaxFlight] = useState(24);
-  const [sort, setSort] = useState<Sort>('entry');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showPast, setShowPast] = useState(false);
   const [pastLimit, setPastLimit] = useState(PAGE);
@@ -252,18 +253,14 @@ function Main() {
     [data, today],
   );
 
-  const stats = useMemo(() => {
-    const open = upcomingRaces.filter((r) => entryStatus(r, today) === 'open');
-    return {
-      open: open.length,
-      closing7: open.filter((r) => r.entry_closes && daysBetween(today, r.entry_closes) <= 7).length,
-      opening30: upcomingRaces.filter(
-        (r) => entryStatus(r, today) === 'upcoming' && r.entry_opens && daysBetween(today, r.entry_opens) <= 30,
-      ).length,
+  // 소개 문구의 국내·해외 수 (사이트 전체 소개라 필터와 무관하게 다가오는 대회 전부 — 프리렌더와 같은 숫자)
+  const stats = useMemo(
+    () => ({
       kr: upcomingRaces.filter(isDomestic).length,
       abroad: upcomingRaces.filter((r) => !isDomestic(r)).length,
-    };
-  }, [upcomingRaces, today]);
+    }),
+    [upcomingRaces],
+  );
 
   const hotList = useMemo(
     () =>
@@ -276,29 +273,37 @@ function Main() {
 
   // 검색창은 바로 바뀌고, 목록은 입력을 막지 않게 뒤따라 바뀐다 (목록·결과 문구는 모두 dq 기준)
   const dq = useDeferredValue(q);
+  // 실제 적용 값: 고른 값이 이기고, 검색 중에는 고르지 않은 지역·접수 상태 기본값을 푼다(전체·모두)
+  const { scope, sort, status } = resolveListPrefs(picks, { searching: !!dq.trim() });
+  // 범위 탭 숫자 = 그 범위에서 지금 상태 필터에 맞는 수, 현황판 숫자 = 지금 범위 안의 수 (화면에 적용된 조건과 맞춘다)
+  const counts = useMemo(() => {
+    const st = (r: Race) => info.get(r)!.status;
+    const inStatus = upcomingRaces.filter((r) => matchesAnyStatus(r, st(r), status, today));
+    const kr = inStatus.filter((r) => info.get(r)!.domestic).length;
+    const inRange = upcomingRaces.filter((r) => inScope(r, scope));
+    return {
+      kr,
+      abroad: inStatus.length - kr,
+      open: inRange.filter((r) => st(r) === 'open').length,
+      closing7: inRange.filter((r) => matchesStatus(r, st(r), 'closing7', today)).length,
+      opening30: inRange.filter((r) => matchesStatus(r, st(r), 'opening30', today)).length,
+    };
+  }, [upcomingRaces, info, status, scope, today]);
   // 검색어에 맞는 대회 (띄어쓰기·다른 표기·꼬리말·오타 — src/lib/search.ts). 필터·정렬을 바꿀 때는 다시 계산하지 않는다
   const hits = useMemo(() => (dq.trim() ? searchRaces(searchIndex, dq) : null), [searchIndex, dq]);
 
   const groups = useMemo(() => {
-    const statusMatch = (r: Race, st: EntryStatus, s: StatusFilter) => {
-      if (s === 'closing7') return st === 'open' && !!r.entry_closes && daysBetween(today, r.entry_closes) <= 7;
-      if (s === 'opening30') return st === 'upcoming' && !!r.entry_opens && daysBetween(today, r.entry_opens) <= 30;
-      // '접수 끝' 칩은 정원이 차서 일찍 끝난 대회도 함께 보여 준다
-      if (s === 'closed') return st === 'closed' || st === 'soldout';
-      return st === s;
-    };
     const matches = (r: Race) => {
       const x = info.get(r)!;
       if (favOnly && !fav.ids.includes(r.id)) return false;
       if (regOnly && !reg.ids.includes(r.id)) return false;
       if (discipline && (isTrail(r) ? 'trail' : 'road') !== discipline) return false;
-      if (scope === 'kr' && !x.domestic) return false;
-      if (scope === 'abroad' && x.domestic) return false;
+      if (!inScope(r, scope)) return false;
       if (majorOnly && !r.is_major) return false;
       if (regions.length && !regions.includes(r.region)) return false;
       if (!matchesPlaces(r, x.domestic, places)) return false;
       if (types.length && !types.includes(r.entry_type)) return false;
-      if (status.length && !status.some((s) => statusMatch(r, x.status, s))) return false;
+      if (!matchesAnyStatus(r, x.status, status, today)) return false;
       if (!x.domestic && r.flight_hours != null && r.flight_hours > maxFlight) return false;
       if (hits && !hits.has(r)) return false;
       return true;
@@ -307,7 +312,7 @@ function Main() {
     const byEntry = (a: Race, b: Race) => info.get(a)!.sortKey - info.get(b)!.sortKey;
     // 접수한 대회만 볼 때는 접수 상태가 의미 없으니 대회일 순 한 묶음
     if (regOnly) {
-      const sorted = [...list].sort((a, b) => a.race_date.localeCompare(b.race_date));
+      const sorted = byRaceDate(list);
       return [{ key: 'registered', title: t('group.registered'), races: sorted }];
     }
     if (sort === 'entry') {
@@ -321,7 +326,7 @@ function Main() {
         .filter((g) => g.races.length);
     }
     if (sort === 'race_date') {
-      const sorted = [...list].sort((a, b) => a.race_date.localeCompare(b.race_date));
+      const sorted = byRaceDate(list);
       const map = new Map<string, Race[]>();
       for (const r of sorted) {
         const p = dateParts(r.race_date);
@@ -434,20 +439,42 @@ function Main() {
     [groups, opened, showAll],
   );
 
+  // 지도 숫자도 지금 상태 필터를 거친 대회로 센다 (범위는 MapSection 이 scope 로 거른다)
+  const mapRaces = useMemo(
+    () => (status.length ? upcomingRaces.filter((r) => matchesAnyStatus(r, info.get(r)!.status, status, today)) : upcomingRaces),
+    [upcomingRaces, info, status, today],
+  );
+  // 지도·지역 칩으로 곳을 고르면 지금 보이는 범위도 고른 값으로 굳힌다. 안 그러면 기본 '국내' 지도에서 서울을 고른 뒤 검색할 때
+  // 범위만 '전체'로 풀리고 서울 선택은 남아(탭은 전체인데 목록은 서울만), 검색 중 해외 나라를 고르고 검색어를 지우면 '국내'로 돌아가 0개가 된다
+  const pinScope = useCallback(() => setPicks((p) => (p.scope ? p : { ...p, scope })), [scope]);
+  const onMapRegions = useCallback(
+    (v: Region[]) => {
+      setRegions(v);
+      pinScope();
+    },
+    [pinScope],
+  );
+  const onMapPlaces = useCallback(
+    (v: string[]) => {
+      setPlaces(v);
+      pinScope();
+    },
+    [pinScope],
+  );
   // 지도는 넘기는 값이 바뀔 때만 다시 그린다 (검색 입력·☆·상세 열기로 path 수백 개를 다시 그리지 않게)
   const mapSection = useMemo(
     () => (
       <MapSection
         scope={scope}
-        races={upcomingRaces}
+        races={mapRaces}
         regions={regions}
-        onRegions={setRegions}
+        onRegions={onMapRegions}
         places={places}
-        onPlaces={setPlaces}
+        onPlaces={onMapPlaces}
         onScope={setScope}
       />
     ),
-    [scope, upcomingRaces, regions, places],
+    [scope, mapRaces, regions, places, setScope, onMapRegions, onMapPlaces],
   );
 
   const openRequest = (from: string) => {
@@ -578,17 +605,17 @@ function Main() {
           </div>
 
           <div className="grid grid-cols-3 gap-px overflow-hidden rounded-box bg-line md:w-[27rem]">
-            <Stat label={t('stat.open')} value={stats.open} active={status.includes('open')} onClick={() => pickStatus('open')} />
+            <Stat label={t('stat.open')} value={counts.open} active={status.includes('open')} onClick={() => pickStatus('open')} />
             <Stat
               label={t('stat.closing7')}
-              value={stats.closing7}
+              value={counts.closing7}
               active={status.includes('closing7')}
-              hot={stats.closing7 > 0}
+              hot={counts.closing7 > 0}
               onClick={() => pickStatus('closing7')}
             />
             <Stat
               label={t('stat.opening30')}
-              value={stats.opening30}
+              value={counts.opening30}
               active={status.includes('opening30')}
               onClick={() => pickStatus('opening30')}
             />
@@ -602,7 +629,8 @@ function Main() {
               <h2 className="text-[17px] font-bold">{t('hot.title')}</h2>
               <button
                 onClick={() => {
-                  setSort('views');
+                  // '조회순 전체 보기': 고르지 않은 지역·상태는 기본(국내·접수 중) 대신 전체·모두로 — 위 인기 대회(해외·접수 전 포함)가 목록에서 빠지지 않게
+                  setPicks((p) => ({ scope: p.scope ?? 'all', status: p.status ?? [], sort: 'views' }));
                   track('filter', { name: 'sort', value: 'views' });
                   document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
                 }}
@@ -660,9 +688,9 @@ function Main() {
             <div role="radiogroup" aria-label={t('scope.aria')} className="grid w-full grid-cols-3 rounded-ctl bg-sunken p-1 sm:inline-flex sm:w-auto">
               {(
                 [
-                  ['all', t('scope.all'), stats.kr + stats.abroad],
-                  ['kr', t('scope.kr'), stats.kr],
-                  ['abroad', t('scope.abroad'), stats.abroad],
+                  ['all', t('scope.all'), counts.kr + counts.abroad],
+                  ['kr', t('scope.kr'), counts.kr],
+                  ['abroad', t('scope.abroad'), counts.abroad],
                 ] as [Scope, string, number][]
               ).map(([s, label, n]) => (
                 <button
@@ -718,7 +746,7 @@ function Main() {
                 <select
                   value={sort}
                   onChange={(e) => {
-                    setSort(e.target.value as Sort);
+                    setSort(e.target.value as ListSort);
                     track('filter', { name: 'sort', value: e.target.value });
                   }}
                   className="h-11 appearance-none rounded-ctl border border-line bg-surface pr-9 pl-3 text-[16px] font-semibold outline-none focus:border-ink sm:h-10 sm:text-[15px]"
