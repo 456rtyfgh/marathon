@@ -69,6 +69,7 @@ export const ko = {
   'filter.flight': '비행시간',
   'filter.open': '접수 중',
   'filter.upcoming': '접수 예정',
+  'filter.unknown': '접수 미정',
   'filter.closed': '접수 끝',
   'filter.major': '메이저',
   'filter.flightAria': '최대 비행시간',

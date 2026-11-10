@@ -836,6 +836,7 @@ function Main() {
                     [
                       ['open', t('filter.open')],
                       ['upcoming', t('filter.upcoming')],
+                      ['unknown', t('filter.unknown')],
                       ['closed', t('filter.closed')],
                     ] as [EntryStatus, string][]
                   ).map(([s, label]) => (

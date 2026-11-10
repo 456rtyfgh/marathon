@@ -26,7 +26,7 @@ export const NO_PICKS: ListPicks = { scope: null, sort: null, status: null };
 const SCOPES: readonly ListScope[] = ['all', 'kr', 'abroad'];
 const SORTS: readonly ListSort[] = ['entry', 'race_date', 'views', 'saves', 'size', 'flight'];
 /** 주소로 받는 상태 값 (화면에서 고를 수 있는 것들: 칩 open·upcoming·closed, 현황판 closing7·opening30) */
-const STATUS_QUERY: readonly StatusFilter[] = ['open', 'upcoming', 'closed', 'closing7', 'opening30'];
+const STATUS_QUERY: readonly StatusFilter[] = ['open', 'upcoming', 'unknown', 'closed', 'closing7', 'opening30'];
 
 /**
  * 주소 쿼리(location.search 문자열)에서 pick 읽기. 없는/잘못된 값은 null.
