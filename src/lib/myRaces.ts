@@ -119,7 +119,7 @@ export function buildMyRaces(input: MyRacesInput, today: Date = TODAY()): MyRace
     const record: RaceRecord | null =
       records.get(id) ??
       (regIds.has(id)
-        ? { race_id: id, status: 'registered', distance: null, distance_km: null, finish_sec: null, updated_at: '' }
+        ? { race_id: id, status: 'registered', distance: null, distance_km: null, finish_sec: null, participation_count: 1, years: null, last_year: null, updated_at: '' }
         : null);
     const group = groupOf(race, record, today);
     const dday = ddayOf(race, group, today);

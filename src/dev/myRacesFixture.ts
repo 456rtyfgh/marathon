@@ -186,6 +186,9 @@ export function fixture(today: Date = TODAY(), { synced = true }: { synced?: boo
     distance: null,
     distance_km: null,
     finish_sec: null,
+    participation_count: 1,
+    years: null,
+    last_year: null,
     updated_at: today.toISOString(),
     ...extra,
   });
