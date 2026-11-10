@@ -22,13 +22,14 @@ const path = stripLang(location.pathname).replace(/(.)\/+$/, '$1');
 const legal = path === PRIVACY_PATH ? 'privacy' : null;
 
 // 첫 로딩 화면(index.html #boot)은 앱이 처음 그려진 뒤 살짝 흐리게 하고 지운다
+// requestAnimationFrame 은 뒤에 숨은 탭에서 멈추므로 setTimeout 으로
 const hideBoot = () =>
-  requestAnimationFrame(() => {
+  setTimeout(() => {
     const b = document.getElementById('boot');
     if (!b) return;
     b.classList.add('done');
     setTimeout(() => b.remove(), 250);
-  });
+  }, 30);
 
 const render = (node: ReactNode) => {
   createRoot(document.getElementById('root')!).render(
