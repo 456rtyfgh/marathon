@@ -3,7 +3,7 @@
  *   npm i --no-save --prefix node_modules/.cache/pglite @electric-sql/pglite
  *   PGLITE_DIR=node_modules/.cache/pglite node scripts/member-sql-test.mjs
  * Supabase 흉내(auth 스키마·auth.uid()·anon/authenticated 역할·extensions.digest)와 저장소에 없는 표·함수
- * (stat_daily, heartbeat, spam_reason)만 대역으로 만들고, 0001~0012 를 순서대로 돌린 뒤 0013 을 두 번 돌린다.
+ * (stat_daily, heartbeat, spam_reason)만 대역으로 만들고, 0001~0012 를 순서대로 돌린 뒤 0013 을 두 번, 끝 무렵 0019 를 두 번 돌린다.
  * 역할 전환은 set role + request.jwt.claim.sub (PostgREST 와 같은 방식).
  */
 import { readFileSync } from 'node:fs';
@@ -226,6 +226,67 @@ const many = (await q(`select count(*) n from public.merge_favorites((select arr
 ok(Number(many) === 500, 'B: merge_favorites 는 500개까지만 (오류 없이)', String(many));
 e = await err(`insert into public.user_favorites (race_id) values ('r-a')`);
 ok(/500개까지/.test(e ?? ''), 'B: 501번째 저장 → 한국어 거절', e ?? '들어감');
+
+// ── 0019 참가 횟수 (두 번 돌려도 같음) ──
+await as(null);
+const m19 = mig('0019_participation.sql');
+e = await err(m19);
+ok(e === null, '0019 1회차 실행', e);
+e = await err(m19);
+ok(e === null, '0019 2회차 실행 (다시 돌려도 같음)', e);
+await as('authenticated', A);
+const pr = async (id) => (await q(`select participation_count c, years y, last_year l from public.user_races where race_id = '${id}'`))[0];
+let p = await pr('r-old');
+ok(p.c === 1 && p.y === null && p.l === null, '0019: 기존 행은 횟수 1·해 없음', JSON.stringify(p));
+await db.exec(`update public.user_races set years = '{2019,2022,2019,2024}', participation_count = 9 where race_id = 'r-old'`);
+p = await pr('r-old');
+ok(p.c === 3 && JSON.stringify(p.y) === '[2024,2022,2019]' && p.l === 2024, '0019: 해 목록 → 중복 빼고 최근 순, 횟수 3·마지막 2024 (보낸 횟수 무시)', JSON.stringify(p));
+await db.exec(`update public.user_races set years = '{2020,null}' where race_id = 'r-old'`);
+p = await pr('r-old');
+ok(p.c === 1 && JSON.stringify(p.y) === '[2020]', '0019: 해 목록의 null 은 빠짐', JSON.stringify(p));
+await db.exec(`update public.user_races set years = '{}', participation_count = 4, last_year = 2018 where race_id = 'r-old'`);
+p = await pr('r-old');
+ok(p.c === 4 && p.y === null && p.l === 2018, '0019: 빈 해 목록 → null, 횟수·마지막 해는 보낸 값', JSON.stringify(p));
+e = await err(`update public.user_races set participation_count = 100 where race_id = 'r-old'`);
+ok(/user_races_count_range/.test(e ?? ''), '0019: 횟수 100 거부', e ?? '바뀜');
+e = await err(`update public.user_races set participation_count = 0 where race_id = 'r-old'`);
+ok(/user_races_count_range/.test(e ?? ''), '0019: 횟수 0 거부', e ?? '바뀜');
+e = await err(`update public.user_races set years = '{1800}' where race_id = 'r-old'`);
+ok(/user_races_(years|last_year)_range/.test(e ?? ''), '0019: 1800년 거부', e ?? '바뀜');
+e = await err(`update public.user_races set last_year = 2200 where race_id = 'r-old'`);
+ok(/user_races_last_year_range/.test(e ?? ''), '0019: 마지막 해 2200 거부', e ?? '바뀜');
+// member.ts 가 보내는 꼴 (새 칸 포함 upsert)
+e = await err(`insert into public.user_races (race_id, status, distance, distance_km, finish_sec, participation_count, years, last_year)
+  values ('r-old', 'finished', '풀', 42.195, 14000, 1, '{2022,2016}', 2022)
+  on conflict (user_id, race_id) do update set race_id = excluded.race_id, status = excluded.status, distance = excluded.distance,
+  distance_km = excluded.distance_km, finish_sec = excluded.finish_sec, participation_count = excluded.participation_count,
+  years = excluded.years, last_year = excluded.last_year
+  returning race_id, status, distance, distance_km, finish_sec, updated_at, participation_count, years, last_year`);
+ok(e === null, '0019: 새 칸 포함 upsert', e);
+p = await pr('r-old');
+ok(p.c === 2 && p.l === 2022, '0019: upsert 뒤 횟수 2·마지막 2022', JSON.stringify(p));
+// 예전 꼴 upsert(0019 전 화면)는 새 칸을 건드리지 않는다
+e = await err(`insert into public.user_races (race_id, status, distance, distance_km, finish_sec) values ('r-old', 'finished', '풀', 42.195, 13900)
+  on conflict (user_id, race_id) do update set race_id = excluded.race_id, status = excluded.status, distance = excluded.distance,
+  distance_km = excluded.distance_km, finish_sec = excluded.finish_sec`);
+p = await pr('r-old');
+ok(e === null && p.c === 2 && JSON.stringify(p.y) === '[2022,2016]', '0019: 예전 꼴 upsert 는 횟수·해 그대로', `${e} ${JSON.stringify(p)}`);
+let s19 = (await q(`select * from public.my_record_summary(2016)`))[0];
+ok(s19.year_count === 1 && Number(s19.year_km) === 42.195, '0019: 요약 — 해 목록에 2016 이 있으면 2016 참가로 셈', JSON.stringify(s19));
+s19 = (await q(`select * from public.my_record_summary(2020)`))[0];
+ok(s19.year_count === 0, '0019: 요약 — 해 목록이 있으면 대회 날짜(2020)로는 안 셈', JSON.stringify(s19));
+await db.exec(`update public.user_races set last_year = 2023 where race_id = 'r-a'`);
+s19 = (await q(`select * from public.my_record_summary(2023)`))[0];
+ok(s19.year_count === 1 && s19.best_full_sec === 13900, '0019: 요약 — 해 목록 없으면 마지막 해(2023)로, 최고 기록 그대로', JSON.stringify(s19));
+await as('anon');
+e = await err(`select years from public.user_races`);
+ok(/permission denied/.test(e ?? ''), '0019: anon 새 칸 읽기 거부', e ?? '읽힘');
+await as('authenticated', B);
+ok((await q(`select * from public.user_races where years is not null`)).length === 0, '0019: B 는 A 의 해 목록 안 보임');
+e = await err(`update public.user_races set participation_count = 5 where user_id = '${A}'`);
+await as(null);
+ok(e === null && (await q(`select participation_count c from public.user_races where race_id = 'r-old' and user_id = '${A}'`))[0].c === 2,
+  '0019: B 가 A 의 횟수 고치기 → 0행 영향', e);
 
 // ── 탈퇴: 새 표 모두 cascade ──
 await as('authenticated', A);
