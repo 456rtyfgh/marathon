@@ -687,7 +687,7 @@ export const ko = {
   'me.saved.title': '저장한 대회',
   'me.saved.loading': '저장한 대회를 불러오는 중',
   'me.saved.emptyTitle': '아직 저장한 대회가 없어요',
-  'me.saved.emptyHow': '대회 상세에서 ‘{btn}’을 누르면 여기에 모여요. 접수 시작·마감까지 남은 날을 한눈에 볼 수 있어요.',
+  'me.saved.emptyHow': '대회 상세에서 ‘{btn}’ 버튼을 누르면 여기에 모여요. 접수 시작·마감까지 남은 날을 한눈에 볼 수 있어요.',
   'me.saved.sumSaved': '저장',
   'me.saved.sumOpen': '접수 중',
   'me.saved.sumUrgent': '7일 안에 마감 {n}',

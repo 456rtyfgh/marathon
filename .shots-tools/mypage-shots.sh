@@ -40,8 +40,9 @@ import { mergeConfig } from 'vite';
 import base from '$ROOT/vite.config.ts';
 export default mergeConfig(base, { root: '$ROOT', server: { fs: { allow: ['$ROOT', '$NM'] } } });
 EOF
+  # exec 로 서브셸을 vite 자체로 바꾼다 — 아니면 $! 가 서브셸이라 cleanup 의 kill 뒤에도 vite 가 남는다
   (cd "$ROOT" && NODE_ENV=development VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= \
-    npx vite --config "$TMP/vite.config.ts" --port "$PORT" --strictPort >"$TMP/vite.log" 2>&1) &
+    exec "$ROOT/node_modules/.bin/vite" --config "$TMP/vite.config.ts" --port "$PORT" --strictPort >"$TMP/vite.log" 2>&1) &
   SERVER_PID=$!
   for _ in $(seq 1 60); do
     curl -sf "$BASE/mypage-preview.html" >/dev/null 2>&1 && break
