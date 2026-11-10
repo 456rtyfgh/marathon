@@ -13,10 +13,22 @@ import MemberPanel from './MemberPanel';
 
 const MyPosts = lazy(() => import('../community/MyPosts'));
 
-export function AuthBar({ onOpen }: { onOpen: () => void }) {
+/**
+ * 머리말의 로그인 / 내 정보·로그아웃 버튼 + 내 정보·탈퇴 완료·개정 안내 창.
+ * 버튼은 768px(md) 부터만 보인다 — 휴대폰에서는 머리말 메뉴(MobileMenu)가 같은 일을 한다. 창은 너비와 상관없이 여기서 뜬다.
+ * 내 정보 창 열림(meOpen)은 메뉴에서도 열 수 있게 App 이 갖고 있다.
+ */
+export function AuthBar({
+  onOpen,
+  meOpen: editing,
+  onMeOpenChange: setEditing,
+}: {
+  onOpen: () => void;
+  meOpen: boolean;
+  onMeOpenChange: (open: boolean) => void;
+}) {
   const { session, profile, signOut, policyNoticeDue, recovering } = useAuth();
   const { t } = useLang();
-  const [editing, setEditing] = useState(false);
   const [view, setView] = useState<'me' | 'withdraw'>('me');
   const [withdrawn, setWithdrawn] = useState(false);
   const [noticeClosed, setNoticeClosed] = useState(false);
@@ -32,7 +44,7 @@ export function AuthBar({ onOpen }: { onOpen: () => void }) {
   if (!session) {
     return (
       <>
-        <Button size="sm" onClick={onOpen}>
+        <Button size="sm" onClick={onOpen} className="max-md:hidden">
           {t('auth.login')}
         </Button>
         {/* 탈퇴하면 세션이 바로 없어지므로 완료 안내는 로그아웃 상태에서 보여 준다 */}
@@ -49,21 +61,23 @@ export function AuthBar({ onOpen }: { onOpen: () => void }) {
     );
   }
   return (
-    <div className="flex items-center gap-1">
+    // 767px 이하에선 감싸는 div 를 contents 로 (숨기면 안의 창까지 안 보인다) — 버튼만 하나씩 숨긴다
+    <div className="flex items-center gap-1 max-md:contents">
       <button
         onClick={() => openMe('me')}
         title={t('auth.changeNick')}
-        className="inline-flex h-11 items-center gap-2 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition hover:bg-sunken hover:text-ink sm:h-9"
+        className="inline-flex h-9 items-center gap-2 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition hover:bg-sunken hover:text-ink max-md:hidden"
       >
         <UserCircle size={18} />
-        <span className="hidden max-w-[10rem] truncate sm:inline">{profile?.nickname ?? session.user.email}</span>
-        <span className="sr-only sm:hidden">{t('auth.me')}</span>
+        {/* 닉네임 글자는 1024px(lg) 부터. 태블릿은 아이콘만 */}
+        <span className="hidden max-w-[10rem] truncate lg:inline">{profile?.nickname ?? session.user.email}</span>
+        <span className="sr-only lg:hidden">{t('auth.me')}</span>
       </button>
       <button
         onClick={() => signOut()}
         aria-label={t('auth.logout')}
         title={t('auth.logout')}
-        className="grid size-11 place-items-center rounded-ctl text-ink-3 transition hover:bg-sunken hover:text-ink sm:size-9"
+        className="grid size-9 place-items-center rounded-ctl text-ink-3 transition hover:bg-sunken hover:text-ink max-md:hidden"
       >
         <SignOut size={17} />
       </button>

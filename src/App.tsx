@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, CheckSquare, Plus, ChatsCircle } from '@phosphor-icons/react';
+import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, CheckSquare, Plus } from '@phosphor-icons/react';
 import type { Race, EntryType, Region, Discipline } from './lib/types';
 import { DISCIPLINES } from './lib/types';
 import { loadDataset, emptyDataset, type Dataset } from './lib/data';
@@ -23,6 +23,7 @@ import RaceRow from './components/RaceRow';
 import { AuthBar, AuthForm } from './components/AuthPanel';
 import { Panel, Note, MoreButton } from './components/ui';
 import { Logo } from './components/Logo';
+import { MobileMenu, type MenuItem } from './components/MobileMenu';
 import MapSection, { type Scope } from './components/MapSection';
 import { matchesPlaces, placeOf } from './lib/places';
 import { buildIndex, searchRaces, suggestRaces } from './lib/search';
@@ -118,6 +119,8 @@ function Main() {
   const [pendingAction, setPendingAction] = useState<{ raceId: string; action: GateAction } | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
+  // 내 정보 창: 머리말(AuthBar)과 휴대폰 메뉴 둘 다 연다
+  const [meOpen, setMeOpen] = useState(false);
   // 러닝톡: /community… 주소로 들어오거나 상단 메뉴를 누르면 연다
   const [talkOpen, setTalkOpen] = useState(() => isCommunityPath(location.pathname));
   const closeTalk = () => {
@@ -452,6 +455,32 @@ function Main() {
     setShowRequest(true);
   };
 
+  // 머리말 버튼과 휴대폰 메뉴가 같이 쓰는 일
+  const openTalk = () => {
+    history.pushState(null, '', langPath(COMMUNITY_PATH, lang));
+    setTalkOpen(true);
+  };
+  const nextLang = lang === 'ko' ? 'en' : 'ko';
+  const switchLang = () => {
+    track('lang', { value: nextLang });
+    setLang(nextLang);
+  };
+  // 휴대폰(767px 이하) 메뉴 항목 — 머리말에 펼쳐 보이는 것과 같은 일을 한다
+  const menuGroups: MenuItem[][] = [
+    [
+      { id: 'talk', label: COMMUNITY_NAV[lang], href: langPath(COMMUNITY_PATH, lang), onSelect: openTalk },
+      { id: 'request', label: t('header.request'), onSelect: () => openRequest('header') },
+      ...(profile?.is_admin ? [{ id: 'admin', label: t('header.admin'), onSelect: () => setShowAdmin(true) }] : []),
+    ],
+    [{ id: 'lang', label: t('lang.switch'), lang: nextLang, onSelect: switchLang }],
+    auth.session
+      ? [
+          { id: 'me', label: t('auth.me'), hint: profile?.nickname ?? auth.session.user.email, onSelect: () => setMeOpen(true) },
+          { id: 'logout', label: t('auth.logout'), onSelect: () => void auth.signOut() },
+        ]
+      : [{ id: 'login', label: t('auth.login'), tone: 'primary', onSelect: () => openLogin('in') }],
+  ];
+
   const toggle = <T,>(list: T[], set: (v: T[]) => void, v: T) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
@@ -474,8 +503,10 @@ function Main() {
       </a>
 
       <header className="sticky top-0 z-30 border-b border-line bg-bg">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <a href={langPath('/', lang)} className="flex h-11 items-center">
+        {/* 휴대폰(767px 이하): 로고 · 러닝톡 · 메뉴 버튼, 나머지는 메뉴 안. 768px 부터 펼쳐 보인다 (MobileMenu 의 NAV_INLINE_MIN) */}
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
+          {/* 자리가 모자라도 로고는 줄지 않게 (예전엔 관리자 화면에서 워드마크가 찌그러졌다) */}
+          <a href={langPath('/', lang)} className="flex h-11 shrink-0 items-center">
             <Logo />
           </a>
           <nav className="flex items-center gap-1 sm:gap-2">
@@ -484,40 +515,33 @@ function Main() {
               onClick={(e) => {
                 if (e.metaKey || e.ctrlKey || e.shiftKey) return;
                 e.preventDefault();
-                history.pushState(null, '', langPath(COMMUNITY_PATH, lang));
-                setTalkOpen(true);
+                openTalk();
               }}
-              aria-label={COMMUNITY_NAV[lang]}
-              className="inline-flex size-11 items-center justify-center rounded-ctl text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink sm:h-9 sm:w-auto sm:px-3"
+              // 360px 미만(확대 표시한 휴대폰 320px 등)은 로고 옆에 자리가 없어 숨긴다 — 넘치면 메뉴 버튼이 화면 밖으로 밀린다. 메뉴 안에는 늘 있다
+              className="inline-flex h-11 items-center rounded-ctl px-2.5 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink max-[360px]:hidden md:h-9 md:px-3"
             >
-              {/* 휴대폰은 머리말 자리가 꽉 차서 아이콘만 (글자는 sm 부터) */}
-              <ChatsCircle size={20} className="sm:hidden" aria-hidden />
-              <span className="hidden sm:inline">{COMMUNITY_NAV[lang]}</span>
+              {COMMUNITY_NAV[lang]}
             </a>
             <button
               onClick={() => openRequest('header')}
-              className="hidden h-9 items-center rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink sm:inline-flex"
+              className="hidden h-9 items-center rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink md:inline-flex"
             >
               {t('header.request')}
             </button>
             {profile?.is_admin && (
               <button
                 onClick={() => setShowAdmin(true)}
-                className="inline-flex h-11 items-center rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink sm:h-9"
+                className="hidden h-9 items-center rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink md:inline-flex"
               >
                 {t('header.admin')}
               </button>
             )}
             {/* 언어 전환: 글자는 두 언어 모두 'EN / 한', 지금 언어 쪽만 진하게 */}
             <button
-              onClick={() => {
-                const next = lang === 'ko' ? 'en' : 'ko';
-                track('lang', { value: next });
-                setLang(next);
-              }}
+              onClick={switchLang}
               aria-label={t('lang.switch')}
-              lang={lang === 'ko' ? 'en' : 'ko'}
-              className="inline-flex h-11 items-center rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink sm:h-9"
+              lang={nextLang}
+              className="hidden h-9 items-center rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink md:inline-flex"
             >
               <span>
                 <span className={lang === 'en' ? 'text-ink' : undefined}>EN</span>
@@ -525,7 +549,8 @@ function Main() {
                 <span className={lang === 'ko' ? 'text-ink' : undefined}>한</span>
               </span>
             </button>
-            <AuthBar onOpen={() => openLogin('in')} />
+            <AuthBar onOpen={() => openLogin('in')} meOpen={meOpen} onMeOpenChange={setMeOpen} />
+            <MobileMenu groups={menuGroups} className="md:hidden" />
           </nav>
         </div>
       </header>
