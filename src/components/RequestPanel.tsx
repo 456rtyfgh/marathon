@@ -7,6 +7,8 @@ import { track } from '../lib/analytics';
 import { spamReason, friendlyError } from '../lib/spam';
 import { safeUrl } from '../lib/util';
 import { useLang } from '../i18n';
+import AdminSortBar from './AdminSortBar';
+import { sortRequests, REQUEST_SORT_LABEL, REQUEST_SORT_DESC, type RequestSort } from '../lib/adminSort';
 
 export default function RequestPanel({ onClose, onLogin }: { onClose: () => void; onLogin: () => void }) {
   const { session, profile } = useAuth();
@@ -22,6 +24,10 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
   const [month, setMonth] = useState('');
   const [url, setUrl] = useState('');
   const [note, setNote] = useState('');
+  /** 관리자만 정렬을 바꾼다 (관리 화면처럼 한국어만). 일반 화면은 지금처럼 최신순 */
+  const [sort, setSort] = useState<RequestSort>('status');
+  const isAdmin = !!profile?.is_admin;
+  const shown = list && isAdmin ? sortRequests(list, sort) : list;
 
   const reload = () =>
     loadRaceRequests()
@@ -115,13 +121,24 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
               {t('req.reportsPost')}
             </p>
           )}
-          {list === null ? (
+          {isAdmin && shown && shown.length > 1 && (
+            <div className="mt-3">
+              <AdminSortBar
+                label="대회 추가 요청"
+                value={sort}
+                onChange={setSort}
+                options={(Object.keys(REQUEST_SORT_LABEL) as RequestSort[]).map((k) => [k, REQUEST_SORT_LABEL[k]])}
+                desc={REQUEST_SORT_DESC[sort]}
+              />
+            </div>
+          )}
+          {shown === null ? (
             <div className="mt-3 h-16 animate-pulse rounded-box bg-surface" />
-          ) : list.length === 0 ? (
+          ) : shown.length === 0 ? (
             <p className="mt-2 text-[15px] text-ink-3">{t('req.empty')}</p>
           ) : (
             <ul className="mt-3 divide-y divide-line">
-              {list.map((r) => (
+              {shown.map((r) => (
                 <li key={r.id} className="py-4">
                   <div className="flex items-start justify-between gap-3">
                     <span className="line-clamp-2 min-w-0 text-[15px] leading-snug font-semibold">
@@ -171,8 +188,10 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
                             await adminResolveRequest(r.id, s, r.admin_note);
                             reload();
                           }}
+                          aria-pressed={r.status === s}
+                          // 지금 상태는 테두리로 (검정으로 꽉 채우지 않는다)
                           className={`h-11 rounded-ctl px-3 text-[13px] font-semibold whitespace-nowrap transition sm:h-8 ${
-                            r.status === s ? 'bg-ink text-bg' : 'bg-sunken text-ink-2 hover:bg-line'
+                            r.status === s ? 'bg-surface text-ink ring-[1.5px] ring-ink ring-inset' : 'bg-sunken text-ink-2 hover:bg-line'
                           }`}
                         >
                           {statusLabel(s)}
