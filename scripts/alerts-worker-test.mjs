@@ -16,7 +16,7 @@ const tmp = mkdtempSync(join(tmpdir(), 'alerts-test-'));
 const out = join(tmp, 'alerts.mjs');
 await build({
   stdin: {
-    contents: "export * from './worker/alerts/due.ts'; export * from './worker/alerts/email.ts'; export * from './worker/alerts/schedule.ts'; export { default as cron } from './worker/cron.ts';",
+    contents: "export * from './worker/alerts/due.ts'; export * from './worker/alerts/email.ts'; export * from './worker/alerts/schedule.ts'; export * from './worker/alerts/unsubscribe.ts'; export { default as cron } from './worker/cron.ts';",
     resolveDir: root,
     loader: 'ts',
   },
@@ -75,6 +75,7 @@ await db.exec(`
 
 // ── 가짜 fetch ──
 const SB = 'https://sb.test';
+const PUBLIC_SB = 'https://zhwmfvkwtmakieatlqtz.supabase.co'; // worker/memberCal.ts 의 공개 주소 (가짜 fetch 가 가로챔)
 let sbCalls = [];
 let resendCalls = [];
 let resendPlan = []; // 차례로 꺼내 쓰는 응답 (비면 200)
@@ -82,9 +83,21 @@ let sbFailNext = 0;
 async function fakeFetch(url, init = {}) {
   const u = new URL(url);
   const body = init.body ? JSON.parse(init.body) : {};
-  if (u.origin === SB) {
+  if (u.origin === SB || u.origin === PUBLIC_SB) {
     const fn = u.pathname.replace('/rest/v1/rpc/', '');
-    sbCalls.push({ fn, headers: init.headers, body });
+    sbCalls.push({ fn, headers: init.headers, body, origin: u.origin });
+    if (fn === 'unsubscribe_alert') {
+      // 사이트 함수는 공개 키(anon)로 부른다
+      await db.exec('set role anon');
+      try {
+        const r = (await db.query('select public.unsubscribe_alert($1::uuid[]) j', [`{${body.p_tokens.join(',')}}`])).rows[0].j;
+        return new Response(JSON.stringify(r), { status: 200 });
+      } catch (e) {
+        return new Response(JSON.stringify({ message: e.message }), { status: 400 });
+      } finally {
+        await db.exec('reset role');
+      }
+    }
     if (sbFailNext > 0) {
       sbFailNext--;
       return new Response('{"message":"upstream"}', { status: 503 });
@@ -232,7 +245,30 @@ s = await W.sendAlertEmails({ SUPABASE_URL: SB, SUPABASE_SECRET_KEY: '', AUTOMAT
 capture(false);
 ok(/SUPABASE_SECRET_KEY, RESEND_API_KEY/.test(s.stopped ?? '') && sbCalls.length + resendCalls.length === 0, '비밀값 없음 → 이름만 알리고 아무것도 안 부름', s.stopped);
 
-// ── 7. 예약 실행 ──
+// ── 7. 수신 거부 페이지 ──
+const tokKim = (await db.query(`select unsubscribe_token::text t from public.alert_subscriptions where email = 'kim@x.com' and race_id = 'tokyo'`)).rows[0].t;
+const tokM = (await db.query(`select unsubscribe_token::text t from public.user_alert_prefs where user_id = '${M}'`)).rows[0].t;
+const U = (q, method = 'GET', body) => new Request(`https://marathon82.com/unsubscribe${q}`, { method, body });
+reset();
+let res = await W.unsubscribeRoute(U(`?t=${tokKim}`), {}, fakeFetch);
+let html = await res.text();
+ok(res.status === 200 && /<form method="post"/.test(html) && sbCalls.length === 0, 'GET: 확인 버튼만 (아무것도 안 바꿈 — 메일 검사기가 열어도 안전)');
+ok(res.headers.get('X-Robots-Tag') === 'noindex' && res.headers.get('Cache-Control') === 'private, no-store' && res.headers.get('Referrer-Policy') === 'no-referrer', 'noindex·no-store·no-referrer');
+res = await W.unsubscribeRoute(U('?t=nope'), {}, fakeFetch);
+ok(res.status === 400 && sbCalls.length === 0, '토큰 형식 틀림 → 400, RPC 안 부름');
+res = await W.unsubscribeRoute(U(`?t=${tokKim},${tokM}&lang=en`, 'POST', 'List-Unsubscribe=One-Click'), {}, fakeFetch);
+html = await res.text();
+ok(res.status === 200 && /Done\./.test(html) && sbCalls[0]?.fn === 'unsubscribe_alert' && sbCalls[0].headers.apikey.startsWith('sb_publishable_'), 'POST(원클릭): 공개 키로 unsubscribe_alert → 영어 완료 화면', `${res.status} ${JSON.stringify(sbCalls[0]?.headers)}`);
+const left = (await db.query(`select (select count(*) from public.alert_subscriptions where unsubscribe_token = '${tokKim}')::int a, (select saved_races from public.user_alert_prefs where user_id = '${M}') b`)).rows[0];
+ok(left.a === 0 && left.b === false, '실제로 구독 삭제 + 저장 대회 알림 꺼짐', JSON.stringify(left));
+reset();
+await db.exec(`delete from public.alert_send_log`);
+due = await W.dueAlerts(env, deps);
+ok(!due.groups.some((g) => g.email === 'en.member@x.com') && !due.groups.find((g) => g.email === 'kim@x.com')?.items.some((i) => i.race_id === 'tokyo'), '수신 거부 뒤엔 오늘 알림에서도 빠짐');
+res = await W.unsubscribeRoute(U(`?t=${tokKim}`, 'DELETE'), {}, fakeFetch);
+ok(res.status === 405, '다른 메서드 → 405');
+
+// ── 8. 예약 실행 ──
 const at = (h) => Date.UTC(2026, 10, 10, h, 17);
 ok(W.shouldSendAlerts('0 23 * * *', Date.UTC(2026, 10, 10, 23)) && W.shouldSendAlerts('17 3,15 * * *', at(3)) && !W.shouldSendAlerts('17 3,15 * * *', at(15)),
   '08:00 KST 보냄 · 12:17 KST 재시도 · 00:17 KST 는 안 보냄');

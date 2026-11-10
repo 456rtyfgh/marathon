@@ -56,7 +56,8 @@ writeFileSync(
   JSON.stringify({
     version: 1,
     // 러닝톡 목록·글 페이지(worker/community.ts)도 함수로 — 검색엔진용 제목·구조화 데이터
-    include: ['/r/*', '/en/r/*', '/cal/*', '/d/*', '/data.json', '/api/*', '/community', '/community/*', '/en/community', '/en/community/*'],
+    // 알림 메일 수신 거부(worker/alerts/unsubscribe.ts)도 함수로
+    include: ['/r/*', '/en/r/*', '/cal/*', '/d/*', '/data.json', '/api/*', '/community', '/community/*', '/en/community', '/en/community/*', '/unsubscribe'],
     exclude: [],
   }),
 );

@@ -210,7 +210,8 @@ begin
   if cardinality(p_tokens) > 100 then
     raise exception using message = 'too many tokens', errcode = '22023';
   end if;
-  if not public.rate_take('unsubscribe', 1, 300) then
+  -- 사이트 함수(Cloudflare)에서 부르면 IP 가 몇 개로 모인다 → 넉넉하게 (토큰은 uuid 라 맞히기 어렵다)
+  if not public.rate_take('unsubscribe', 1, 5000) then
     raise exception using message = 'too many requests', errcode = 'P0001';
   end if;
   delete from public.alert_subscriptions where unsubscribe_token = any (p_tokens);
