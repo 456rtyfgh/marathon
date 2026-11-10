@@ -60,18 +60,42 @@ export const useAuth = () => useContext(Ctx);
 
 const redirectTo = () => `${window.location.origin}/`;
 
+/**
+ * 개발 서버 전용 로그인 흉내: /?amock=member|admin (&nick=닉네임) 이면 처음부터 로그인한 것처럼 보인다 (서버 호출 없음).
+ * 머리말·메뉴를 회원·관리자 상태로 확인하려고 둔다. 빌드에서는 import.meta.env.DEV 가 false 라 통째로 빠진다.
+ */
+function devAuthMock(): { session: Session; profile: Profile } | null {
+  const q = new URLSearchParams(window.location.search);
+  const who = q.get('amock');
+  if (who !== 'member' && who !== 'admin') return null;
+  const nickname = q.get('nick') || '한강러너';
+  const user = {
+    id: '00000000-0000-0000-0000-00000000a0c0',
+    email: 'runner@example.com',
+    aud: 'authenticated',
+    created_at: '2026-01-01T00:00:00Z',
+    app_metadata: {},
+    // 개정 안내 창이 뜨지 않게 지금 처리방침 버전으로
+    user_metadata: { nickname, policy_version: POLICY_VERSION },
+  };
+  const session = { access_token: '', refresh_token: '', expires_in: 3600, token_type: 'bearer', user } as unknown as Session;
+  return { session, profile: { id: user.id, nickname, is_admin: who === 'admin' } };
+}
+const MOCK = import.meta.env.DEV ? devAuthMock() : null;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { lang, t } = useLang();
   const translate = (msg: string) => translateError(msg, lang);
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(MOCK?.session ?? null);
+  const [profile, setProfile] = useState<Profile | null>(MOCK?.profile ?? null);
+  const [loading, setLoading] = useState(!MOCK);
   const [recovering, setRecovering] = useState(false);
   const [justConfirmed, setJustConfirmed] = useState(false);
   // 안내를 확인한 버전 — 저장한 메타데이터가 세션에 늦게 들어와도 이번 화면에서는 다시 띄우지 않는다
   const [ackedVersion, setAckedVersion] = useState('');
 
   useEffect(() => {
+    if (MOCK) return; // 개발 서버 로그인 흉내: 서버에 묻지 않는다
     if (!hasSupabase || !supabase) {
       setLoading(false);
       return;
@@ -116,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (MOCK) return; // 흉내 프로필은 처음 값 그대로 (로그아웃은 signOut 에서 같이 비운다)
     if (!supabase || !session?.user) {
       setProfile(null);
       return;
@@ -213,6 +238,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data) setProfile(data as Profile);
     },
     async signOut() {
+      if (MOCK) {
+        setSession(null);
+        setProfile(null);
+        return;
+      }
       if (!supabase) return;
       await supabase.auth.signOut();
     },
