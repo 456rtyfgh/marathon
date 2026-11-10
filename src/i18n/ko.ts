@@ -51,6 +51,7 @@ export const ko = {
   'search.placeholder': '대회 이름, 도시, 나라',
   'request.missing': '찾는 대회가 없나요?',
   'request.short': '추가 요청',
+  'sort.by': '정렬 기준',
   'sort.label': '정렬',
   'sort.entry': '접수순',
   'sort.race_date': '대회 날짜순',

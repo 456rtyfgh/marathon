@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import SortMenu from './components/SortMenu';
 import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, CheckSquare, Plus } from '@phosphor-icons/react';
 import type { Race, EntryType, Region, Discipline } from './lib/types';
 import { DISCIPLINES } from './lib/types';
@@ -702,25 +703,13 @@ function Main() {
 
             {/* 1024px 아래(태블릿)는 검색이 첫 줄 전체, 범위·정렬·필터가 둘째 줄 — 한 줄에 다 넣으면 검색칸이 너무 좁다 */}
             <div className="flex w-full items-center justify-end gap-2 sm:ml-auto sm:w-auto lg:ml-0">
-              <label className="relative">
-                <span className="sr-only">{t('sort.label')}</span>
-                <select
-                  value={sort}
-                  onChange={(e) => {
-                    setSort(e.target.value as ListSort);
-                    track('filter', { name: 'sort', value: e.target.value });
-                  }}
-                  className="h-11 appearance-none rounded-ctl border border-line bg-surface pr-9 pl-3 text-[16px] font-semibold outline-none focus:border-ink sm:h-10 sm:text-[15px]"
-                >
-                  <option value="entry">{t('sort.entry')}</option>
-                  <option value="race_date">{t('sort.race_date')}</option>
-                  <option value="views">{t('sort.views')}</option>
-                  <option value="saves">{t('sort.saves')}</option>
-                  <option value="size">{t('sort.size')}</option>
-                  <option value="flight">{t('sort.flight')}</option>
-                </select>
-                <CaretDown size={14} className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-ink-3" />
-              </label>
+              <SortMenu
+                value={sort}
+                onChange={(v) => {
+                  setSort(v);
+                  track('filter', { name: 'sort', value: v });
+                }}
+              />
               {fav.ids.length > 0 && (
                 <button
                   onClick={() => {

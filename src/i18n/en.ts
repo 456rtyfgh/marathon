@@ -49,6 +49,7 @@ export const en: Record<Key, string> & Partial<Record<`${Key}_one`, string>> = {
   'search.placeholder': 'Race, city or country',
   'request.missing': "Can't find a race?",
   'request.short': 'Suggest one',
+  'sort.by': 'Sort by',
   'sort.label': 'Sort',
   'sort.entry': 'Registration',
   'sort.race_date': 'Race date',
