@@ -21,6 +21,7 @@ export const en: Record<Key, string> & Partial<Record<`${Key}_one`, string>> = {
   'app.skip': 'Skip to race list',
   'header.request': 'Suggest a race',
   'header.admin': 'Admin',
+  'header.menu': 'Menu',
   'app.confirmed': "Your email is verified. You can now write reviews.",
   'app.lead': 'Race dates and registration windows for marathons in Korea and around the world, sorted by what opens or closes next.',
   'app.leadCount':

@@ -248,8 +248,42 @@ dialog.sheet {
   }
 }
 
+/* 휴대폰 머리말 메뉴 (components/MobileMenu.tsx): 머리말(3.5rem) 바로 아래 오른쪽에 붙는 작은 시트 */
+dialog.menu {
+  position: fixed;
+  inset: calc(3.5rem + 8px) 12px auto auto;
+  margin: 0;
+  width: min(20rem, calc(100vw - 24px));
+  max-width: none;
+  max-height: calc(100dvh - 3.5rem - 20px);
+  overflow-y: auto;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-box);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 8px 24px var(--shadow-strong);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition-property: opacity, transform, display, overlay;
+  transition-duration: 0.16s;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+
+  &[open] {
+    opacity: 1;
+    transform: translateY(0);
+
+    @starting-style {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+}
+
 dialog.panel::backdrop,
-dialog.sheet::backdrop {
+dialog.sheet::backdrop,
+dialog.menu::backdrop {
   background-color: var(--scrim-off);
   transition:
     display 0.28s allow-discrete,
@@ -257,8 +291,14 @@ dialog.sheet::backdrop {
     background-color 0.28s ease-out;
 }
 
+/* 메뉴는 0.16s 만에 닫히므로 뒤 막도 같은 시간에 (길면 사라지다 말고 뚝 끊긴다) */
+dialog.menu::backdrop {
+  transition-duration: 0.16s;
+}
+
 dialog.panel[open]::backdrop,
-dialog.sheet[open]::backdrop {
+dialog.sheet[open]::backdrop,
+dialog.menu[open]::backdrop {
   background-color: var(--scrim);
 
   @starting-style {
@@ -271,13 +311,15 @@ dialog.sheet[open]::backdrop {
     scroll-behavior: auto;
   }
   dialog.panel,
-  dialog.sheet {
+  dialog.sheet,
+  dialog.menu {
     transform: none;
     transition-duration: 0.1s;
   }
   @starting-style {
     dialog.panel[open],
-    dialog.sheet[open] {
+    dialog.sheet[open],
+    dialog.menu[open] {
       transform: none;
     }
   }

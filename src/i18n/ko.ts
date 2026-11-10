@@ -25,6 +25,7 @@ export const ko = {
   'app.skip': '목록으로 건너뛰기',
   'header.request': '대회 추가 요청',
   'header.admin': '관리',
+  'header.menu': '메뉴',
   'app.confirmed': '메일 인증이 끝났습니다. 이제 후기를 남길 수 있습니다.',
   'app.lead': '국내·해외 마라톤 대회 일정과 접수 기간을 접수가 가까운 순서로 모았습니다.',
   'app.leadCount': '국내·해외 마라톤 대회 일정과 접수 기간을 접수가 가까운 순서로 모았습니다. 국내 {kr}개, 해외 {abroad}개.',
