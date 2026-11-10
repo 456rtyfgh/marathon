@@ -10,6 +10,8 @@ import {
 import { entryStatusByDate, fmtDate, safeUrl, STATUS_LABEL, todayISO } from '../lib/util';
 import GaSection from './GaSection';
 import AdminCommunity from '../community/AdminCommunity';
+import AdminRaceSearch from './AdminRaceSearch';
+import RaceEditor from './RaceEditor';
 
 const EMPTY: Race = {
   id: '',
@@ -44,18 +46,17 @@ type AdminTab = 'stats' | 'race' | 'reports' | 'ext' | 'members' | 'community';
 
 export default function AdminPanel({ races, onClose, onSaved }: { races: Race[]; onClose: () => void; onSaved: () => void }) {
   const [tab, setTab] = useState<AdminTab>('stats');
-  // 화면의 races 는 목록 파일 값일 수 있다(공식 링크·메모 등 상세 필드 없음) → 수정 폼은 DB 의 전체 필드로.
-  // 목록 값으로 upsert 하면 빠진 칸이 지워지므로, 못 받으면 수정 저장을 막는다
+  // 화면의 races 는 목록 파일 값일 수 있다(공식 링크·메모 등 상세 필드 없음) → 마감 제보·대회 찾기는 DB 의 지금 목록으로.
+  // 대회 수정은 RaceEditor 가 그 대회 한 줄을 DB 에서 따로 받아 바뀐 칸만 저장하므로 이 목록과 상관없다.
+  // 못 받으면(오프라인·개발 서버 흉내) 화면의 races 로 대신한다
   const [full, setFull] = useState<Race[] | null>(null);
-  const [fullErr, setFullErr] = useState('');
   const loadFull = () =>
     loadAllRaces()
       .then((r) => {
         if (r.error || !r.data) throw r.error ?? new Error('no data');
         setFull(r.data);
-        setFullErr('');
       })
-      .catch((e) => setFullErr(`대회 전체 정보를 DB 에서 못 받아 수정 저장을 막았습니다. (${e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e)})`));
+      .catch(() => {});
   useEffect(() => {
     loadFull();
   }, []);
@@ -87,7 +88,8 @@ export default function AdminPanel({ races, onClose, onSaved }: { races: Race[];
         ]}
       />
 
-      <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-7">
+      {/* 아래 여백은 padding 대신 빈 줄(after) — padding 이면 대회 편집기의 아래 고정 저장 줄이 그만큼 떠서 그 밑으로 칸이 비친다 */}
+      <div className="flex-1 overflow-y-auto px-5 pt-6 after:block after:h-6 after:content-[''] sm:px-7">
         {tab === 'stats' && (
           // GA 분석과 자체 통계는 형제로 — 한쪽이 오류여도 다른 쪽은 보인다
           <div className="space-y-10">
@@ -100,7 +102,7 @@ export default function AdminPanel({ races, onClose, onSaved }: { races: Race[];
             </section>
           </div>
         )}
-        {tab === 'race' && <RaceForm races={full ?? races} hasFull={!!full} fullErr={fullErr} onSaved={saved} />}
+        {tab === 'race' && <RaceTab races={full ?? races} onSaved={saved} />}
         {tab === 'reports' && <SoldOutReports races={full ?? races} onSaved={saved} />}
         {tab === 'ext' && <ExtForm races={races} onSaved={onSaved} />}
         {tab === 'members' && <Members />}
@@ -112,29 +114,94 @@ export default function AdminPanel({ races, onClose, onSaved }: { races: Race[];
 
 /* ── 대회 폼 ───────────────────────────────────────────── */
 
-function RaceForm({ races, hasFull, fullErr, onSaved }: { races: Race[]; hasFull: boolean; fullErr: string; onSaved: () => void }) {
+/**
+ * 대회 추가·수정 탭: 위에서 대회를 찾아 고르면 그 대회 편집기(RaceEditor — DB 값으로 열고 바뀐 칸만 저장)와 삭제,
+ * '새 대회 등록' 이면 등록 폼. 고른 대회를 바꾸면 편집기를 새로 연다(key).
+ */
+function RaceTab({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
   const [editingId, setEditingId] = useState('');
+  const [done, setDone] = useState('');
+  const picked = editingId ? races.find((r) => r.id === editingId) : undefined;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1">
+          <AdminRaceSearch
+            races={races}
+            onPick={(id) => {
+              setEditingId(id);
+              setDone('');
+            }}
+          />
+        </div>
+        <Button type="button" tone="quiet" onClick={() => setEditingId('')}>
+          + 새 대회 등록
+        </Button>
+      </div>
+
+      {done && <Note tone="ok">{done}</Note>}
+
+      {editingId ? (
+        <section aria-label="대회 수정" className="space-y-5">
+          <h3 className="text-[19px] font-bold">
+            {picked?.name_ko ?? editingId} <span className="text-[14px] font-normal text-ink-3">고치기</span>
+          </h3>
+          <RaceEditor key={editingId} raceId={editingId} onSaved={onSaved} />
+          <DeleteRace
+            id={editingId}
+            name={picked?.name_ko ?? editingId}
+            onDeleted={() => {
+              setDone(`${picked?.name_ko ?? editingId} 대회를 지웠습니다.`);
+              setEditingId('');
+              onSaved();
+            }}
+          />
+        </section>
+      ) : (
+        <section aria-label="새 대회 등록" className="space-y-5">
+          <h3 className="text-[19px] font-bold">새 대회 등록</h3>
+          <RaceForm races={races} onSaved={onSaved} />
+        </section>
+      )}
+    </div>
+  );
+}
+
+/** 대회 지우기 (지금 동작 그대로 adminDeleteRace, 누르기 전에 한 번 묻는다) */
+function DeleteRace({ id, name, onDeleted }: { id: string; name: string; onDeleted: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  async function remove() {
+    if (!window.confirm(`'${name}' (${id}) 대회를 지울까요? 후기·패키지도 같이 지워지고 되돌릴 수 없습니다.`)) return;
+    setBusy(true);
+    setErr('');
+    try {
+      await adminDeleteRace(id);
+      onDeleted();
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : '삭제에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="space-y-2 border-t border-line pt-5">
+      {err && <Note tone="error">{err}</Note>}
+      <Button type="button" tone="danger" onClick={remove} disabled={busy}>
+        {busy ? '지우는 중…' : '이 대회 지우기'}
+      </Button>
+    </div>
+  );
+}
+
+/** 새 대회 등록 폼 (예전 폼에서 고르기·수정 갈래만 걷어냄 — 수정은 RaceEditor) */
+function RaceForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
   const [f, setF] = useState<Race>(EMPTY);
   const [distText, setDistText] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
-
-  const pick = (id: string) => {
-    setEditingId(id);
-    setMsg('');
-    setErr('');
-    if (!id) {
-      setF(EMPTY);
-      setDistText('');
-      return;
-    }
-    const r = races.find((x) => x.id === id);
-    if (r) {
-      setF(r);
-      setDistText(r.distances.join(', '));
-    }
-  };
 
   const set = <K extends keyof Race>(k: K, v: Race[K]) => setF((p) => ({ ...p, [k]: v }));
 
@@ -144,7 +211,8 @@ function RaceForm({ races, hasFull, fullErr, onSaved }: { races: Race[]; hasFull
     setMsg('');
     if (!/^[a-z0-9-]{2,40}$/.test(f.id)) return setErr('대회 ID 는 영소문자·숫자·하이픈으로 2~40자여야 합니다. (예: tokyo, seoul-half)');
     if (!f.name_ko || !f.race_date || !f.official_url) return setErr('대회명(한글), 대회 날짜, 공식 홈페이지는 필수입니다.');
-    if (editingId && !hasFull) return setErr(fullErr || '대회 전체 정보를 DB 에서 받는 중입니다. 잠시 뒤 다시 저장하세요.');
+    // 등록은 upsert 라 같은 id 가 있으면 그 대회를 통째로 덮는다 → 막는다 (고치려면 위에서 찾아 고친다)
+    if (races.some((r) => r.id === f.id)) return setErr(`'${f.id}' 는 이미 있는 대회 ID 입니다. 그 대회를 고치려면 위 '고칠 대회 찾기' 에서 찾으세요.`);
     setBusy(true);
     try {
       await adminUpsertRace({
@@ -152,7 +220,7 @@ function RaceForm({ races, hasFull, fullErr, onSaved }: { races: Race[]; hasFull
         name_en: f.name_en || f.name_ko,
         distances: distText.split(',').map((s) => s.trim()).filter(Boolean),
       });
-      setMsg(editingId ? '수정했습니다.' : '등록했습니다.');
+      setMsg('등록했습니다.');
       onSaved();
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : '저장에 실패했습니다.');
@@ -161,38 +229,10 @@ function RaceForm({ races, hasFull, fullErr, onSaved }: { races: Race[]; hasFull
     }
   }
 
-  async function remove() {
-    if (!editingId) return;
-    setBusy(true);
-    try {
-      await adminDeleteRace(editingId);
-      setMsg('삭제했습니다.');
-      pick('');
-      onSaved();
-    } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : '삭제에 실패했습니다.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <form onSubmit={submit} className="space-y-5">
-      <label className="block">
-        <span className="mb-1.5 block text-[13px] font-semibold text-ink-2">고칠 대회 고르기</span>
-        {/* 전체 필드가 오기 전엔 고르지 못하게 (목록 값으로 폼을 채우지 않게) */}
-        <select value={editingId} onChange={(e) => pick(e.target.value)} disabled={!hasFull} className={inputCls}>
-          <option value="">+ 새 대회 등록</option>
-          {races.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name_ko} ({r.id})
-            </option>
-          ))}
-        </select>
-      </label>
-
       <Group title="기본 정보">
-        <Text label="대회 ID *" hint="영문 소문자·하이픈. 등록 후 바꾸지 마세요" value={f.id} onChange={(v) => set('id', v)} disabled={!!editingId} />
+        <Text label="대회 ID *" hint="영문 소문자·하이픈. 등록 후 바꾸지 마세요" value={f.id} onChange={(v) => set('id', v)} />
         <Text label="대회명 (한글) *" value={f.name_ko} onChange={(v) => set('name_ko', v)} />
         <Text label="대회명 (영문)" value={f.name_en} onChange={(v) => set('name_en', v)} />
         <Text label="도시" value={f.city_ko} onChange={(v) => set('city_ko', v)} placeholder="예: 도쿄" />
@@ -271,19 +311,13 @@ function RaceForm({ races, hasFull, fullErr, onSaved }: { races: Race[]; hasFull
         />
       </label>
 
-      {fullErr && !err && <Note tone="error">{fullErr}</Note>}
       {err && <Note tone="error">{err}</Note>}
       {msg && <Note tone="ok">{msg}</Note>}
 
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={busy || (!!editingId && !hasFull)}>
-          {busy ? '저장 중…' : editingId ? '수정 저장' : '대회 등록'}
+        <Button type="submit" disabled={busy}>
+          {busy ? '저장 중…' : '대회 등록'}
         </Button>
-        {editingId && (
-          <Button type="button" tone="danger" onClick={remove} disabled={busy}>
-            이 대회 지우기
-          </Button>
-        )}
       </div>
     </form>
   );
