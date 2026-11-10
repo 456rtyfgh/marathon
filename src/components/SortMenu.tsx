@@ -33,7 +33,7 @@ export default function SortMenu({ value, onChange }: { value: ListSort; onChang
   }, [open]);
 
   return (
-    <div ref={box} className="relative">
+    <div ref={box} className="relative shrink-0">
       <button
         ref={btn}
         type="button"
@@ -47,11 +47,15 @@ export default function SortMenu({ value, onChange }: { value: ListSort; onChang
         {t('sort.by')}
       </button>
       {open && (
+        <>
+        {/* 휴대폰: 화면 아래에서 올라오는 시트(부모 칸에 잘리지 않게 fixed), 넓은 화면: 버튼 아래 펼침 */}
+        <div className="fixed inset-0 z-40 bg-black/30 sm:hidden" aria-hidden="true" onClick={() => setOpen(false)} />
         <div
           id={id}
           role="menu"
-          className="absolute right-0 z-30 mt-2 min-w-[11rem] overflow-hidden rounded-box border border-line bg-surface py-1 shadow-lg"
+          className="fixed inset-x-0 bottom-0 z-50 overflow-hidden rounded-t-2xl border-t border-line bg-surface py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:bottom-auto sm:mt-2 sm:min-w-[11rem] sm:rounded-box sm:border sm:py-1 sm:pb-1 sm:shadow-lg"
         >
+          <p className="px-4 pt-1 pb-2 text-[13px] font-semibold text-ink-3 sm:hidden">{t('sort.by')}</p>
           {ORDER.map((k) => {
             const on = k === value;
             return (
@@ -64,7 +68,7 @@ export default function SortMenu({ value, onChange }: { value: ListSort; onChang
                   onChange(k);
                   setOpen(false);
                 }}
-                className={`flex min-h-11 w-full items-center gap-3 px-4 text-left text-[15px] hover:bg-sunken ${on ? 'font-bold' : ''}`}
+                className={`flex min-h-12 w-full sm:min-h-11 items-center gap-3 px-4 text-left text-[15px] hover:bg-sunken ${on ? 'font-bold' : ''}`}
               >
                 <span className="inline-flex w-4 justify-center">{on && <Check size={16} weight="bold" />}</span>
                 {t(`sort.${k}`)}
@@ -72,6 +76,7 @@ export default function SortMenu({ value, onChange }: { value: ListSort; onChang
             );
           })}
         </div>
+        </>
       )}
     </div>
   );
