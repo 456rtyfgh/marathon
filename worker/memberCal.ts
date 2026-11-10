@@ -26,7 +26,7 @@ export interface MemberEnv {
 export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>;
 const netFetch: FetchFn = (input, init) => fetch(input, init);
 
-const sbConfig = (env: MemberEnv) => ({
+export const sbConfig = (env: MemberEnv) => ({
   url: (BUILT_SB_URL || env.SUPABASE_URL || '').replace(/\/+$/, ''),
   key: BUILT_SB_KEY || env.SUPABASE_ANON_KEY || '',
 });

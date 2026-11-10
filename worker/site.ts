@@ -12,6 +12,7 @@
  *  - /api/admin/ga  : 관리 화면 GA 분석 숫자 (관리자만, worker/gaRoute.ts). 그 밖 /api/* 는 404.
  *  - /api/community : 러닝톡 글 목록(제목 등만, 본문 없음). 우리 사이트 안에서 부른 것만 (worker/community.ts).
  *  - /community, /community/<글id> (+ /en/…) : 러닝톡 목록·글의 검색엔진용 제목·구조화 데이터 (본문 없음, worker/community.ts).
+ *  - /unsubscribe?t=… : 알림 메일 수신 거부 (GET 은 확인 버튼, POST 가 처리 — worker/alerts/unsubscribe.ts).
  */
 import { calRoute, feedRoute } from './memberCal';
 import { PROVINCE_NAME, provinceOf } from '../src/lib/places';
@@ -21,6 +22,7 @@ import { cityName, countryName, provinceName, whereText } from '../src/i18n/name
 import { BLOCKED_TEXT, DATA_NOTICE, noticeHtml } from '../src/lib/notice.ts';
 import { gaRoute, type GaEnv } from './gaRoute';
 import { communityApi, communityPage } from './community';
+import { unsubscribeRoute } from './alerts/unsubscribe';
 
 // 목록·전체 파일 주소 (scripts/pages.mjs 가 esbuild define 으로 넣는다 — scripts/data-split.mjs)
 declare const __LIST_PATH__: string;
@@ -578,6 +580,7 @@ export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
   if (url.pathname === '/api/community') return communityApi(req, env);
   if (url.pathname.startsWith('/api/')) return json(JSON.stringify({ error: 'not_found', message: '없는 주소입니다.' }), 404);
   if (url.pathname === '/data.json') return notFound();
+  if (url.pathname === '/unsubscribe') return unsubscribeRoute(req, env);
   if (url.pathname.startsWith('/d/')) {
     if (!LIST_PATH || url.pathname !== LIST_PATH) return notFound();
     if (!sameSite(req)) return blocked();
