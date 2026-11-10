@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>휴대폰 알림 미리보기 (개발 서버 전용)</title>
+  </head>
+  <body>
+    <!-- npm run dev 전용: /push-preview.html?pmock&view=detail|me&state=off|on|ios|denied|unsupported&lang=en. vite build 입력은 index.html 뿐이라 배포에 안 들어간다 -->
+    <div id="root"></div>
+    <script type="module" src="/src/dev/pushPreview.tsx"></script>
+  </body>
+</html>
