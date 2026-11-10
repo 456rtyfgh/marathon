@@ -9,19 +9,30 @@ import { ENTRY, LANDINGS, ORIGIN, countries, countryPath, esc, fmt, isCancelled,
 import { LANDINGS_EN, SITE_NAME_EN, countryNameEn, enPath, entryEn, fmtEn, monthLabelEn, raceNameEn, whereEn } from './seo-lib.mjs';
 import { readSplit } from './data-split.mjs';
 import { noticeHtml } from '../src/lib/notice.ts';
+import { entryStatus } from '../src/lib/util.ts';
+import { LIST_DEFAULTS, byRaceDate, inScope, matchesAnyStatus } from '../src/lib/listPrefs.ts';
 
 const dist = new URL('../dist/index.html', import.meta.url);
-const kr = upcoming.filter((r) => r.country_code === 'KR').length;
+// 국내 수는 앱 소개 문구·범위 탭과 같은 기준(isDomestic)으로
+const kr = upcoming.filter((r) => inScope(r, 'kr')).length;
+// 첫 화면 기본 목록 (src/lib/listPrefs.ts 의 LIST_DEFAULTS: 국내 · 접수 중 · 대회 날짜순) — 앱이 처음 그리는 목록과 같은 대회·순서
+const todayDate = new Date(today + 'T00:00:00Z');
+const defaults = byRaceDate(
+  upcoming.filter((r) => inScope(r, LIST_DEFAULTS.scope) && matchesAnyStatus(r, entryStatus(r, todayDate), LIST_DEFAULTS.status, todayDate)),
+);
+const defaultIds = new Set(defaults.map((r) => r.id));
+/** 구조화 데이터 ItemList 순서: 기본 목록 → 나머지 다가오는 대회(날짜순) */
+const ldOrder = [...defaults, ...upcoming.filter((r) => !defaultIds.has(r.id))].slice(0, 100);
 const byMonth = new Map();
 for (const r of upcoming) {
   const k = r.race_date.slice(0, 7);
   byMonth.set(k, [...(byMonth.get(k) ?? []), r]);
 }
-// 첫 240개는 접수 정보까지, 나머지는 이름·날짜만 (HTML 크기를 줄이되 모든 대회로 가는 링크는 남긴다)
+// 월별 목록: 첫 240개는 접수 정보까지, 나머지는 이름·날짜만 (HTML 크기를 줄이되 모든 대회로 가는 링크는 남긴다)
+// 기본 목록(defaults)은 늘 접수 정보까지 (full=true, 240 세기에 넣지 않는다)
 const FULL = 240;
 let n = 0;
-const item = (r) => {
-  const full = n++ < FULL;
+const item = (r, full = n++ < FULL) => {
   const entry = full
     ? [ENTRY[r.entry_type], r.entry_opens && `접수 ${fmt(r.entry_opens)}부터`, r.entry_closes && `${fmt(r.entry_closes)}까지`].filter(Boolean).join(' ')
     : '';
@@ -37,10 +48,11 @@ const nav = `<nav aria-label="월별 마라톤 일정"><h2>월별 마라톤 일�
 <nav aria-label="주제별 마라톤 일정"><h2>주제별 마라톤 일정</h2><p>${LANDINGS.map((l) => `<a href="${l.path}">${esc(l.name)}</a>`).join(' · ')}</p></nav>`;
 const html = `<main class="seo-pre" style="max-width:72rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
 <h1>마라톤 캘린더</h1>
-<p>국내·해외 마라톤 대회 일정과 접수 기간을 접수가 가까운 순서로 모았습니다. 국내 ${kr}개, 해외 ${upcoming.length - kr}개.</p>
+<p>국내·해외 마라톤 대회 일정과 접수 기간을 대회 날짜순으로 모았습니다. 국내 ${kr}개, 해외 ${upcoming.length - kr}개.</p>
 <p>국내 ${kr}개, 해외 ${upcoming.length - kr}개 마라톤·트레일러닝 대회의 날짜, 접수 시작·마감일, 추첨·선착순 여부, 참가비, 여행사 패키지와 예상 경비를 모았습니다. 서울마라톤, 춘천마라톤, JTBC 서울마라톤, 도쿄·오사카·보스턴·뉴욕·베를린·런던 마라톤 일정을 한눈에 확인하세요.</p>
+<section aria-label="지금 접수 중인 국내 마라톤"><h2>지금 접수 중인 국내 마라톤</h2><ul>${defaults.map((r) => item(r, true)).join('')}</ul></section>
 ${nav}
-${[...byMonth.entries()].map(([ym, rs]) => `<h2><a href="${monthPath(ym)}">${monthLabel(ym)} 마라톤 일정</a></h2><ul>${rs.map(item).join('')}</ul>`).join('\n')}
+${[...byMonth.entries()].map(([ym, rs]) => `<h2><a href="${monthPath(ym)}">${monthLabel(ym)} 마라톤 일정</a></h2><ul>${rs.map((r) => item(r)).join('')}</ul>`).join('\n')}
 ${noticeHtml('ko')}
 </main>`;
 
@@ -48,7 +60,7 @@ const ld = {
   '@context': 'https://schema.org',
   '@type': 'ItemList',
   name: '다가오는 마라톤 대회',
-  itemListElement: upcoming.slice(0, 100).map((r, i) => ({ '@type': 'ListItem', position: i + 1, url: `${ORIGIN}/r/${r.id}`, name: r.name_ko })),
+  itemListElement: ldOrder.map((r, i) => ({ '@type': 'ListItem', position: i + 1, url: `${ORIGIN}/r/${r.id}`, name: r.name_ko })),
 };
 
 // 첫 화면에 먼저 필요한 것 미리 받기 (lighthouse 로 첫 화면이 실제로 받는 순서를 보고 고름, .duo-data/seo-report.md)
@@ -73,6 +85,7 @@ page = page.replace('<div id="root"></div>', `<div id="root">${html}</div>`);
 page = page.replace('</head>', `${preloads.join('\n')}\n${ldJson(ld).replace('<script ', '<script id="ld-itemlist" ')}\n</head>`);
 writeFileSync(dist, page);
 console.log(`prerender: 대회 ${upcoming.length}개 링크(접수 정보 ${Math.min(FULL, upcoming.length)}개), 미리 받기·연결 ${preloads.length}개`);
+console.log(`prerender: 첫 화면 기본 목록(국내·접수 중·대회 날짜순) ${defaults.length}개`);
 
 // ── 영어 첫 화면 dist/en/index.html: 빌드된 index.html 복사본에서 머리말·구조화 데이터·미리 그린 목록만 영어로 (같은 JS·CSS) ──
 // 대회 영어 SSR(worker/site.ts 의 /en/r/<id>)도 이 파일을 바탕으로 쓴다.
@@ -84,8 +97,7 @@ const KEYWORDS_EN =
   'marathon calendar, marathon schedule, marathon race dates, 2026 marathons, 2027 marathon calendar, marathon registration, marathons in Korea, marathons in Japan, half marathon schedule, 10k races, Tokyo Marathon lottery, Boston Marathon, Chuncheon Marathon, Seoul Marathon, JTBC Seoul Marathon';
 
 let m = 0;
-const itemEn = (r) => {
-  const full = m++ < FULL;
+const itemEn = (r, full = m++ < FULL) => {
   const entry = full ? entryEn(r) : '';
   return `<li>${isCancelled(r) ? '[Cancelled] ' : ''}<a href="${enPath(`/r/${esc(r.id)}`)}">${esc(raceNameEn(r))}</a> — ${fmtEn(r.race_date)}, ${esc(whereEn(r))}${entry ? `, ${esc(entry)}` : ''}</li>`;
 };
@@ -99,17 +111,18 @@ const navEn = `<nav aria-label="Marathons by month"><h2>Marathons by Month</h2><
 <nav aria-label="Marathons by topic"><h2>Marathons by Topic</h2><p>${LANDINGS_EN.map((l) => `<a href="${l.path}">${esc(l.name)}</a>`).join(' · ')}</p></nav>`;
 const htmlEn = `<main class="seo-pre" style="max-width:72rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
 <h1>${SITE_NAME_EN}</h1>
-<p>Marathon dates and registration windows in Korea and worldwide, sorted by upcoming registration. ${kr.toLocaleString('en-US')} in Korea, ${(upcoming.length - kr).toLocaleString('en-US')} abroad.</p>
+<p>Marathon dates and registration windows in Korea and worldwide, in race-date order. ${kr.toLocaleString('en-US')} in Korea, ${(upcoming.length - kr).toLocaleString('en-US')} abroad.</p>
 <p>Race dates, registration open and close dates, lottery or first-come entry, entry fees, tour packages and estimated costs for ${kr.toLocaleString('en-US')} races in Korea and ${(upcoming.length - kr).toLocaleString('en-US')} abroad, marathons and trail races alike. See Seoul, Chuncheon, JTBC Seoul, Tokyo, Osaka, Boston, New York, Berlin and London marathon dates at a glance.</p>
+<section aria-label="Open for Registration in Korea"><h2>Open for Registration in Korea</h2><ul>${defaults.map((r) => itemEn(r, true)).join('')}</ul></section>
 ${navEn}
-${[...byMonth.entries()].map(([ym, rs]) => `<h2><a href="${enPath(monthPath(ym))}">${monthLabelEn(ym)} Marathons</a></h2><ul>${rs.map(itemEn).join('')}</ul>`).join('\n')}
+${[...byMonth.entries()].map(([ym, rs]) => `<h2><a href="${enPath(monthPath(ym))}">${monthLabelEn(ym)} Marathons</a></h2><ul>${rs.map((r) => itemEn(r)).join('')}</ul>`).join('\n')}
 ${noticeHtml('en')}
 </main>`;
 const ldEn = {
   '@context': 'https://schema.org',
   '@type': 'ItemList',
   name: 'Upcoming marathons',
-  itemListElement: upcoming.slice(0, 100).map((r, i) => ({ '@type': 'ListItem', position: i + 1, url: `${ORIGIN}${enPath(`/r/${r.id}`)}`, name: raceNameEn(r) })),
+  itemListElement: ldOrder.map((r, i) => ({ '@type': 'ListItem', position: i + 1, url: `${ORIGIN}${enPath(`/r/${r.id}`)}`, name: raceNameEn(r) })),
 };
 
 /** index.html 의 구조화 데이터(Organization·WebSite)를 영어로 */
