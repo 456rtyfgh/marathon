@@ -37,6 +37,8 @@ const ev = (js) => ab('eval', js);
 const pause = (ms = 500) => ab('wait', String(ms));
 const go = (path, ms = 1800) => {
   ab('open', base + path);
+  // 패널로 바로 들어가는 주소(/r/<id>, /community)는 내용(제목)이 그려질 때까지 기다린다 — 서버가 바쁘면 빈 패널이 찍힌다
+  if (/\/(r|community)(\/|\?|$)/.test(path)) ab('wait', 'dialog[open] h2');
   pause(ms);
 };
 const click = (text, ms = 600) => {
@@ -202,6 +204,17 @@ for (const w of widthArg.split(',').map(Number)) {
   if (want('home')) {
     go('/');
     shot('home', 'ko');
+  }
+
+  // 약관(정적 페이지)은 빌드 결과 서버에서만 나온다 — 장면 필터에 'terms' 를 직접 줄 때만 찍는다 (예: … after 8792 360,390,414,1280 terms)
+  if (only !== '.' && want('terms')) {
+    go('/terms', 1200);
+    shot('terms-top', 'ko');
+    ev('window.scrollTo(0, document.documentElement.scrollHeight)');
+    pause(300);
+    shot('terms-end', 'ko');
+    go('/en/terms', 1200);
+    shot('terms-top', 'en');
   }
   console.log(`폭 ${W} 끝`);
 }
