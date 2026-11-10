@@ -382,7 +382,8 @@ function Main() {
   const myRacesBridge = useMemo<MyRacesBridge>(
     () => ({
       races: data.races,
-      loading: remote === 'loading',
+      // 대회 목록 받는 중이거나, 회원의 저장 목록을 계정과 맞추는 중(그동안 저장 목록이 비어 보인다)
+      loading: remote === 'loading' || fav.syncing,
       favIds: fav.ids,
       toggleFavorite: fav.toggle,
       favSynced: fav.synced,
@@ -392,7 +393,7 @@ function Main() {
       openRace,
       onLogin: () => openLogin('in'),
     }),
-    [data.races, remote, fav.ids, fav.toggle, fav.synced, reg.ids, reg.records, auth.session, openRace, openLogin],
+    [data.races, remote, fav.ids, fav.toggle, fav.synced, fav.syncing, reg.ids, reg.records, auth.session, openRace, openLogin],
   );
   // 상세 맨 아래 '비슷한 대회' 에 넘기는 값 (RaceDetail 의 선택 props — 펼쳐서 넘겨 그쪽 props 가 아직 없어도 타입 검사가 통과한다)
   const similarProps = { races: upcomingRaces, ratingMap, isFavorite: fav.has, isRegistered: reg.has, onOpenRace: openRace };

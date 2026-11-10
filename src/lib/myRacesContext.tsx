@@ -11,7 +11,7 @@ import { buildMyRaces, type MyRaces } from './myRaces';
 export interface MyRacesBridge {
   /** App 의 data.races (지난 대회 포함 전체) */
   races: Race[];
-  /** 대회 목록 받는 중 (races 가 비어 있다) — 빈 상태 안내 대신 '불러오는 중' */
+  /** 대회 목록 받는 중(races 가 비어 있다)이거나 회원 저장 목록을 계정과 맞추는 중(favIds 가 비어 보인다) — 빈 상태 안내 대신 '불러오는 중' */
   loading: boolean;
   favIds: string[];
   toggleFavorite: (id: string) => void;
