@@ -73,7 +73,8 @@ function RaceRow({
     <li style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 104px' }}>
       <button
         onClick={() => onOpen(race)}
-        className="group grid w-full grid-cols-[4rem_1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-4 text-left transition-colors hover:bg-surface sm:grid-cols-[5rem_1fr_auto_7.5rem_1.25rem] sm:gap-x-6"
+        // 휴대폰 칸 사이 12px: 오른쪽 칸 글자를 13px 로 키운 만큼 대회명 칸이 좁아지지 않게 (sm 부터는 그대로 24px)
+        className="group grid w-full grid-cols-[4rem_1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-4 text-left transition-colors hover:bg-surface sm:grid-cols-[5rem_1fr_auto_7.5rem_1.25rem] sm:gap-x-6"
       >
         {/* 대회 날짜 (취소는 흐린 글자색으로 — 투명도는 대비가 모자람) */}
         <div className="flex flex-col items-start leading-none">
@@ -116,9 +117,11 @@ function RaceRow({
               )}
             </span>
           </p>
+          {/* 휴대폰: 예상 접수일은 오른쪽 좁은 칸 대신 여기 한 줄로 — 오른쪽 칸이 넓어져 대회명이 세 줄로 꺾이지 않게 (sm 부터는 오른쪽 칸) */}
+          {expected && !cancelled && st.days == null && <p className="num mt-1 text-[13px] text-ink-3 sm:hidden">{expected}</p>}
           {/* 부가 숫자: 작고 흐리게, 숫자도 같은 크기 */}
           {rating && (rating.review_count > 0 || (rating.views ?? 0) > 0) && (
-            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-3">
+            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-3 sm:text-[12px]">
               {rating.review_count > 0 && (
                 <span className="inline-flex items-center gap-1">
                   <Star size={12} weight="fill" className="text-ink-2" />
@@ -177,7 +180,7 @@ function RaceRow({
           {cancelled ? (
             <span className={`${TAG} border border-ink-3 text-ink-2`}>{t('st.cancelled')}</span>
           ) : (
-            <span className="text-[12px] whitespace-nowrap text-ink-3">{st.label}</span>
+            <span className="text-[13px] whitespace-nowrap text-ink-3 sm:text-[12px]">{st.label}</span>
           )}
           {cancelled ? null : st.days != null ? (
             <span
@@ -188,8 +191,8 @@ function RaceRow({
               {dday(st.days)}
             </span>
           ) : expected ? (
-            // 휴대폰: 영어 'Expected Aug 21–Nov 13, 2026' 이 칸을 넓혀 대회명을 꺾지 않게 'Expected' / 날짜 두 줄까지 허용 (날짜 안은 안 꺾임)
-            <span className="num mt-0.5 max-w-[6.25rem] text-[12px] text-ink-3 sm:max-w-none sm:whitespace-nowrap">{expected}</span>
+            // 휴대폰에서는 가운데 칸(대회명 아래)에 보인다 — 영어 'Expected Aug 21–Nov 13, 2026' 이 이 칸을 100px 넘게 넓혀 대회명을 꺾었다
+            <span className="num mt-0.5 hidden text-[12px] whitespace-nowrap text-ink-3 sm:inline">{expected}</span>
           ) : (
             <span className="mt-1 text-[15px] font-semibold whitespace-nowrap text-ink-3">
               {st.label === t('st.untilFull') ? t('row.open') : st.label === t('st.soldout') ? t('row.full') : ''}
@@ -197,7 +200,7 @@ function RaceRow({
           )}
           {/* 휴대폰: 참가비 칸이 숨으므로 대회일 D-day 를 여기 작게 */}
           {!registered && raceDay.days != null && (
-            <span className="num mt-1 text-[12px] whitespace-nowrap text-ink-3 sm:hidden">{t('row.raceDday', { d: dday(raceDay.days) })}</span>
+            <span className="num mt-1 text-[13px] whitespace-nowrap text-ink-3 sm:hidden">{t('row.raceDday', { d: dday(raceDay.days) })}</span>
           )}
         </div>
 

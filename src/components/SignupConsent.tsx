@@ -129,7 +129,7 @@ export function CollectionTable({ item, lang }: { item: CollectionItem; lang: La
     [t('consent.refusal'), item.refusal[lang]],
   ];
   return (
-    <dl className="mt-1 divide-y divide-line rounded-ctl bg-sunken px-3 text-[13px] leading-relaxed">
+    <dl className="mt-1 divide-y divide-line rounded-ctl bg-sunken px-3 text-[15px] sm:text-[13px] leading-relaxed">
       {rows.map(([k, v]) => (
         <div key={k} className="py-2.5">
           <dt className="font-semibold text-ink">{k}</dt>

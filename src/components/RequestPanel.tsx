@@ -105,7 +105,7 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
               <Button type="submit" disabled={busy}>
                 {busy ? t('common.sending') : session ? t('req.send') : t('req.loginSend')}
               </Button>
-              {!session && <span className="text-[13px] text-ink-3">{t('req.loginWhy')}</span>}
+              {!session && <span className="text-[15px] sm:text-[13px] text-ink-3">{t('req.loginWhy')}</span>}
             </div>
           </div>
         </form>
@@ -115,7 +115,7 @@ export default function RequestPanel({ onClose, onLogin }: { onClose: () => void
             {t('req.list')} <span className="num ml-1 text-[17px] text-ink-3">{list?.length ?? 0}</span>
           </h3>
           {profile?.is_admin && reportCount > 0 && (
-            <p className="mt-1 text-[13px] text-ink-3">
+            <p className="mt-1 text-[15px] sm:text-[13px] text-ink-3">
               {t('req.reportsPre')}
               <span className="num">{reportCount}</span>
               {t('req.reportsPost')}

@@ -1,5 +1,6 @@
 /**
- * 휴대폰 머리말의 메뉴 버튼 + 그 아래 펼쳐지는 시트 (native <dialog>, 스타일은 index.css 의 dialog.menu).
+ * 휴대폰 머리말의 메뉴 버튼 + 화면 아래에서 올라오는 시트 (native <dialog>. 스타일은 index.css 의 dialog.menu 를
+ * home.css 가 덮어쓴다 — 엄지가 닿는 아래쪽 시트, 위쪽 닫기 버튼).
  * 닫히는 경우: ESC · 뒤 막 누르기 · 닫기 버튼 · 뒤로 가기 · 항목 고르기 · 화면이 NAV_INLINE_MIN 이상으로 넓어짐.
  * 열 때 히스토리에 한 칸을 넣어 뒤로 가기로 닫히게 하고, 다른 방법으로 닫히면 그 칸을 도로 뺀다.
  * 항목의 onSelect 는 그 칸이 빠진 뒤에 부른다 — onSelect 가 주소를 바꾸는데(러닝톡·언어 전환) 순서가 바뀌면 주소가 꼬인다.
@@ -183,8 +184,11 @@ export function MobileMenu({ groups, className = '' }: { groups: MenuItem[][]; c
           if (!e.currentTarget.open) close();
         }}
         onClick={(e) => {
-          // 뒤 막(::backdrop) 누르면 닫기
-          if (e.target === e.currentTarget) close();
+          // 뒤 막(::backdrop) 누르면 닫기. 시트 자기 여백(아래 안전 영역 — home.css 의 padding-bottom)을 눌러도 target 은 dialog 라
+          // 눌린 자리가 시트 밖일 때만 닫는다 (안 가리면 '로그인' 아래 빈 자리를 스친 손가락에 메뉴가 닫힌다)
+          if (e.target !== e.currentTarget) return;
+          const r = e.currentTarget.getBoundingClientRect();
+          if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) close();
         }}
         onKeyDown={trapTab}
       >

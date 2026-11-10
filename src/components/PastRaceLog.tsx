@@ -232,7 +232,7 @@ export default function PastRaceLog({
           )}
         </>
       )}
-      {records && !mine.length && <p className="text-[13px] leading-relaxed text-ink-3">{t('me.records.hint')}</p>}
+      {records && !mine.length && <p className="text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('me.records.hint')}</p>}
       <Button type="button" tone="quiet" className="mt-3 w-full sm:w-auto" disabled={!records} onClick={() => setSheet(null)}>
         <Plus size={16} weight="bold" />
         {t('me.records.add')}
@@ -288,7 +288,8 @@ function RecordSheet({
   const [q, setQ] = useState('');
   const editing = !!race && records.get(race.id)?.status === 'finished';
   return (
-    <div className="flex max-h-[min(680px,calc(100dvh-48px))] flex-col">
+    // 휴대폰: 아래 시트(높이 90dvh 까지, index.css) 안에서 목록만 스크롤되고 제목·닫기는 위에 남게 시트 높이에 맞춘다
+    <div className="flex max-h-[calc(90dvh-env(safe-area-inset-bottom)-1px)] flex-col sm:max-h-[min(680px,calc(100dvh-48px))]">
       <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-2">
         <h2 className="text-[17px] font-bold tracking-tight">{t(editing ? 'pastrace.editTitle' : 'pastrace.title')}</h2>
         <CloseButton onClick={onClose} />
@@ -390,7 +391,7 @@ function RacePicker({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-line px-2 pb-3" aria-live="polite">
         {!races ? (
-          <p className="px-3 py-6 text-[13px] text-ink-3">{raceErr ? t('pastrace.loadFail') : t('pastrace.loading')}</p>
+          <p className="px-3 py-6 text-[15px] sm:text-[13px] text-ink-3">{raceErr ? t('pastrace.loadFail') : t('pastrace.loading')}</p>
         ) : (
           <>
             <p className="px-3 pt-3 pb-1 text-[13px] font-semibold text-ink-3">
@@ -429,7 +430,7 @@ function RacePicker({
                 );
               })}
             </ul>
-            {hasNext && <p className="px-3 pt-2 text-[13px] leading-relaxed text-ink-3">{t('pastrace.nextHint')}</p>}
+            {hasNext && <p className="px-3 pt-2 text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('pastrace.nextHint')}</p>}
           </>
         )}
       </div>
@@ -604,7 +605,7 @@ function RecordForm({
             </div>
           ) : (
             <div className="mt-3">
-              <p className="mb-2 text-[13px] leading-relaxed text-ink-3">{t('pastrace.yearsHint')}</p>
+              <p className="mb-2 text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('pastrace.yearsHint')}</p>
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
                 {chips.map((y) => {
                   const on = years.includes(y);
@@ -666,7 +667,7 @@ function RecordForm({
             })}
           </div>
         ) : (
-          <p className="text-[13px] text-ink-3">{t('pastrace.distanceNone')}</p>
+          <p className="text-[15px] sm:text-[13px] text-ink-3">{t('pastrace.distanceNone')}</p>
         )}
       </fieldset>
 

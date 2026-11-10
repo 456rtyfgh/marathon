@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import './home.css';
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react';
 import SortMenu from './components/SortMenu';
 import InstallPrompt from './components/InstallPrompt';
 import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, CheckSquare, Plus } from '@phosphor-icons/react';
@@ -60,6 +61,15 @@ const GROUP_MORE = 24;
 const SHOW_ALL_UNDER = 30;
 
 const ENTRY_TYPES: EntryType[] = ['lottery', 'fcfs', 'qualifying', 'open', 'tour_only'];
+
+/** 켜짐·고름·펼침 모양(테두리 있는 버튼): 검정으로 채우지 않고 밝은 바탕 + 진한 2px 테두리. 테두리 없는 칩·칸은 inset 2px 로 같은 모양 */
+const ON_BORDERED = 'border-ink bg-surface text-ink shadow-[inset_0_0_0_1px_var(--ink)]';
+/** 도구 막대(검색·범위·정렬·필터) id — 휴대폰 아래 고정 줄의 '필터' 가 여기로 올라온다 */
+const TOOLS_ID = 'tools';
+/** 머리말 높이(px, h-14) — 그 뒤로 올라간 것은 안 보인다 */
+const HEADER_H = 56;
+/** 인기 대회 1·2·3위 배지 (금·은·동 — 색은 home.css) */
+const MEDAL = ['medal medal-1', 'medal medal-2', 'medal medal-3'];
 
 const STATUS_GROUP: Record<EntryStatus, Key> = {
   open: 'group.open',
@@ -203,7 +213,8 @@ function Main() {
     const u = new URL(location.href);
     u.searchParams.delete('r');
     u.pathname = langPath(selected ? `/r/${selected.id}` : '/', lang);
-    history.replaceState(null, '', u.pathname + u.search + u.hash);
+    // history.state 는 그대로 둔다 — 열린 패널이 거기에 겹 수(panelDepth)를 적어 둔다 (components/ui.tsx 의 Panel)
+    history.replaceState(history.state, '', u.pathname + u.search + u.hash);
     document.title = selected
       ? t('title.race', { name: raceName(selected, lang), year: selected.race_date.slice(0, 4) })
       : t('title.home');
@@ -504,7 +515,9 @@ function Main() {
 
   // 머리말 버튼과 휴대폰 메뉴가 같이 쓰는 일
   const openTalk = () => {
-    history.pushState(null, '', langPath(COMMUNITY_PATH, lang));
+    // 이 칸이 곧 러닝톡 패널의 칸이라는 표시(panelDepth) — Panel 이 같은 주소로 한 칸을 더 넣지 않게
+    const st = (history.state ?? {}) as { panelDepth?: number };
+    history.pushState({ ...st, panelDepth: (st.panelDepth ?? 0) + 1 }, '', langPath(COMMUNITY_PATH, lang));
     setTalkOpen(true);
   };
   const nextLang = lang === 'ko' ? 'en' : 'ko';
@@ -530,6 +543,25 @@ function Main() {
 
   const toggle = <T,>(list: T[], set: (v: T[]) => void, v: T) =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+
+  // 정렬 고르기 — 도구 막대와 휴대폰 아래 고정 줄(MobileListBar)이 같이 쓴다
+  const pickSort = (v: ListSort) => {
+    setSort(v);
+    track('filter', { name: 'sort', value: v });
+  };
+  // 도구 막대의 정렬·필터 줄. 이 줄이 화면 위로 사라지면 휴대폰에서는 아래 고정 줄이 대신 나온다
+  const toolsRef = useRef<HTMLDivElement>(null);
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
+  /** 아래 고정 줄의 '필터': 필터를 펼치고 도구 막대(검색·범위·정렬·필터)로 올라간다 */
+  const toFilters = () => {
+    setFiltersOpen(true);
+    requestAnimationFrame(() => {
+      // 누른 버튼(아래 고정 줄)은 도구 막대가 보이면 사라진다 → 초점을 도구 막대의 필터 버튼으로 옮겨 둔다
+      // (안 옮기면 초점이 문서 맨 위로 떨어져 키보드·화면 낭독기 사용자가 자리를 잃는다)
+      filterBtnRef.current?.focus({ preventScroll: true });
+      document.getElementById(TOOLS_ID)?.scrollIntoView({ block: 'start' });
+    });
+  };
 
   /** 현황판 숫자: 그것만 고른다 (그것만 골라져 있으면 풀기). 칩에서 더 얹으면 합쳐진다 */
   const pickStatus = (s: StatusFilter) => {
@@ -622,8 +654,17 @@ function Main() {
             <h1 className="text-[34px] leading-[1.12] font-extrabold tracking-[-0.03em] sm:text-[46px]">
               {t('site.name')}
             </h1>
-            <p className="mt-4 max-w-[42ch] text-[15px] leading-relaxed text-balance text-ink-2 sm:text-[17px]">
-              {remote === 'loading' ? t('app.lead') : t('app.leadCount', { kr: fmtCount(stats.kr, lang), abroad: fmtCount(stats.abroad, lang) })}</p>
+            {/* 불러오는 동안에도 대회 수가 들어간 문장만큼 자리를 잡아 둔다 (안 보이는 겹침 칸) — 수가 들어오며 줄이 늘어 아래가 밀리지 않게 */}
+            <p className="mt-4 grid max-w-[42ch] text-[15px] leading-relaxed text-balance text-ink-2 sm:text-[17px]">
+              <span className="col-start-1 row-start-1">
+                {remote === 'loading' ? t('app.lead') : t('app.leadCount', { kr: fmtCount(stats.kr, lang), abroad: fmtCount(stats.abroad, lang) })}
+              </span>
+              {remote === 'loading' && (
+                <span aria-hidden className="invisible col-start-1 row-start-1">
+                  {t('app.leadCount', { kr: '000', abroad: fmtCount(1000, lang) })}
+                </span>
+              )}
+            </p>
           </div>
 
           <div className="grid grid-cols-3 gap-px overflow-hidden rounded-box bg-line md:w-[27rem]">
@@ -646,7 +687,7 @@ function Main() {
 
 
         {/* 도구 막대 */}
-        <div className="border-y border-line bg-bg sm:sticky sm:top-14 sm:z-20">
+        <div id={TOOLS_ID} className="scroll-mt-14 border-y border-line bg-bg sm:sticky sm:top-14 sm:z-20">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
             <div role="radiogroup" aria-label={t('scope.aria')} className="grid w-full grid-cols-3 rounded-ctl bg-sunken p-1 sm:inline-flex sm:w-auto">
               {(
@@ -703,14 +744,8 @@ function Main() {
             </p>
 
             {/* 1024px 아래(태블릿)는 검색이 첫 줄 전체, 범위·정렬·필터가 둘째 줄 — 한 줄에 다 넣으면 검색칸이 너무 좁다 */}
-            <div className="flex w-full items-center justify-end gap-2 sm:ml-auto sm:w-auto lg:ml-0">
-              <SortMenu
-                value={sort}
-                onChange={(v) => {
-                  setSort(v);
-                  track('filter', { name: 'sort', value: v });
-                }}
-              />
+            <div ref={toolsRef} className="flex w-full items-center justify-end gap-2 sm:ml-auto sm:w-auto lg:ml-0">
+              <SortMenu value={sort} onChange={pickSort} />
               {fav.ids.length > 0 && (
                 <button
                   onClick={() => {
@@ -719,7 +754,7 @@ function Main() {
                   }}
                   aria-pressed={favOnly}
                   className={`inline-flex h-11 items-center gap-2 rounded-ctl border px-3 text-[15px] font-semibold whitespace-nowrap transition-colors sm:h-10 ${
-                    favOnly ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
+                    favOnly ? ON_BORDERED : 'border-line bg-surface hover:border-ink'
                   }`}
                 >
                   <BookmarkSimple size={16} weight={favOnly ? 'fill' : 'bold'} />
@@ -736,7 +771,7 @@ function Main() {
                   aria-pressed={regOnly}
                   title={t('reg.title')}
                   className={`inline-flex h-11 items-center gap-2 rounded-ctl border px-3 text-[15px] font-semibold whitespace-nowrap transition-colors sm:h-10 ${
-                    regOnly ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
+                    regOnly ? ON_BORDERED : 'border-line bg-surface hover:border-ink'
                   }`}
                 >
                   <CheckSquare size={16} weight={regOnly ? 'fill' : 'bold'} />
@@ -746,10 +781,11 @@ function Main() {
                 </button>
               )}
               <button
+                ref={filterBtnRef}
                 onClick={() => setFiltersOpen((v) => !v)}
                 aria-expanded={filtersOpen}
                 className={`inline-flex h-11 items-center gap-2 rounded-ctl border px-3 text-[15px] font-semibold whitespace-nowrap transition-colors sm:h-10 ${
-                  filtersOpen || activeFilters ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
+                  filtersOpen || activeFilters ? ON_BORDERED : 'border-line bg-surface hover:border-ink'
                 }`}
               >
                 <SlidersHorizontal size={16} weight="bold" />
@@ -838,21 +874,24 @@ function Main() {
         {mapSection}
 
         {/* 목록 */}
-        <section id="list" className="mx-auto max-w-6xl scroll-mt-32 pb-16 sm:scroll-mt-44 sm:px-6 lg:scroll-mt-32">
+        {/* 휴대폰은 위에 붙는 것이 머리말(56px)뿐이라 그만큼만 띄운다 (sm 부터는 고정 도구 막대 높이까지) */}
+        <section id="list" className="mx-auto max-w-6xl scroll-mt-14 pb-16 sm:scroll-mt-44 sm:px-6 lg:scroll-mt-32">
           <ResultsAnnouncer query={dq.trim()} count={shown} suggestions={suggestions.length} loading={remote === 'loading'} />
           {remote === 'loading' ? (
             <div className="space-y-px pt-8" aria-busy="true" aria-label={t('list.loading')}>
+              {/* 실제 카드(104px 안팎)와 같은 높이 — 목록이 뜰 때 아래가 덜 움직인다 */}
               {Array.from({ length: 6 }, (_, i) => (
-                <div key={i} className="h-[88px] animate-pulse bg-surface" />
+                <div key={i} className="h-[104px] animate-pulse bg-surface" />
               ))}
             </div>
           ) : shown === 0 ? (
-            <div id={RESULTS_EMPTY_ID} className="scroll-mt-32 px-4 py-20 text-center sm:scroll-mt-44 lg:scroll-mt-32">
+            <div id={RESULTS_EMPTY_ID} className="scroll-mt-14 px-4 py-20 text-center sm:scroll-mt-44 lg:scroll-mt-32">
               <p className="text-[17px] font-semibold">{dq.trim() ? t('list.notFound', { q: dq.trim() }) : t('list.noMatch')}</p>
               <p className="mx-auto mt-2 max-w-[34ch] text-[15px] break-keep text-balance text-ink-2">
                 {t('list.emptyHelp')}
               </p>
-              <div className="mt-5 flex justify-center gap-3">
+              {/* 좁은 화면(360px 영어)에서는 두 버튼이 한 줄에 안 들어간다 → 줄바꿈 */}
+              <div className="mt-5 flex flex-wrap justify-center gap-3">
                 <button
                   onClick={() => openRequest(dq.trim() ? 'empty_search' : 'empty')}
                   className="inline-flex h-11 items-center gap-2 rounded-ctl bg-ink px-4 text-[15px] font-semibold whitespace-nowrap text-bg hover:opacity-85 sm:h-10"
@@ -953,17 +992,22 @@ function Main() {
                 {t('hot.all')}
               </button>
             </div>
-            <ol className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
+            {/* 휴대폰: 두 줄씩 세 줄 (옆으로 밀지 않아도 1~6위가 다 보인다). sm 부터 3칸, lg 6칸 */}
+            <ol className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
               {hotList.map((r, i) => {
                 const st = ratingMap.get(r.id);
                 return (
-                  <li key={r.id} className="w-[11.5rem] shrink-0 sm:w-auto">
+                  <li key={r.id} className="min-w-0">
                     <button
                       onClick={() => openRace(r)}
                       className="flex h-full w-full flex-col items-start gap-1 rounded-box bg-surface px-4 py-3 text-left transition-colors hover:bg-sunken"
                     >
-                      <span className="num text-[13px] font-semibold text-ink-3">{t('hot.rank', { n: i + 1 })}</span>
-                      <span className="line-clamp-2 text-[15px] leading-snug font-bold">{raceName(r, lang)}</span>
+                      {/* 1·2·3위: 순위 글자 옆 금·은·동 원(home.css 의 .medal). 순위는 글자가 말하므로 배지는 읽지 않는다 */}
+                      <span className="num flex h-5 items-center gap-2 text-[13px] font-semibold text-ink-3">
+                        {i < 3 && <span aria-hidden className={MEDAL[i]} />}
+                        {t('hot.rank', { n: i + 1 })}
+                      </span>
+                      <span className="line-clamp-2 text-[15px] leading-snug font-bold [overflow-wrap:anywhere]">{raceName(r, lang)}</span>
                       <span className="text-[13px] text-ink-3">
                         {fmtDateShort(r.race_date, lang)} ·{' '}
                         {lang === 'en'
@@ -974,7 +1018,7 @@ function Main() {
                             ? r.city_ko.split(' ')[0]
                             : r.country_ko}
                       </span>
-                      <span className="mt-auto pt-1 text-[12px] text-ink-3">
+                      <span className="mt-auto pt-1 text-[13px] text-ink-3 sm:text-[12px]">
                         {t('views.pre')}
                         <span className="num">{shortCount(st?.views ?? 0, lang)}</span>
                         {t('views.post', { count: st?.views ?? 0 })}
@@ -1010,17 +1054,19 @@ function Main() {
         </section>
 
         <footer className="border-t border-line">
-          <div className="mx-auto max-w-6xl px-4 py-8 text-[13px] leading-relaxed text-ink-3 sm:px-6">
+          {/* 휴대폰: 글자 14px, 아래 고정 줄(정렬·필터)에 마지막 줄이 가리지 않게 아래 여백을 더 둔다.
+              문장 속 링크는 줄 높이를 건드리지 않고 위아래 16px 씩 눌리는 자리만 넓힌다(44px 이상) */}
+          <div className="mx-auto max-w-6xl px-4 pt-8 pb-[calc(6rem+env(safe-area-inset-bottom))] text-[14px] leading-relaxed text-ink-3 sm:px-6 sm:pb-8 sm:text-[13px]">
             <p className="max-w-[70ch]">{t('footer.1')}</p>
             <p className="mt-2 max-w-[70ch]">
               {t('footer.2')}{' '}
-              <a href={`${langPath(PRIVACY_PATH, lang)}#cookies`} className="py-3 underline underline-offset-2 hover:no-underline">
+              <a href={`${langPath(PRIVACY_PATH, lang)}#cookies`} className="py-4 underline underline-offset-2 hover:no-underline sm:py-3">
                 {LEGAL.more[lang]}
               </a>
             </p>
             <p className="mt-2 max-w-[70ch]">
               {t('footer.contact')}{' '}
-              <a href="mailto:marathon82@kakao.com" className="py-3 underline underline-offset-2 hover:no-underline">
+              <a href="mailto:marathon82@kakao.com" className="py-4 underline underline-offset-2 hover:no-underline sm:py-3">
                 marathon82@kakao.com
               </a>
             </p>
@@ -1108,11 +1154,85 @@ function Main() {
         )}
       </Panel>
 
+      {/* 휴대폰: 목록을 내려 도구 막대가 안 보이면 화면 아래에 정렬·필터를 붙여 둔다 */}
+      <MobileListBar
+        watch={toolsRef}
+        sort={sort}
+        // 목록 한가운데서 정렬을 바꾸면 순서가 통째로 바뀐다 → 새 순서의 첫머리부터 보이게 목록 위로
+        onSort={(v) => {
+          pickSort(v);
+          requestAnimationFrame(() => document.getElementById('list')?.scrollIntoView({ block: 'start' }));
+        }}
+        activeFilters={activeFilters}
+        onFilters={toFilters}
+      />
+
       {remote !== 'fallback' ? null : (
-        <div className="fixed right-4 bottom-4 z-40 max-w-xs">
+        // 휴대폰에서는 아래 고정 줄(정렬·필터) 위로
+        <div className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 max-w-xs sm:bottom-4">
           <Note tone="error">{t('app.loadError')}</Note>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * 휴대폰(640px 미만) 전용 아래 고정 줄: 정렬 + 필터. 도구 막대의 정렬·필터 줄(watch)이 머리말 위로 사라졌을 때만 보인다
+ * (엄지가 닿는 자리 — 목록을 수천 px 내려도 정렬을 바꾸거나 필터로 돌아갈 수 있게).
+ * 새 동작이 아니라 도구 막대의 같은 정렬·같은 필터다: 정렬은 그 자리에서 바뀌고, '필터' 는 필터를 펼친 도구 막대로 올라간다.
+ */
+function MobileListBar({
+  watch,
+  sort,
+  onSort,
+  activeFilters,
+  onFilters,
+}: {
+  watch: RefObject<HTMLElement | null>;
+  sort: ListSort;
+  onSort: (v: ListSort) => void;
+  activeFilters: number;
+  onFilters: () => void;
+}) {
+  const { t } = useLang();
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const el = watch.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    // 위쪽 56px 은 머리말에 가린 자리. 줄이 그 위로 다 올라갔을 때만 켠다.
+    // 보는 범위를 아래로 넉넉히 늘려, 줄이 화면 아래에 있을 때도 '보임'으로 친다 → '안 보임' = 머리말 아래 선보다 위, 하나뿐이다.
+    // (화면 높이까지만 보면, 낮은 화면에서는 줄이 처음부터 화면 아래라 한 번에 뛰어 내려갈 때 — 줄인 움직임 설정에서 현황판·검색이
+    //  목록으로 보낼 때 — '안 보임 → 안 보임'이라 알림이 오지 않아 끝내 켜지지 않는다. 맨 위로 뛸 때는 반대로 안 꺼진다)
+    // 알림이 밀려 한꺼번에 여러 개 오면 마지막 것이 지금 상태다 (첫 것을 쓰면 옛 상태로 굳는다)
+    const io = new IntersectionObserver((entries) => setShown(!entries[entries.length - 1].isIntersecting), {
+      rootMargin: `-${HEADER_H}px 0px 9999px 0px`,
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [watch]);
+  if (!shown) return null;
+  return (
+    <div
+      role="group"
+      aria-label={`${t('sort.label')} · ${t('filter.button')}`}
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_3px_var(--shadow)] sm:hidden"
+    >
+      <div className="flex items-center gap-2 px-4 py-2">
+        <SortMenu value={sort} onChange={onSort} />
+        <span className="flex-1" />
+        <button
+          type="button"
+          onClick={onFilters}
+          className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-ctl border px-3 text-[15px] font-semibold whitespace-nowrap transition-colors ${
+            activeFilters ? ON_BORDERED : 'border-line bg-surface hover:border-ink'
+          }`}
+        >
+          <SlidersHorizontal size={16} weight="bold" />
+          {t('filter.button')}
+          {activeFilters > 0 && <span className="num text-[15px]">{activeFilters}</span>}
+        </button>
+      </div>
     </div>
   );
 }
@@ -1134,12 +1254,17 @@ function Stat({
     <button
       onClick={onClick}
       aria-pressed={active}
-      className={`flex flex-col items-start justify-between gap-2 px-4 py-4 text-left transition-colors ${
-        active ? 'bg-ink text-bg' : hot ? 'bg-accent text-on-accent hover:brightness-95' : 'bg-surface hover:bg-sunken'
+      // 고른 칸: 검정으로 채우지 않고 밝은 바탕 + 진한 2px 테두리 (양 끝 칸은 상자 모서리를 따라 둥글게)
+      className={`flex flex-col items-start justify-between gap-2 px-4 py-4 text-left transition-colors first:rounded-l-box last:rounded-r-box ${
+        active
+          ? 'bg-surface text-ink shadow-[inset_0_0_0_2px_var(--ink)]'
+          : hot
+            ? 'bg-accent text-on-accent hover:brightness-95'
+            : 'bg-surface hover:bg-sunken'
       }`}
     >
       {/* 라벨이 두 줄(영어)이어도 숫자는 세 칸 모두 아래쪽에 같은 선으로 */}
-      <span className={`text-[13px] leading-snug ${active ? 'opacity-75' : hot ? 'opacity-85' : 'text-ink-3'}`}>{label}</span>
+      <span className={`text-[13px] leading-snug ${active ? 'text-ink-3' : hot ? 'opacity-85' : 'text-ink-3'}`}>{label}</span>
       <span className="num text-[34px] leading-none font-bold sm:text-[40px]">{value}</span>
     </button>
   );
@@ -1164,7 +1289,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       onClick={onClick}
       aria-pressed={on}
       className={`inline-flex h-11 items-center gap-1 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition-colors active:translate-y-px sm:h-10 ${
-        on ? 'bg-ink text-bg' : 'bg-surface text-ink-2 hover:bg-sunken hover:text-ink'
+        on ? 'bg-surface text-ink shadow-[inset_0_0_0_2px_var(--ink)]' : 'bg-surface text-ink-2 hover:bg-sunken hover:text-ink'
       }`}
     >
       {on && <Check size={14} weight="bold" />}

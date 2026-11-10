@@ -61,7 +61,7 @@ export default function PushToggle({ onChange, sync = true }: { onChange?: () =>
   if (!uid || support == null) return null;
 
   if (support === 'ios-install') return <IosGuide />;
-  if (support === 'unsupported') return <p className="text-[13px] leading-relaxed text-ink-3">{t('push.unsupported')}</p>;
+  if (support === 'unsupported') return <p className="text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('push.unsupported')}</p>;
 
   async function flip() {
     if (on == null || busy) return;
@@ -112,7 +112,7 @@ export default function PushToggle({ onChange, sync = true }: { onChange?: () =>
           />
         </span>
       </button>
-      {denied && <p className="mt-2 text-[13px] leading-relaxed text-ink-3">{t('push.denied')}</p>}
+      {denied && <p className="mt-2 text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('push.denied')}</p>}
       {err && (
         <div className="mt-2">
           <Note tone="error">{err}</Note>
@@ -135,8 +135,8 @@ function IosGuide() {
       <p className="text-[15px] font-semibold text-ink">{t('push.iosTitle')}</p>
       <ol className="mt-2 space-y-2">
         {steps.map((s, i) => (
-          <li key={i} className="flex items-start gap-2.5 text-[13px] leading-relaxed text-ink-2">
-            <span className="num mt-px inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-line text-[11px] font-semibold text-ink-2">
+          <li key={i} className="flex items-start gap-2.5 text-[15px] sm:text-[13px] leading-relaxed text-ink-2">
+            <span className="num mt-px inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-line text-[12px] font-semibold text-ink-2 sm:text-[11px]">
               {i + 1}
             </span>
             <span className="flex min-w-0 items-start gap-1.5">
@@ -146,7 +146,7 @@ function IosGuide() {
           </li>
         ))}
       </ol>
-      <p className="mt-2 text-[13px] text-ink-3">{t('push.iosNote')}</p>
+      <p className="mt-2 text-[15px] sm:text-[13px] text-ink-3">{t('push.iosNote')}</p>
     </div>
   );
 }
@@ -202,14 +202,14 @@ export function PushSection({ className = '' }: { className?: string }) {
     return (
       <section className={className}>
         <h3 className="text-[15px] font-semibold text-ink">{t('push.title')}</h3>
-        <p className="mt-1 text-[13px] leading-relaxed text-ink-3">{t('push.soon')}</p>
+        <p className="mt-1 text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('push.soon')}</p>
       </section>
     );
 
   return (
     <section className={className}>
       <h3 className="text-[15px] font-semibold text-ink">{t('push.title')}</h3>
-      <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{t('push.meText')}</p>
+      <p className="mt-1 text-[15px] sm:text-[13px] leading-relaxed text-ink-2">{t('push.meText')}</p>
       <div className="mt-3">
         <PushToggle key={rev} sync={false} onChange={() => setRev((n) => n + 1)} />
       </div>
@@ -226,7 +226,7 @@ export function PushSection({ className = '' }: { className?: string }) {
                     <span className="flex items-center gap-2 text-[15px] text-ink">
                       <span className="truncate">{name}</span>
                       {here && (
-                        <span className="shrink-0 rounded-full border border-line px-2 py-px text-[11px] font-semibold text-ink-2">{t('push.thisDevice')}</span>
+                        <span className="shrink-0 rounded-full border border-line px-2 py-px text-[12px] font-semibold text-ink-2 sm:text-[11px]">{t('push.thisDevice')}</span>
                       )}
                     </span>
                     <span className="block text-[13px] text-ink-3">{t('push.since', { d: fmtDate(d.created_at.slice(0, 10), lang) })}</span>
@@ -236,7 +236,7 @@ export function PushSection({ className = '' }: { className?: string }) {
                     onClick={() => remove(d)}
                     disabled={busyId === d.id}
                     aria-label={t('push.removeLabel', { name })}
-                    className="inline-flex h-11 shrink-0 items-center rounded-ctl bg-sunken px-3 text-[13px] font-semibold text-ink transition hover:bg-line active:translate-y-px disabled:opacity-50 sm:h-9"
+                    className="inline-flex h-11 shrink-0 items-center rounded-ctl bg-sunken px-3 text-[15px] font-semibold text-ink transition hover:bg-line active:translate-y-px disabled:opacity-50 sm:h-9 sm:text-[13px]"
                   >
                     {busyId === d.id ? t('common.processing') : t('push.remove')}
                   </button>

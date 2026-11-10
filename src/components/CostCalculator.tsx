@@ -29,7 +29,7 @@ function DomesticBooking({ race }: { race: Race }) {
       <section className="space-y-3">
         <div>
           <h3 className="text-[17px] font-bold text-ink">{t('cost.stayTitle')}</h3>
-          <p className="mt-1 text-[13px] text-ink-3">
+          <p className="mt-1 text-[15px] sm:text-[13px] text-ink-3">
             {!dates
               ? t('cost.stayNoDate', { q })
               : race.date_confidence === 'expected'
@@ -44,7 +44,7 @@ function DomesticBooking({ race }: { race: Race }) {
       <section className="space-y-3">
         <div>
           <h3 className="text-[17px] font-bold text-ink">{t('cost.rideTitle')}</h3>
-          <p className="mt-1 text-[13px] text-ink-3">
+          <p className="mt-1 text-[15px] sm:text-[13px] text-ink-3">
             {ferry ? t('cost.rideFerry') : jeju ? t('cost.rideJeju') : t('cost.rideOther')}
           </p>
         </div>
@@ -54,7 +54,7 @@ function DomesticBooking({ race }: { race: Race }) {
       <section className="space-y-3">
         <div>
           <h3 className="text-[17px] font-bold text-ink">{t('cost.nearTitle')}</h3>
-          <p className="mt-1 text-[13px] text-ink-3">{t('cost.nearText', { q })}</p>
+          <p className="mt-1 text-[15px] sm:text-[13px] text-ink-3">{t('cost.nearText', { q })}</p>
         </div>
         <BookingList race={race} links={nearbyLinks(race, lang)} />
       </section>
@@ -183,7 +183,7 @@ function Estimate({ race, costs }: { race: Race; costs: CostBaseline[] }) {
         </div>
       </div>
 
-      <p className="max-w-[60ch] text-[13px] leading-relaxed text-ink-3">{t('cost.note')}</p>
+      <p className="max-w-[60ch] text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('cost.note')}</p>
     </div>
   );
 }

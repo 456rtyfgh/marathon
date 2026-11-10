@@ -1,0 +1,92 @@
+/*
+  첫 화면 전용 CSS (App.tsx 가 불러온다 — index.css 뒤에 실린다).
+  레이어 밖 규칙이라 같은 속성의 Tailwind 유틸리티를 이긴다 → 유틸리티로 조절할 속성은 여기 쓰지 않는다.
+*/
+
+/* ── '요즘 많이 보는 대회' 1·2·3위 배지 ─────────────────────────────
+   단색 원 + 같은 색 계열의 진한 테두리(밝은 바탕에서 금·은이 묻히지 않게). 순위는 옆의 '1위' 글자가 말한다(배지는 aria-hidden).
+   동은 주황으로 보이지 않는 어두운 갈색. 다크에서는 바탕(#16181b)과 구분되게 조금 밝게 */
+.medal {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--medal);
+  box-shadow: inset 0 0 0 2px var(--medal-edge);
+}
+
+.medal-1 {
+  --medal: #c9a227;
+  --medal-edge: #98790f;
+}
+
+.medal-2 {
+  --medal: #a7aeb8;
+  --medal-edge: #79818d;
+}
+
+.medal-3 {
+  --medal: #8c6b4f;
+  --medal-edge: #654a34;
+}
+
+@media (prefers-color-scheme: dark) {
+  .medal-1 {
+    --medal: #d4b13a;
+    --medal-edge: #f0d67a;
+  }
+
+  .medal-2 {
+    --medal: #b8bfc9;
+    --medal-edge: #e3e7ec;
+  }
+
+  .medal-3 {
+    --medal: #a07f63;
+    --medal-edge: #c9ab91;
+  }
+}
+
+/* ── 휴대폰 머리말 메뉴: 화면 아래에 붙는 시트 ───────────────────────
+   index.css 의 dialog.menu(머리말 바로 아래 오른쪽 작은 목록)를 덮어쓴다. 메뉴 버튼은 768px 미만에서만 보이고
+   넓어지면 메뉴가 저절로 닫히므로(MobileMenu.tsx) 폭 조건 없이 쓴다. 여닫는 동작·히스토리 처리는 그대로 */
+dialog.menu {
+  inset: auto 0 0 0;
+  width: 100%;
+  max-height: min(85dvh, calc(100dvh - 3.5rem));
+  border-width: 1px 0 0;
+  border-radius: var(--radius-box) var(--radius-box) 0 0;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 24px var(--shadow-strong);
+  transform: translateY(16px);
+  transition-duration: 0.2s;
+}
+
+dialog.menu[open] {
+  transform: translateY(0);
+}
+
+@starting-style {
+  dialog.menu[open] {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+dialog.menu::backdrop {
+  transition-duration: 0.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.menu {
+    transform: none;
+    transition-duration: 0.1s;
+  }
+
+  @starting-style {
+    dialog.menu[open] {
+      transform: none;
+    }
+  }
+}

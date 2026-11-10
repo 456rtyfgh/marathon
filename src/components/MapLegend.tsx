@@ -11,7 +11,7 @@ export default function MapLegend({ max, selected = true }: { max: number; selec
     <div
       role="img"
       aria-label={label}
-      className="pointer-events-none inline-flex items-center gap-2 rounded-ctl bg-surface/90 px-2 py-1 text-[12px] leading-none text-ink-2 shadow-[0_1px_2px_var(--shadow)]"
+      className="pointer-events-none inline-flex items-center gap-2 rounded-ctl bg-surface/90 px-2 py-1 text-[13px] leading-none text-ink-2 sm:text-[12px] shadow-[0_1px_2px_var(--shadow)]"
     >
       <span>{t('legend.less')}</span>
       <span className="flex gap-px" aria-hidden>

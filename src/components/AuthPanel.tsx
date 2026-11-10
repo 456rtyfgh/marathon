@@ -126,7 +126,8 @@ function ProfileForm({ onClose, onWithdraw }: { onClose: () => void; onWithdraw:
   const [ok, setOk] = useState(false);
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between gap-3">
+      {/* 시트가 스크롤돼도 제목·닫기는 위에 붙어 있다 (아래 여백 pb-3 + mb-3 = 원래 간격 24px) */}
+      <div className="sticky top-0 z-10 -mx-6 -mt-6 mb-3 flex items-center justify-between gap-3 bg-surface px-6 pt-6 pb-3">
         <h2 className="text-[20px] font-bold tracking-tight">{t('auth.me')}</h2>
         <CloseButton onClick={onClose} />
       </div>
@@ -166,7 +167,7 @@ function ProfileForm({ onClose, onWithdraw }: { onClose: () => void; onWithdraw:
       <Suspense fallback={null}>
         <MyPosts />
       </Suspense>
-      <section className="border-t border-line pt-5 text-[13px] leading-relaxed">
+      <section className="border-t border-line pt-5 text-[15px] leading-relaxed sm:text-[13px]">
         <h3 className="text-[15px] font-semibold text-ink">{t('rights.title')}</h3>
         <ul className="mt-3 space-y-2">
           {[t('rights.view'), t('rights.fix'), t('rights.delete'), t('rights.stop', { email: CONTACT_EMAIL })].map((s) => (
@@ -252,11 +253,12 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center justify-between gap-3">
+      {/* 시트가 스크롤돼도(가입 화면) 제목·닫기는 위에 붙어 있다 (pb-3 + mb-3 = 원래 간격 24px) */}
+      <div className="sticky top-0 z-10 -mx-6 -mt-6 mb-3 flex items-center justify-between gap-3 bg-surface px-6 pt-6 pb-3">
         <h2 className="text-[20px] font-bold tracking-tight">{titles[mode]}</h2>
         <CloseButton onClick={onClose} />
       </div>
-      {(mode === 'in' || mode === 'up') && <p className="-mt-3 mb-5 text-[13px] leading-relaxed text-ink-3">{t('member.perks')}</p>}
+      {(mode === 'in' || mode === 'up') && <p className="-mt-3 mb-5 text-[15px] leading-relaxed text-ink-3 sm:text-[13px]">{t('member.perks')}</p>}
 
       {(mode === 'sent' || mode === 'forgot_sent') && (
         <div className="space-y-4">
@@ -297,7 +299,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
               </div>
             </Field>
           </form>
-          <p className="text-[13px] leading-relaxed text-ink-3">{t('auth.spam')}</p>
+          <p className="text-[15px] leading-relaxed text-ink-3 sm:text-[13px]">{t('auth.spam')}</p>
           {info && <Note tone="ok">{info}</Note>}
           {err && <Note tone="error">{err}</Note>}
           <div className="flex flex-wrap gap-2">
@@ -417,7 +419,7 @@ export function AuthForm({ onClose, initial = 'in' }: { onClose: () => void; ini
           {mode === 'up' && <SignupConsent value={consent} onChange={setConsent} />}
 
           {err && <Note tone="error">{err}</Note>}
-          {mode === 'up' && !requiredOk(consent) && <p className="text-[13px] text-ink-3">{t('consent.need')}</p>}
+          {mode === 'up' && !requiredOk(consent) && <p className="text-[15px] text-ink-3 sm:text-[13px]">{t('consent.need')}</p>}
 
           <Button type="submit" disabled={busy || (mode === 'up' && !requiredOk(consent))} className="w-full">
             {busy ? t('common.processing') : mode === 'in' ? t('auth.login') : t('auth.signupSubmit')}

@@ -28,7 +28,7 @@ export default function MemberGate({
         <LockSimple size={16} weight="bold" className="shrink-0" />
         {t('member.only')}
       </p>
-      <p className="mt-1 text-[13px] leading-relaxed text-ink-3">{t('member.perks')}</p>
+      <p className="mt-1 text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('member.perks')}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button size="sm" type="button" onClick={() => onLogin('in', intent)}>
           {t('member.login')}

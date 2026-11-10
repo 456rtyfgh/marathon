@@ -28,12 +28,13 @@ const LAW = {
 const STYLE = `:root{color-scheme:light dark;--bg:#f1f2f4;--fg:#15171a;--mute:#5d636b;--line:#dcdfe3;--card:#fff;--link:#0b57d0}
 @media (prefers-color-scheme:dark){:root{--bg:#0e0f11;--fg:#e8eaed;--mute:#9aa0a6;--line:#2a2d31;--card:#17191c;--link:#8ab4f8}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.7 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;word-break:keep-all}
-a{color:var(--link)}header{display:flex;align-items:center;justify-content:space-between;gap:1rem;max-width:48rem;margin:0 auto;padding:1rem}
+a{color:var(--link);overflow-wrap:anywhere}header{display:flex;align-items:center;justify-content:space-between;gap:1rem;max-width:48rem;margin:0 auto;padding:.5rem 1rem}
+header a{display:inline-flex;align-items:center;min-height:44px}main a,footer a{padding:.85rem 0}
 .brand{font-weight:800;font-size:1.1rem;text-decoration:none;color:var(--fg)}
 main{max-width:48rem;margin:0 auto;padding:0 1rem 3rem}h1{font-size:1.6rem;line-height:1.3;margin:.5rem 0}
 h2{font-size:1.1rem;margin:2rem 0 .5rem;padding-top:1rem;border-top:1px solid var(--line)}
 .lead,.meta{color:var(--mute)}ol,ul{padding-left:1.4rem}li{margin:.25rem 0}
-footer{max-width:48rem;margin:0 auto;padding:2rem 1rem;color:var(--mute);font-size:.9rem}`;
+footer{max-width:48rem;margin:0 auto;padding:2rem 1rem;color:var(--mute);font-size:.9375rem}`;
 
 /** 개정 이력 (최신이 앞, 처리방침 페이지와 같은 REVISIONS) */
 const revisions = (lang) => `<ul>

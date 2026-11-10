@@ -57,7 +57,7 @@ export default function MemberPanel() {
   if (notReady)
     return (
       <section className={section}>
-        <p className="text-[13px] leading-relaxed text-ink-3">{t('member.soon')}</p>
+        <p className="text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('member.soon')}</p>
       </section>
     );
   return (
@@ -180,9 +180,10 @@ function FeedSection({ uid, onError }: { uid: string; onError: (e: unknown) => v
   }
 
   return (
-    <section id="me-feed" className={section}>
+    // scroll-mt: '캘린더 구독으로' 버튼(SavedRaces)이 여기로 내릴 때 위에 붙어 있는 제목 줄(AuthPanel — 휴대폰 80px, 640px 부터 72px)에 제목이 가려지지 않게
+    <section id="me-feed" className={`${section} scroll-mt-20 sm:scroll-mt-[72px]`}>
       <h3 className={h3}>{t('me.feed.title')}</h3>
-      <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{t('me.feed.text')}</p>
+      <p className="mt-1 text-[15px] sm:text-[13px] leading-relaxed text-ink-2">{t('me.feed.text')}</p>
       {since === undefined ? null : shown ? (
         <div className="mt-3 space-y-3">
           <input
@@ -209,13 +210,13 @@ function FeedSection({ uid, onError }: { uid: string; onError: (e: unknown) => v
               {t('me.feed.apple')}
             </a>
           </div>
-          <p className="text-[13px] leading-relaxed text-ink-3">
+          <p className="text-[15px] sm:text-[13px] leading-relaxed text-ink-3">
             {since && `${t('me.feed.since', { d: fmtDate(since.slice(0, 10), lang) })} · `}
             {t('me.feed.hint')}
           </p>
         </div>
       ) : since ? (
-        <p className="mt-3 text-[13px] leading-relaxed text-ink-3">{t('me.feed.otherDevice')}</p>
+        <p className="mt-3 text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('me.feed.otherDevice')}</p>
       ) : (
         <Button size="sm" type="button" className="mt-3" disabled={busy} onClick={issue}>
           {busy ? t('common.processing') : t('me.feed.create')}
@@ -232,7 +233,7 @@ function FeedSection({ uid, onError }: { uid: string; onError: (e: unknown) => v
       )}
       {confirm && (
         <div className="mt-3 rounded-box border border-line px-4 py-3">
-          <p className="text-[13px] leading-relaxed text-ink-2">{t('me.feed.renewConfirm')}</p>
+          <p className="text-[15px] sm:text-[13px] leading-relaxed text-ink-2">{t('me.feed.renewConfirm')}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Button size="sm" type="button" disabled={busy} onClick={issue}>
               {busy ? t('common.processing') : t('me.feed.renewYes')}
@@ -288,7 +289,7 @@ function AlertsSection({ email, onError }: { email: string; onError: (e: unknown
   return (
     <section className={section}>
       <h3 className={h3}>{t('me.alerts.title')}</h3>
-      <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{t('me.alerts.text')}</p>
+      <p className="mt-1 text-[15px] sm:text-[13px] leading-relaxed text-ink-2">{t('me.alerts.text')}</p>
       <button
         type="button"
         role="switch"

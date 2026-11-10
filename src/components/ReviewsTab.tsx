@@ -104,7 +104,7 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
                 </div>
                 <p className="mt-2 max-w-[62ch] text-[15px] leading-relaxed whitespace-pre-wrap text-ink-2">{r.body}</p>
                 {(r.course_rating || r.support_rating || r.value_rating) && (
-                  <p className="mt-2 text-[13px] text-ink-3">
+                  <p className="mt-2 text-[15px] sm:text-[13px] text-ink-3">
                     {[
                       r.course_rating != null && t('rev.course', { n: r.course_rating }),
                       r.support_rating != null && t('rev.support', { n: r.support_rating }),
@@ -133,7 +133,7 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
 
       <section>
         <h3 className="text-[17px] font-bold">{t('rev.extTitle')}</h3>
-        <p className="mt-1 text-[13px] text-ink-3">{t('rev.extHelp')}</p>
+        <p className="mt-1 text-[15px] sm:text-[13px] text-ink-3">{t('rev.extHelp')}</p>
         {ext.length === 0 ? (
           <p className="mt-3 text-[15px] text-ink-3">{t('rev.extNone')}</p>
         ) : (
@@ -152,7 +152,7 @@ export default function ReviewsTab({ race, onLogin }: { race: Race; onLogin: () 
                       {e.author && `, ${e.author}`}
                     </span>
                     <span className="mt-1 block text-[15px] font-semibold text-ink">{e.title}</span>
-                    {e.summary && <span className="mt-1 block text-[13px] text-ink-2">{e.summary}</span>}
+                    {e.summary && <span className="mt-1 block text-[15px] sm:text-[13px] text-ink-2">{e.summary}</span>}
                   </span>
                   <ArrowUpRight size={16} className="mt-1 shrink-0 text-ink-3 group-hover:text-ink" />
                 </a>

@@ -58,7 +58,7 @@ export default function ReportDialog({ target, onClose }: { target: { type: 'pos
           ))}
         </div>
       </fieldset>
-      {reason === 'rights' && <p className="text-[13px] leading-relaxed text-ink-2">{s.rRights}</p>}
+      {reason === 'rights' && <p className="text-[15px] sm:text-[13px] leading-relaxed text-ink-2">{s.rRights}</p>}
       <label className="flex flex-col gap-2">
         <span className="text-[13px] font-semibold text-ink-2">
           {s.rNote} <span className="font-normal text-ink-3">{`${note.length}/${LIMITS.noteMax}`}</span>

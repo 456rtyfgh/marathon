@@ -34,7 +34,7 @@ export default function PackageTable({ packages, agencies }: { packages: Package
     return (
       <div className="space-y-4">
         <p className="text-[15px] text-ink-2">{t('pkg.none')}</p>
-        <p className="text-[13px] text-ink-3">{t('pkg.agencies')}</p>
+        <p className="text-[15px] sm:text-[13px] text-ink-3">{t('pkg.agencies')}</p>
         <ul className="grid gap-2 sm:grid-cols-2">
           {agencies.map((a) => (
             <li key={a.id}>
@@ -95,7 +95,7 @@ export default function PackageTable({ packages, agencies }: { packages: Package
                       >
                         {krwExact(p.price_solo_krw, lang)}
                       </div>
-                      <div className="mt-1 text-[12px] text-ink-3">
+                      <div className="mt-1 text-[13px] text-ink-3 sm:text-[12px]">
                         {low ? t('pkg.cheapest') : t('pkg.solo')}
                         {p.price_group_krw != null && t('pkg.group', { v: krwExact(p.price_group_krw, lang) })}
                       </div>
@@ -111,7 +111,7 @@ export default function PackageTable({ packages, agencies }: { packages: Package
           );
         })}
       </ul>
-      <p className="max-w-[60ch] text-[13px] leading-relaxed text-ink-3">{t('pkg.note')}</p>
+      <p className="max-w-[60ch] text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('pkg.note')}</p>
     </div>
   );
 }

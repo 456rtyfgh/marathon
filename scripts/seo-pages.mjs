@@ -26,16 +26,19 @@ const logo = () => {
   return pic('/brand/symbol.svg', SYMBOL) + (WORD ? pic('/brand/wordmark.svg', WORD) : '<span class="brand-text">마라톤 캘린더</span>');
 };
 
+// 휴대폰: 누르는 것은 44px 이상 — 머리말·경로·월/나라 링크와 대회 이름은 줄 높이 44px, 대회 카드는 카드 전체가 링크(a::after),
+// 문장·제목 속 링크는 줄 높이를 건드리지 않고 위아래 눌리는 자리만 넓힌다. 긴 영문 이름·주소는 칸 안에서 꺾는다(overflow-wrap).
+// (약관 페이지 scripts/terms.mjs 의 STYLE 과 같은 꼴 — 수치를 맞춘다)
 const STYLE = `:root{color-scheme:light dark;--bg:#f1f2f4;--fg:#15171a;--mute:#5d636b;--line:#dcdfe3;--card:#fff;--link:#0b57d0}
 @media (prefers-color-scheme:dark){:root{--bg:#0e0f11;--fg:#e8eaed;--mute:#9aa0a6;--line:#2a2d31;--card:#17191c;--link:#8ab4f8}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;word-break:keep-all}
-a{color:var(--link)}header{display:flex;align-items:center;justify-content:space-between;gap:1rem;max-width:56rem;margin:0 auto;padding:1rem}
-.brand{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--fg)}.brand img{display:block}.brand-text{font-weight:800;font-size:1.1rem}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;word-break:keep-all;overflow-wrap:anywhere}
+a{color:var(--link)}header{display:flex;align-items:center;justify-content:space-between;gap:1rem;max-width:56rem;margin:0 auto;padding:.5rem 1rem}header a{display:inline-flex;align-items:center;min-height:44px}
+.brand{display:flex;align-items:center;gap:.5rem;text-decoration:none;color:var(--fg)}.brand img{display:block;max-width:100%;height:auto}.brand{min-width:0}.brand picture{min-width:0}.brand picture:first-child,header>a:last-child{flex:none;white-space:nowrap}.brand-text{font-weight:800;font-size:1.1rem}
 main{max-width:56rem;margin:0 auto;padding:0 1rem 3rem}h1{font-size:1.6rem;line-height:1.3;margin:.5rem 0}h2{font-size:1.15rem;margin:2rem 0 .5rem;padding-top:1rem;border-top:1px solid var(--line)}
-.crumb,.lead,.meta{color:var(--mute)}.crumb{font-size:.9rem}ul.races{list-style:none;padding:0;margin:0}
-ul.races li{background:var(--card);border:1px solid var(--line);border-radius:.6rem;padding:.7rem .9rem;margin:.4rem 0}
-ul.races a{font-weight:700}.meta{display:block;font-size:.9rem}.x{color:#c5221f;font-weight:700}
-nav.links{display:flex;flex-wrap:wrap;gap:.4rem .9rem;font-size:.95rem}footer{max-width:56rem;margin:0 auto;padding:2rem 1rem;color:var(--mute);font-size:.9rem}`;
+.crumb,.lead,.meta{color:var(--mute)}.crumb{font-size:.9rem;margin:.25rem 0}.crumb a{display:inline-flex;align-items:center;min-height:44px}ul.races{list-style:none;padding:0;margin:0}
+ul.races li{position:relative;background:var(--card);border:1px solid var(--line);border-radius:.6rem;padding:.15rem .9rem .7rem;margin:.4rem 0}
+ul.races a{display:inline-flex;align-items:center;min-width:44px;min-height:44px;font-weight:700}ul.races a::after{content:"";position:absolute;inset:0;border-radius:.6rem}.meta{display:block;font-size:.9rem}ul.races .meta{margin-top:-.4rem}.x{color:#c5221f;font-weight:700}
+nav.links{display:flex;flex-wrap:wrap;gap:0 .1rem;margin:0 -.4rem;font-size:.95rem}nav.links a,nav.links strong{display:inline-flex;align-items:center;min-height:44px;padding:0 .4rem}footer{max-width:56rem;margin:0 auto;padding:2rem 1rem;color:var(--mute);font-size:.9rem}footer a,h2 a,main p a{padding:.85rem 0}`;
 
 const item = (r, { showWhere = true } = {}) => {
   const entry = [
