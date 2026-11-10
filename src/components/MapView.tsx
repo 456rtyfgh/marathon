@@ -4,6 +4,7 @@ import { union, type Box } from '../lib/geo';
 import { MAP_SELECTED, mapFill, mapStep } from '../lib/mapColor';
 import type { SubCountry } from '../lib/subregions';
 import MapLegend from './MapLegend';
+import { MAP_SIZE_KR, MAP_SIZE_WORLD } from './MapSection';
 import { useLang } from '../i18n';
 // 지도는 JS 모듈 대신 JSON 파일로 받아 res.json() 으로 읽는다 (800KB 짜리 JS 를 해석·실행하지 않게)
 import koreaUrl from '../maps/korea.json?url';
@@ -100,8 +101,9 @@ const MINOR_SHARE = 0.03;
  * (지도를 다시 만들어 viewBox 가 바뀌면 비율도 고친다)
  */
 const SIZE: Record<Kind, string> = {
-  kr: 'aspect-[524/631] max-h-[340px] sm:max-h-[520px]',
-  world: 'aspect-[5/4] max-h-[420px] sm:aspect-auto sm:h-[min(62vh,560px)] sm:max-h-none',
+  // 국내·세계는 MapSection 의 값(지도 코드를 받는 동안의 빈 자리와 같은 크기)
+  kr: MAP_SIZE_KR,
+  world: MAP_SIZE_WORLD,
   jp: 'aspect-[1000/1140] max-h-[340px] sm:max-h-[520px]',
   us: 'aspect-[1200/625] max-h-[340px] sm:max-h-[520px]',
   au: 'aspect-[1000/955] max-h-[340px] sm:max-h-[520px]',

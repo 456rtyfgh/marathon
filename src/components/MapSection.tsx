@@ -23,6 +23,17 @@ const CHIP_LIMIT = 12;
 const NO_ZONE: string[] = [];
 /** 주·도 정보가 아직 없는 나라의 counts (그릴 때마다 새 {} 를 넘기지 않게) */
 const NO_COUNTS: Record<string, number> = {};
+/**
+ * 국내·세계 지도 상자 크기 (Tailwind 가 읽게 글자 그대로). MapView 의 SIZE 가 이 값을 쓰고, 지도 코드를 받는 동안의 빈 자리도 같은 크기다
+ * — 자리가 실제 지도와 다르면(예전: 늘 세계 지도 비율) 지도가 뜨는 순간 아래 목록이 밀린다.
+ */
+export const MAP_SIZE_KR = 'aspect-[524/631] max-h-[340px] sm:max-h-[520px]';
+export const MAP_SIZE_WORLD = 'aspect-[5/4] max-h-[420px] sm:aspect-auto sm:h-[min(62vh,560px)] sm:max-h-none';
+/** 켜짐·고름·펼침 모양: 검정으로 채우지 않고 밝은 바탕 + 진한 2px 테두리 (App.tsx 와 같은 글자열) */
+const ON_BORDERED = 'border-ink bg-surface text-ink shadow-[inset_0_0_0_1px_var(--ink)]';
+const ON_PLAIN = 'bg-surface text-ink shadow-[inset_0_0_0_2px_var(--ink)]';
+/** 지도 출처 링크: 줄 높이는 그대로 두고 위아래로 눌리는 자리만 넓힌다 (휴대폰 44px 이상) */
+const CREDIT_LINK = 'py-4 underline underline-offset-2 sm:py-0';
 
 /**
  * 지역 막대(시·도 / 지역 칩) + 나라 칩 + 지도.
@@ -296,7 +307,7 @@ function MapSection({
           }}
           aria-expanded={mapOpen}
           className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-ctl border px-3 text-[15px] font-semibold transition-colors sm:h-10 ${
-            mapOpen ? 'border-ink bg-ink text-bg' : 'border-line bg-surface hover:border-ink'
+            mapOpen ? ON_BORDERED : 'border-line bg-surface hover:border-ink'
           }`}
         >
           <MapTrifold size={16} weight="bold" />
@@ -391,7 +402,7 @@ function MapSection({
 
       {mapOpen && (
         <div className="mt-3 rounded-box border border-line bg-surface p-2">
-          <Suspense fallback={<div className="aspect-[5/4] animate-pulse rounded-box bg-sunken sm:aspect-auto sm:h-[min(62vh,560px)]" />}>
+          <Suspense fallback={<div className={`w-full animate-pulse rounded-box bg-sunken ${scope === 'kr' ? MAP_SIZE_KR : MAP_SIZE_WORLD}`} />}>
             <MapView
               kind={scope === 'kr' ? 'kr' : (sub ?? 'world')}
               counts={scope === 'kr' ? geo.province : sub ? (geo.sub[sub] ?? NO_COUNTS) : geo.country}
@@ -414,13 +425,13 @@ function MapSection({
                   onScope('kr');
                   leaveZone();
                 }}
-                className="font-semibold text-ink underline underline-offset-2 hover:no-underline"
+                className="py-4 font-semibold text-ink underline underline-offset-2 hover:no-underline sm:py-0"
               >
                 {t('map.byProvince')}
               </button>
             </p>
           )}
-          <p className="mt-2 flex flex-wrap justify-between gap-x-4 gap-y-1 px-2 pb-1 text-[12px] text-ink-3">
+          <p className="mt-2 flex flex-wrap justify-between gap-x-4 gap-y-1 px-2 pb-1 text-[13px] text-ink-3 sm:text-[12px]">
             <span>
               {scope === 'kr'
                 ? t('map.hintKr')
@@ -434,7 +445,7 @@ function MapSection({
             {sub ? (
               <span>
                 {t('map.credit')}{' '}
-                <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer" className={CREDIT_LINK}>
                   Natural Earth
                 </a>{' '}
                 {t('map.publicDomain')}
@@ -442,7 +453,7 @@ function MapSection({
             ) : (
               <span>
                 {t('map.credit')}{' '}
-                <a href="https://github.com/VictorCazanave/svg-maps" target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                <a href="https://github.com/VictorCazanave/svg-maps" target="_blank" rel="noreferrer" className={CREDIT_LINK}>
                   svg-maps
                 </a>{' '}
                 (CC BY 4.0)
@@ -462,7 +473,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       onClick={onClick}
       aria-pressed={on}
       className={`inline-flex h-11 items-center gap-1 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition-colors active:translate-y-px sm:h-10 ${
-        on ? 'bg-ink text-bg' : 'bg-surface text-ink-2 hover:bg-sunken hover:text-ink'
+        on ? ON_PLAIN : 'bg-surface text-ink-2 hover:bg-sunken hover:text-ink'
       }`}
     >
       {on && <Check size={14} weight="bold" />}
