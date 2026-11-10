@@ -102,5 +102,5 @@ export function useFavorites() {
   );
 
   const has = useCallback((id: string) => ids.includes(id), [ids]);
-  return useMemo(() => ({ ids, has, toggle }), [ids, has, toggle]);
+  return useMemo(() => ({ ids, has, toggle, synced: synced != null }), [ids, has, toggle, synced]);
 }

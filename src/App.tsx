@@ -18,6 +18,7 @@ import {
 import { AuthProvider, useAuth } from './lib/auth';
 import { useFavorites } from './lib/favorites';
 import { useRegistered } from './lib/registered';
+import { MyRacesProvider, type MyRacesBridge } from './lib/myRacesContext';
 import { clearIntent, peekIntent, saveIntent, type AfterLogin, type GateAction, type GateIntent } from './lib/memberGate';
 import RaceRow from './components/RaceRow';
 import { AuthBar, AuthForm } from './components/AuthPanel';
@@ -377,6 +378,22 @@ function Main() {
   };
 
   const openRace = useCallback((r: Race) => setSelected(r), []);
+  // 내 정보 '저장한 대회' 에 넘기는 값 — 같은 fav·reg 상태를 써야 저장 해제가 목록·상세에도 바로 보인다 (lib/myRacesContext)
+  const myRacesBridge = useMemo<MyRacesBridge>(
+    () => ({
+      races: data.races,
+      loading: remote === 'loading',
+      favIds: fav.ids,
+      toggleFavorite: fav.toggle,
+      favSynced: fav.synced,
+      registeredIds: reg.ids,
+      records: reg.records,
+      loggedIn: !!auth.session,
+      openRace,
+      onLogin: () => openLogin('in'),
+    }),
+    [data.races, remote, fav.ids, fav.toggle, fav.synced, reg.ids, reg.records, auth.session, openRace, openLogin],
+  );
   // 상세 맨 아래 '비슷한 대회' 에 넘기는 값 (RaceDetail 의 선택 props — 펼쳐서 넘겨 그쪽 props 가 아직 없어도 타입 검사가 통과한다)
   const similarProps = { races: upcomingRaces, ratingMap, isFavorite: fav.has, isRegistered: reg.has, onOpenRace: openRace };
 
@@ -549,7 +566,9 @@ function Main() {
                 <span className={lang === 'ko' ? 'text-ink' : undefined}>한</span>
               </span>
             </button>
-            <AuthBar onOpen={() => openLogin('in')} meOpen={meOpen} onMeOpenChange={setMeOpen} />
+            <MyRacesProvider value={myRacesBridge}>
+              <AuthBar onOpen={() => openLogin('in')} meOpen={meOpen} onMeOpenChange={setMeOpen} />
+            </MyRacesProvider>
             <MobileMenu groups={menuGroups} className="md:hidden" />
           </nav>
         </div>
