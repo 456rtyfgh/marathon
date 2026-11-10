@@ -13,9 +13,10 @@ export type Region = (typeof REGIONS)[number];
 export const COURSES = ['평지', '완만', '언덕'] as const;
 export type Course = (typeof COURSES)[number];
 
-export const DISCIPLINES = ['road', 'trail'] as const;
+/** event = 브랜드 러닝 이벤트(기록 측정·선발전 등) */
+export const DISCIPLINES = ['road', 'trail', 'event'] as const;
 export type Discipline = (typeof DISCIPLINES)[number];
-export const DISCIPLINE_LABEL: Record<Discipline, string> = { road: '로드', trail: '트레일' };
+export const DISCIPLINE_LABEL: Record<Discipline, string> = { road: '로드', trail: '트레일', event: '러닝 이벤트' };
 
 export interface Race {
   id: string;

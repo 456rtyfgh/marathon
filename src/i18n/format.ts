@@ -117,8 +117,8 @@ export const COURSE_TEXT: Record<Lang, Record<Course, string>> = {
 };
 
 export const DISCIPLINE_TEXT: Record<Lang, Record<Discipline, string>> = {
-  ko: { road: '로드', trail: '트레일' },
-  en: { road: 'Road', trail: 'Trail' },
+  ko: { road: '로드', trail: '트레일', event: '러닝 이벤트' },
+  en: { road: 'Road', trail: 'Trail', event: 'Running events' },
 };
 
 export type CalKey = 'race' | 'open' | 'close';
