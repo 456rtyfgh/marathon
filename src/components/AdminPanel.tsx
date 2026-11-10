@@ -772,7 +772,7 @@ const TAB_LABEL: Record<string, string> = { overview: '정보', reviews: '후기
 
 /** 광고 영업에 쓸 숫자: 방문·검색어·많이 본 대회·클릭. 일별 합계만 쌓인다. */
 function Stats({ races }: { races: Race[] }) {
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(28);
   const [rows, setRows] = useState<StatRow[] | null>(null);
   const [err, setErr] = useState('');
   useEffect(() => {
@@ -784,7 +784,11 @@ function Stats({ races }: { races: Race[] }) {
 
   if (err) return <Note tone="error">{err}</Note>;
   const name = new Map(races.map((r) => [r.id, r.name_ko]));
-  const total = (ev: string) => (rows ?? []).filter((r) => r.event === ev).reduce((a, r) => a + r.n, 0);
+  // 합계는 서버가 따로 준 전체 합(total:*)으로 — 목록 줄(상위 40개)만 더하면 작게 나온다. 옛 함수면 목록 합으로
+  const total = (ev: string) => {
+    const all = (rows ?? []).find((r) => r.event === `total:${ev}`);
+    return all ? all.n : (rows ?? []).filter((r) => r.event === ev).reduce((a, r) => a + r.n, 0);
+  };
   // 많은 순, 같으면 이름순 (매번 같은 순서)
   const top = (ev: string, limit = 12) =>
     (rows ?? []).filter((r) => r.event === ev && r.key).sort((a, b) => b.n - a.n || a.key.localeCompare(b.key)).slice(0, limit);
@@ -796,7 +800,7 @@ function Stats({ races }: { races: Race[] }) {
   return (
     <div className="space-y-7">
       <div className="flex flex-wrap items-center gap-2">
-        {[7, 30, 90].map((d) => (
+        {[7, 28, 90].map((d) => (
           <Button key={d} tone={d === days ? 'primary' : 'quiet'} onClick={() => setDays(d)}>
             최근 {d}일
           </Button>
@@ -823,6 +827,11 @@ function Stats({ races }: { races: Race[] }) {
         <p className="text-[15px] text-ink-3">불러오는 중</p>
       ) : (
         <>
+          {daily.length > 0 && (
+            <p className="text-[13px] leading-relaxed text-ink-3">
+              {daily[0].key} ~ {daily[daily.length - 1].key} (오늘 포함). GA 분석은 어제까지만 보여 주고, 광고 차단·GA 거부 방문은 빠져 이쪽 방문 수가 조금 더 많습니다.
+            </p>
+          )}
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {(
               [
