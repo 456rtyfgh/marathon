@@ -66,8 +66,22 @@
         }
       }
     </script>
+    <style>
+      /* 첫 로딩 화면: 앱이 뜨기 전 검색엔진용 글자 목록이 그대로 보이지 않게 덮는다 (main.tsx 가 첫 렌더 뒤 지움) */
+      #boot{position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#f1f2f4;color:#121418;font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;transition:opacity .2s}
+      #boot img{width:56px;height:56px;border-radius:14px}
+      #boot b{font-size:17px;font-weight:800;letter-spacing:-.01em}
+      #boot i{display:block;width:120px;height:3px;border-radius:3px;background:#dcdfe3;overflow:hidden;position:relative}
+      #boot i::after{content:"";position:absolute;inset:0;width:40%;border-radius:3px;background:#121418;animation:boot 1s ease-in-out infinite}
+      @keyframes boot{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+      @media (prefers-color-scheme:dark){#boot{background:#0e0f11;color:#eceef1}#boot i{background:#2a2d31}#boot i::after{background:#eceef1}}
+      @media (prefers-reduced-motion:reduce){#boot i::after{animation:none;width:100%}}
+      #boot.done{opacity:0;pointer-events:none}
+    </style>
+    <noscript><style>#boot{display:none}</style></noscript>
   </head>
   <body>
+    <div id="boot" aria-hidden="true"><img src="/favicon.svg" alt="" /><b>마라톤 캘린더</b><i></i></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

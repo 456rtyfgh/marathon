@@ -21,12 +21,25 @@ initAnalytics();
 const path = stripLang(location.pathname).replace(/(.)\/+$/, '$1');
 const legal = path === PRIVACY_PATH ? 'privacy' : null;
 
-const render = (node: ReactNode) =>
+// 첫 로딩 화면(index.html #boot)은 앱이 처음 그려진 뒤 살짝 흐리게 하고 지운다
+const hideBoot = () =>
+  requestAnimationFrame(() => {
+    const b = document.getElementById('boot');
+    if (!b) return;
+    b.classList.add('done');
+    setTimeout(() => b.remove(), 250);
+  });
+
+const render = (node: ReactNode) => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <LangProvider initial={lang}>{node}</LangProvider>
     </StrictMode>,
   );
+  hideBoot();
+};
+// 혹시 앱이 오래 걸리거나 실패해도 8초 뒤에는 로딩 화면을 걷는다
+setTimeout(hideBoot, 8000);
 
 if (legal) import('./legal/LegalPage').then(({ default: LegalPage }) => render(<LegalPage kind={legal} />));
 else render(<App />);
