@@ -642,64 +642,6 @@ function Main() {
           </div>
         </section>
 
-        {/* 요즘 인기: 최근 7일 조회·저장이 많은 대회 */}
-        {hotList.length >= 3 && (
-          <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6" aria-label={t('hot.aria')}>
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-[17px] font-bold">{t('hot.title')}</h2>
-              <button
-                onClick={() => {
-                  // '조회순 전체 보기': 고르지 않은 지역·상태는 기본(국내·접수 중) 대신 전체·모두로 — 위 인기 대회(해외·접수 전 포함)가 목록에서 빠지지 않게
-                  setPicks((p) => ({ scope: p.scope ?? 'all', status: p.status ?? [], sort: 'views' }));
-                  track('filter', { name: 'sort', value: 'views' });
-                  document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-                }}
-                className="-my-3 inline-flex min-h-11 items-center text-[13px] font-semibold whitespace-nowrap text-ink-3 underline underline-offset-4 hover:text-ink"
-              >
-                {t('hot.all')}
-              </button>
-            </div>
-            <ol className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
-              {hotList.map((r, i) => {
-                const st = ratingMap.get(r.id);
-                return (
-                  <li key={r.id} className="w-[11.5rem] shrink-0 sm:w-auto">
-                    <button
-                      onClick={() => openRace(r)}
-                      className="flex h-full w-full flex-col items-start gap-1 rounded-box bg-surface px-4 py-3 text-left transition-colors hover:bg-sunken"
-                    >
-                      <span className="num text-[13px] font-semibold text-ink-3">{t('hot.rank', { n: i + 1 })}</span>
-                      <span className="line-clamp-2 text-[15px] leading-snug font-bold">{raceName(r, lang)}</span>
-                      <span className="text-[13px] text-ink-3">
-                        {fmtDateShort(r.race_date, lang)} ·{' '}
-                        {lang === 'en'
-                          ? isDomestic(r)
-                            ? whereText(r, 'en').split(', ').at(-1)
-                            : countryName(r.country_code, r.country_ko, 'en')
-                          : isDomestic(r)
-                            ? r.city_ko.split(' ')[0]
-                            : r.country_ko}
-                      </span>
-                      <span className="mt-auto pt-1 text-[12px] text-ink-3">
-                        {t('views.pre')}
-                        <span className="num">{shortCount(st?.views ?? 0, lang)}</span>
-                        {t('views.post', { count: st?.views ?? 0 })}
-                        {(st?.saves ?? 0) > 0 && (
-                          <>
-                            {t('saves.sep')}
-                            {t('saves.pre')}
-                            <span className="num">{shortCount(st!.saves!, lang)}</span>
-                            {t('saves.post', { count: st!.saves! })}
-                          </>
-                        )}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        )}
 
         {/* 도구 막대 */}
         <div className="border-y border-line bg-bg sm:sticky sm:top-14 sm:z-20">
@@ -1004,6 +946,64 @@ function Main() {
         </section>
 
         {/* 요청 안내 */}
+        {/* 요즘 인기: 최근 7일 조회·저장이 많은 대회 */}
+        {hotList.length >= 3 && (
+          <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6" aria-label={t('hot.aria')}>
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="text-[17px] font-bold">{t('hot.title')}</h2>
+              <button
+                onClick={() => {
+                  // '조회순 전체 보기': 고르지 않은 지역·상태는 기본(국내·접수 중) 대신 전체·모두로 — 위 인기 대회(해외·접수 전 포함)가 목록에서 빠지지 않게
+                  setPicks((p) => ({ scope: p.scope ?? 'all', status: p.status ?? [], sort: 'views' }));
+                  track('filter', { name: 'sort', value: 'views' });
+                  document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                }}
+                className="-my-3 inline-flex min-h-11 items-center text-[13px] font-semibold whitespace-nowrap text-ink-3 underline underline-offset-4 hover:text-ink"
+              >
+                {t('hot.all')}
+              </button>
+            </div>
+            <ol className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 lg:grid-cols-6">
+              {hotList.map((r, i) => {
+                const st = ratingMap.get(r.id);
+                return (
+                  <li key={r.id} className="w-[11.5rem] shrink-0 sm:w-auto">
+                    <button
+                      onClick={() => openRace(r)}
+                      className="flex h-full w-full flex-col items-start gap-1 rounded-box bg-surface px-4 py-3 text-left transition-colors hover:bg-sunken"
+                    >
+                      <span className="num text-[13px] font-semibold text-ink-3">{t('hot.rank', { n: i + 1 })}</span>
+                      <span className="line-clamp-2 text-[15px] leading-snug font-bold">{raceName(r, lang)}</span>
+                      <span className="text-[13px] text-ink-3">
+                        {fmtDateShort(r.race_date, lang)} ·{' '}
+                        {lang === 'en'
+                          ? isDomestic(r)
+                            ? whereText(r, 'en').split(', ').at(-1)
+                            : countryName(r.country_code, r.country_ko, 'en')
+                          : isDomestic(r)
+                            ? r.city_ko.split(' ')[0]
+                            : r.country_ko}
+                      </span>
+                      <span className="mt-auto pt-1 text-[12px] text-ink-3">
+                        {t('views.pre')}
+                        <span className="num">{shortCount(st?.views ?? 0, lang)}</span>
+                        {t('views.post', { count: st?.views ?? 0 })}
+                        {(st?.saves ?? 0) > 0 && (
+                          <>
+                            {t('saves.sep')}
+                            {t('saves.pre')}
+                            <span className="num">{shortCount(st!.saves!, lang)}</span>
+                            {t('saves.post', { count: st!.saves! })}
+                          </>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        )}
         <section className="border-t border-line">
           <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-12 sm:px-6 md:flex-row md:items-center md:justify-between">
             <div>
