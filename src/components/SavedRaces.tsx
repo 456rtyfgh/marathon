@@ -93,7 +93,7 @@ export default function SavedRaces() {
             <button
               type="button"
               onClick={() => document.getElementById('me-feed')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-              className="inline-flex h-11 items-center gap-2 rounded-ctl bg-sunken px-3 text-[15px] font-semibold text-ink transition hover:bg-line active:translate-y-px sm:h-9"
+              className="inline-flex min-h-11 items-center gap-2 rounded-ctl bg-sunken px-3 py-2 text-left text-[15px] leading-snug font-semibold text-ink transition hover:bg-line active:translate-y-px sm:min-h-9"
             >
               <ArrowDown size={16} weight="bold" aria-hidden />
               {t('me.saved.toFeed')}
@@ -146,7 +146,8 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
       <dd className="num mt-1 text-[17px] leading-7 font-semibold text-ink">{value}</dd>
       {hint && (
         <dd className="mt-1">
-          <span className={`${TAG} bg-accent text-on-accent`}>{hint}</span>
+          {/* 반 칸 너비라 영어('2 closing within 7 days')는 좁은 휴대폰에서 넘친다 — 한 줄 고정(TAG) 대신 줄바꿈 허용 */}
+          <span className="inline-block rounded-tag bg-accent px-1.5 py-0.5 text-[12px] leading-4 font-bold text-on-accent">{hint}</span>
         </dd>
       )}
     </div>

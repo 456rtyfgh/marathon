@@ -152,7 +152,8 @@ for w in 1280 390; do
       after=$("${AB[@]}" eval "$FAVN")
       "${AB[@]}" press Escape >/dev/null
       "${AB[@]}" wait 400 >/dev/null
-      favBtn=$("${AB[@]}" eval '(() => { const b = [...document.querySelectorAll("main button[aria-pressed]")].find((x) => x.querySelector(".sr-only")?.textContent && x.querySelector(".num")); return b ? b.querySelector(".num").textContent : null; })()')
+      # 목록 위 '관심 대회만 보기'(fav.only) 버튼의 숫자 — 다른 aria-pressed 칩(나라 등)과 헷갈리지 않게 sr-only 글자로 찾는다
+      favBtn=$("${AB[@]}" eval '(() => { const b = [...document.querySelectorAll("button[aria-pressed]")].find((x) => x.querySelector(".sr-only")?.textContent === "관심 대회만 보기"); return b ? b.querySelector(".num")?.textContent ?? null : null; })()')
       echo "check unsave favorites $before -> $after, list fav chip=$favBtn" >> "$LOG"
     fi
   done
