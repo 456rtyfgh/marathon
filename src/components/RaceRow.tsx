@@ -73,7 +73,8 @@ function RaceRow({
     <li style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 104px' }}>
       <button
         onClick={() => onOpen(race)}
-        className="group grid w-full grid-cols-[4rem_1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-4 text-left transition-colors hover:bg-surface sm:grid-cols-[5rem_1fr_auto_7.5rem_1.25rem] sm:gap-x-6"
+        // 휴대폰 칸 사이 12px: 오른쪽 칸 글자를 13px 로 키운 만큼 대회명 칸이 좁아지지 않게 (sm 부터는 그대로 24px)
+        className="group grid w-full grid-cols-[4rem_1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-4 text-left transition-colors hover:bg-surface sm:grid-cols-[5rem_1fr_auto_7.5rem_1.25rem] sm:gap-x-6"
       >
         {/* 대회 날짜 (취소는 흐린 글자색으로 — 투명도는 대비가 모자람) */}
         <div className="flex flex-col items-start leading-none">
