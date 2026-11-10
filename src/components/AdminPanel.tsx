@@ -10,6 +10,14 @@ import {
 import { entryStatusByDate, fmtDate, safeUrl, STATUS_LABEL, todayISO } from '../lib/util';
 import GaSection from './GaSection';
 import AdminCommunity from '../community/AdminCommunity';
+import AdminSortBar from './AdminSortBar';
+import {
+  sortRaces, raceOptionLabel, sortRequests, mergeStatRows, RACE_SORT_LABEL, RACE_SORT_DESC, REQUEST_SORT_LABEL, REQUEST_SORT_DESC,
+  type RaceSort, type RequestSort,
+} from '../lib/adminSort';
+
+const RACE_SORTS = (Object.keys(RACE_SORT_LABEL) as RaceSort[]).map((k) => [k, RACE_SORT_LABEL[k]] as [RaceSort, string]);
+const REQUEST_SORTS = (Object.keys(REQUEST_SORT_LABEL) as RequestSort[]).map((k) => [k, REQUEST_SORT_LABEL[k]] as [RequestSort, string]);
 
 const EMPTY: Race = {
   id: '',
@@ -119,6 +127,8 @@ function RaceForm({ races, hasFull, fullErr, onSaved }: { races: Race[]; hasFull
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
+  const [sort, setSort] = useState<RaceSort>('date');
+  const groups = sortRaces(races, sort, todayISO());
 
   const pick = (id: string) => {
     setEditingId(id);
@@ -178,18 +188,17 @@ function RaceForm({ races, hasFull, fullErr, onSaved }: { races: Race[]; hasFull
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      <label className="block">
-        <span className="mb-1.5 block text-[13px] font-semibold text-ink-2">고칠 대회 고르기</span>
+      <div className="space-y-2">
+        <label htmlFor="admin-race-pick" className="block text-[13px] font-semibold text-ink-2">
+          고칠 대회 고르기
+        </label>
+        <AdminSortBar label="대회 고르기" value={sort} onChange={setSort} options={RACE_SORTS} desc={RACE_SORT_DESC[sort]} count={races.length} />
         {/* 전체 필드가 오기 전엔 고르지 못하게 (목록 값으로 폼을 채우지 않게) */}
-        <select value={editingId} onChange={(e) => pick(e.target.value)} disabled={!hasFull} className={inputCls}>
+        <select id="admin-race-pick" value={editingId} onChange={(e) => pick(e.target.value)} disabled={!hasFull} className={inputCls}>
           <option value="">+ 새 대회 등록</option>
-          {races.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name_ko} ({r.id})
-            </option>
-          ))}
+          <RaceOptions groups={groups} />
         </select>
-      </label>
+      </div>
 
       <Group title="기본 정보">
         <Text label="대회 ID *" hint="영문 소문자·하이픈. 등록 후 바꾸지 마세요" value={f.id} onChange={(v) => set('id', v)} disabled={!!editingId} />
@@ -306,6 +315,7 @@ function SoldOutReports({ races, onSaved }: { races: Race[]; onSaved: () => void
   const [busy, setBusy] = useState<string | null>(null);
   /** 저장 직후 races 가 새로 오기 전까지 화면에 바로 보여 줄 값 */
   const [local, setLocal] = useState<Record<string, string | null>>({});
+  const [sort, setSort] = useState<RequestSort>('status');
 
   const load = async () => {
     try {
@@ -335,7 +345,11 @@ function SoldOutReports({ races, onSaved }: { races: Race[]; onSaved: () => void
     if (q.created_at > g.latest) g.latest = q.created_at;
     map.set(id, g);
   }
-  const groups = [...map.values()].sort((a, b) => Number(b.pending > 0) - Number(a.pending > 0) || b.latest.localeCompare(a.latest));
+  // 상태별 = 확인 전 묶음 먼저, 그 안에서 마지막 제보 최신순 / 최신순 = 마지막 제보 최신순만
+  const groups = sortRequests(
+    [...map.values()].map((g) => ({ g, id: g.raceId, status: g.pending ? 'pending' : 'added', created_at: g.latest })),
+    sort,
+  ).map((x) => x.g);
 
   async function act(g: ReportGroup, kind: 'soldout' | 'undo' | 'reject' | 'already') {
     if (!g.race) return;
@@ -373,6 +387,9 @@ function SoldOutReports({ races, onSaved }: { races: Race[]; onSaved: () => void
         들어가고, 되돌리면 지워집니다.
       </p>
       {err && <Note tone="error">{err}</Note>}
+      {groups.length > 0 && (
+        <AdminSortBar label="마감 제보" value={sort} onChange={setSort} options={REQUEST_SORTS} desc={REQUEST_SORT_DESC[sort]} count={groups.length} />
+      )}
       {groups.length === 0 ? (
         <p className="text-[15px] text-ink-3">들어온 제보가 없습니다.</p>
       ) : (
@@ -510,7 +527,15 @@ function ExtForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
       </p>
 
       <Group title="후기 정보">
-        <Select label="대회 *" value={raceId} onChange={setRaceId} options={[['', '선택하세요'], ...races.map((r) => [r.id, r.name_ko] as [string, string])]} />
+        <label className="block">
+          <span className="mb-1.5 block text-[13px] font-semibold text-ink-2">
+            대회 * <span className="ml-1.5 font-normal text-ink-3">{RACE_SORT_DESC.date}</span>
+          </span>
+          <select value={raceId} onChange={(e) => setRaceId(e.target.value)} className={inputCls}>
+            <option value="">선택하세요</option>
+            <RaceOptions groups={sortRaces(races, 'date', todayISO())} />
+          </select>
+        </label>
         <Select label="종류" value={kind} onChange={(v) => setKind(v as ExternalKind)} options={(Object.keys(KIND_LABEL) as ExternalKind[]).map((k) => [k, KIND_LABEL[k]])} />
         <Text label="제목 *" value={title} onChange={setTitle} wide placeholder="글 제목을 그대로" />
         <Text label="링크 *" value={url} onChange={setUrl} wide placeholder="https://" />
@@ -531,6 +556,28 @@ function ExtForm({ races, onSaved }: { races: Race[]; onSaved: () => void }) {
 }
 
 /* ── 폼 유틸 ───────────────────────────────────────────── */
+
+/** 대회 고르기 항목: 날짜순이면 '다가오는 대회'·'지난 대회' 묶음, 한 줄은 날짜·이름·도시·id (이름이 같은 대회도 구분) */
+function RaceOptions({ groups }: { groups: ReturnType<typeof sortRaces> }) {
+  return (
+    <>
+      {groups.map((g) => {
+        const opts = g.races.map((r) => (
+          <option key={r.id} value={r.id}>
+            {raceOptionLabel(r)}
+          </option>
+        ));
+        return g.label ? (
+          <optgroup key={g.label} label={g.label}>
+            {opts}
+          </optgroup>
+        ) : (
+          opts
+        );
+      })}
+    </>
+  );
+}
 
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
@@ -677,15 +724,16 @@ function Stats({ races }: { races: Race[] }) {
   useEffect(() => {
     setRows(null);
     adminStats(days)
-      .then(setRows)
+      .then((r) => setRows(mergeStatRows(r)))
       .catch((e) => setErr(e instanceof Error ? e.message : String(e)));
   }, [days]);
 
   if (err) return <Note tone="error">{err}</Note>;
   const name = new Map(races.map((r) => [r.id, r.name_ko]));
   const total = (ev: string) => (rows ?? []).filter((r) => r.event === ev).reduce((a, r) => a + r.n, 0);
+  // 많은 순, 같으면 이름순 (매번 같은 순서)
   const top = (ev: string, limit = 12) =>
-    (rows ?? []).filter((r) => r.event === ev && r.key).sort((a, b) => b.n - a.n).slice(0, limit);
+    (rows ?? []).filter((r) => r.event === ev && r.key).sort((a, b) => b.n - a.n || a.key.localeCompare(b.key)).slice(0, limit);
   const daily = (rows ?? []).filter((r) => r.event === 'day:visit').sort((a, b) => a.key.localeCompare(b.key));
   const maxDay = Math.max(1, ...daily.map((d) => d.n));
   const label = (ev: string, k: string) =>
@@ -759,15 +807,23 @@ function Stats({ races }: { races: Race[] }) {
               const list = top(ev);
               if (!list.length) return null;
               const max = list[0].n;
+              // 다른 대회인데 이름이 같으면(예: 트윈시티 마라톤 2개) 같은 항목이 두 번 보이는 것처럼 읽힌다 → id 를 붙인다
+              const seen = new Map<string, number>();
+              for (const r of list) seen.set(label(ev, r.key), (seen.get(label(ev, r.key)) ?? 0) + 1);
               return (
                 <section key={ev}>
-                  <h3 className="mb-2 text-[15px] font-bold">{EVENT_LABEL[ev]}</h3>
+                  <h3 className="mb-2 text-[15px] font-bold">
+                    {EVENT_LABEL[ev]} <span className="text-[13px] font-normal text-ink-3">많은 순</span>
+                  </h3>
                   <ol className="space-y-1">
                     {list.map((r) => (
                       <li key={r.key} className="relative overflow-hidden rounded-ctl bg-surface px-3 py-1.5 text-[14px]">
                         <span className="absolute inset-y-0 left-0 bg-sunken" style={{ width: `${(r.n / max) * 100}%` }} />
                         <span className="relative flex justify-between gap-3">
-                          <span className="truncate">{label(ev, r.key)}</span>
+                          <span className="truncate">
+                            {label(ev, r.key)}
+                            {(seen.get(label(ev, r.key)) ?? 0) > 1 && <span className="ml-1.5 text-[13px] text-ink-3">{r.key}</span>}
+                          </span>
                           <span className="num text-[15px] font-semibold">{r.n.toLocaleString()}</span>
                         </span>
                       </li>
