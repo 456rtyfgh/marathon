@@ -269,10 +269,26 @@ export function Tabs<T extends string>({
   onChange: (v: T) => void;
   items: [T, ReactNode][];
 }) {
+  const listRef = useRef<HTMLDivElement>(null);
+  // 고른 탭이 가로로 잘려 있거나 줄 밖에 있으면 보이게 줄을 민다. 탭을 직접 누를 때뿐 아니라 다른 버튼이 탭을 바꿀 때도
+  // (대회 상세 아래 고정 줄의 '알림' — 영어 360px 에서는 Alerts 탭이 줄 밖이라 고른 탭이 하나도 안 보였다).
+  // 줄의 scrollLeft 만 고친다 — scrollIntoView 는 패널의 세로 스크롤까지 건드릴 수 있다
+  useEffect(() => {
+    const list = listRef.current;
+    const tab = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!list || !tab) return;
+    const box = list.getBoundingClientRect();
+    const r = tab.getBoundingClientRect();
+    const pad = 12; // 줄 양옆 여백(px-3)만큼 띄운다
+    if (r.left < box.left + pad) list.scrollLeft -= box.left + pad - r.left;
+    else if (r.right > box.right - pad) list.scrollLeft += r.right - (box.right - pad);
+  }, [value]);
+
   return (
     // 휴대폰: 탭마다 가로 44px 이상(글자 양옆 8px), 넘치면 가로로 밀어 본다 — 오른쪽 끝에서 잘려 보이는 탭이 '더 있음' 표시.
     // 아래 선은 테두리 대신 안쪽 그림자로 그린다(세로로 1px 넘쳐 스크롤 상자가 되지 않게). 640px 부터는 예전 간격 그대로
     <div
+      ref={listRef}
       role="tablist"
       className="flex gap-1 overflow-x-auto px-3 shadow-[inset_0_-1px_0_var(--line)] [scrollbar-width:none] sm:gap-5 sm:px-7"
     >
@@ -283,7 +299,7 @@ export function Tabs<T extends string>({
           aria-selected={value === id}
           onClick={(e) => {
             onChange(id);
-            // 잘려 있던 탭을 누르면 다 보이게 (세로 위치는 그대로)
+            // 이미 고른 탭이 잘려 있을 때 누르면 다 보이게 (고른 탭이 바뀌는 경우는 위 효과가 민다)
             e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' });
           }}
           className={`h-12 min-w-11 shrink-0 border-b-2 px-2 text-[15px] font-semibold whitespace-nowrap transition sm:min-w-0 sm:px-0 ${
