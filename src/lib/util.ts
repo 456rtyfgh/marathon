@@ -1,8 +1,8 @@
-import type { Race, CostBaseline } from './types';
-import { FX } from './seed';
-import type { Lang } from '../i18n/lang';
-import { translate } from '../i18n/t';
-import { fmtDate as fmtDateLang, fmtKrw, fmtKrwExact, fmtMoney, fmtMonthDay, fmtWeekday, monthShortEn } from '../i18n/format';
+import type { Race, CostBaseline } from './types.ts';
+import { FX } from './seed.ts';
+import type { Lang } from '../i18n/lang.ts';
+import { translate } from '../i18n/t.ts';
+import { fmtDate as fmtDateLang, fmtKrw, fmtKrwExact, fmtMoney, fmtMonthDay, fmtWeekday, monthShortEn } from '../i18n/format.ts';
 
 /** 한국 시간 기준 오늘 (UTC 자정으로 표현) */
 export const TODAY = () => new Date(new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10) + 'T00:00:00Z');
