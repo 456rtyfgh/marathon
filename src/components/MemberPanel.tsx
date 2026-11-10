@@ -15,6 +15,7 @@ import {
   type RecordSummary,
 } from '../lib/member';
 import { Button, Note } from './ui';
+import { PushSection } from './PushToggle';
 
 const feedKey = (uid: string) => `marathon-cal:feed:${uid}`;
 const readFeed = (uid: string) => {
@@ -39,7 +40,7 @@ const linkBtn =
   'inline-flex h-11 items-center gap-2 rounded-ctl bg-sunken px-3 text-[15px] font-semibold whitespace-nowrap text-ink transition hover:bg-line active:translate-y-px sm:h-9';
 
 /**
- * '내 정보' 안 회원 기능 세 구역: 내 기록 요약 · 내 일정 구독 주소 · 저장한 대회 알림.
+ * '내 정보' 안 회원 기능 네 구역: 내 기록 요약 · 내 일정 구독 주소 · 저장한 대회 알림 · 휴대폰 알림(PushToggle).
  * DB 준비 전(0013 실행 전)이면 세 구역 대신 '곧 열립니다' 한 줄.
  */
 export default function MemberPanel() {
@@ -63,6 +64,7 @@ export default function MemberPanel() {
       <RecordsSection onError={onError} />
       <FeedSection uid={uid} onError={onError} />
       <AlertsSection email={session.user.email ?? ''} onError={onError} />
+      <PushSection className={section} />
     </>
   );
 }
