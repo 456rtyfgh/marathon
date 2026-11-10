@@ -7,7 +7,9 @@
 //   node .shots-tools/mobile-a-serve.mjs unlock      dist 를 다 쓴 뒤 잠금 풀기
 //   node .shots-tools/mobile-a-serve.mjs basebuild   기준 폴더 빌드
 //   node .shots-tools/mobile-a-serve.mjs basedist    기준 폴더 dist 를 wrangler pages dev 8781 로
-// dev·basedev·dist·basedist 는 앞에서 돈다 — 백그라운드로 띄우고, 끝나면 lsof -ti:<포트> | xargs kill
+// dev·basedev·dist·basedist 는 앞에서 돈다 — 백그라운드로 띄우고, 끝나면 끈다:
+//   개발 서버: lsof -ti:5301 | xargs kill  (기준은 5311)
+//   빌드 결과 서버: pkill -f "pages dev dist --port 8791"  (기준은 8781) — 포트만 죽이면 wrangler 가 workerd 를 다시 띄워 살아남는다
 // 주의
 //  - 실제 DB 에 붙이지 않는다. VITE_SUPABASE_URL 은 개발 서버 자기 주소의 가짜 경로(/__sb)이고,
 //    통계 응답은 브라우저 쪽(mobile-a-init.js)에서 가짜로 돌려준다. 그 밖의 요청은 404 로 끝난다.
