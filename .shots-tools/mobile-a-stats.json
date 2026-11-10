@@ -1,0 +1,14 @@
+[
+  { "race_id": "tokyo", "avg_rating": 4.8, "review_count": 12, "views": 5234, "saves": 412, "hot": 90 },
+  { "race_id": "seoul-marathon", "avg_rating": 4.6, "review_count": 8, "views": 4120, "saves": 366, "hot": 80 },
+  { "race_id": "nobeyama-ultra", "avg_rating": 0, "review_count": 0, "views": 1890, "saves": 0, "hot": 70 },
+  { "race_id": "boston", "avg_rating": 4.9, "review_count": 3, "views": 2750, "saves": 198, "hot": 60 },
+  { "race_id": "hangang-bridge-run", "avg_rating": 4.2, "review_count": 5, "views": 1234, "saves": 56, "hot": 50 },
+  { "race_id": "hzmb-half-marathon", "avg_rating": 0, "review_count": 0, "views": 980, "saves": 21, "hot": 40 },
+  { "race_id": "london", "avg_rating": 4.7, "review_count": 2, "views": 2210, "saves": 143, "hot": 30 },
+  { "race_id": "yeosu-expo-night-run", "avg_rating": 0, "review_count": 0, "views": 312, "saves": 9, "hot": 0 },
+  { "race_id": "daejeon-seogu", "avg_rating": 3.9, "review_count": 1, "views": 87, "saves": 0, "hot": 0 },
+  { "race_id": "daemosan-guryongsan-trail", "avg_rating": 0, "review_count": 0, "views": 45, "saves": 3, "hot": 0 },
+  { "race_id": "cheonan-independence-trail", "avg_rating": 4.4, "review_count": 22, "views": 15230, "saves": 1204, "hot": 0 },
+  { "race_id": "namhae-autumn-trail", "avg_rating": 0, "review_count": 0, "views": 7, "saves": 0, "hot": 0 }
+]
