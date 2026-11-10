@@ -39,7 +39,8 @@ function enCurrency(n: number, currency: string): string {
 /** 원화 어림값: ko '4만원'·'9,000원' (지금 util.krw), en 1만 원 이상은 천 원 단위로 반올림한 '₩46,000' */
 export function fmtKrw(n: number, lang: Lang): string {
   if (lang === 'en') return enCurrency(n >= 10000 ? Math.round(n / 1000) * 1000 : Math.round(n), 'KRW');
-  if (n >= 10000) return `${Math.round(n / 10000).toLocaleString('ko-KR')}만원`;
+  // 6만 5천원을 7만원으로 올려 보이지 않게 천원 단위까지(6.5만원)
+  if (n >= 10000) return `${(Math.round(n / 1000) / 10).toLocaleString('ko-KR', { maximumFractionDigits: 1 })}만원`;
   return `${n.toLocaleString('ko-KR')}원`;
 }
 
