@@ -1219,17 +1219,14 @@ function MobileListBar({
   useEffect(() => {
     const el = watch.current;
     if (!el || typeof IntersectionObserver === 'undefined') return;
-    // 위쪽 56px 은 머리말에 가린 자리. 줄이 그 위로 다 올라갔을 때(아래쪽에 있을 때는 아님)만 켠다.
-    // 알림은 '보임 ↔ 안 보임'이 바뀌는 순간 한 번만 온다 — 그때 줄은 머리말 바로 뒤(top 이 0~12px)에 있으므로
-    // 'top < 0' 으로 보면 천천히 내릴 때 끝내 켜지지 않는다. 머리말 아래 선(56px)보다 위인지로 본다
+    // 위쪽 56px 은 머리말에 가린 자리. 줄이 그 위로 다 올라갔을 때만 켠다.
+    // 보는 범위를 아래로 넉넉히 늘려, 줄이 화면 아래에 있을 때도 '보임'으로 친다 → '안 보임' = 머리말 아래 선보다 위, 하나뿐이다.
+    // (화면 높이까지만 보면, 낮은 화면에서는 줄이 처음부터 화면 아래라 한 번에 뛰어 내려갈 때 — 줄인 움직임 설정에서 현황판·검색이
+    //  목록으로 보낼 때 — '안 보임 → 안 보임'이라 알림이 오지 않아 끝내 켜지지 않는다. 맨 위로 뛸 때는 반대로 안 꺼진다)
     // 알림이 밀려 한꺼번에 여러 개 오면 마지막 것이 지금 상태다 (첫 것을 쓰면 옛 상태로 굳는다)
-    const io = new IntersectionObserver(
-      (entries) => {
-        const e = entries[entries.length - 1];
-        setShown(!e.isIntersecting && e.boundingClientRect.top < HEADER_H);
-      },
-      { rootMargin: `-${HEADER_H}px 0px 0px 0px` },
-    );
+    const io = new IntersectionObserver((entries) => setShown(!entries[entries.length - 1].isIntersecting), {
+      rootMargin: `-${HEADER_H}px 0px 9999px 0px`,
+    });
     io.observe(el);
     return () => io.disconnect();
   }, [watch]);

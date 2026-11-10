@@ -184,8 +184,11 @@ export function MobileMenu({ groups, className = '' }: { groups: MenuItem[][]; c
           if (!e.currentTarget.open) close();
         }}
         onClick={(e) => {
-          // 뒤 막(::backdrop) 누르면 닫기
-          if (e.target === e.currentTarget) close();
+          // 뒤 막(::backdrop) 누르면 닫기. 시트 자기 여백(아래 안전 영역 — home.css 의 padding-bottom)을 눌러도 target 은 dialog 라
+          // 눌린 자리가 시트 밖일 때만 닫는다 (안 가리면 '로그인' 아래 빈 자리를 스친 손가락에 메뉴가 닫힌다)
+          if (e.target !== e.currentTarget) return;
+          const r = e.currentTarget.getBoundingClientRect();
+          if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) close();
         }}
         onKeyDown={trapTab}
       >
