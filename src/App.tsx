@@ -444,6 +444,23 @@ function Main() {
     () => (status.length ? upcomingRaces.filter((r) => matchesAnyStatus(r, info.get(r)!.status, status, today)) : upcomingRaces),
     [upcomingRaces, info, status, today],
   );
+  // 지도·지역 칩으로 곳을 고르면 지금 보이는 범위도 고른 값으로 굳힌다. 안 그러면 기본 '국내' 지도에서 서울을 고른 뒤 검색할 때
+  // 범위만 '전체'로 풀리고 서울 선택은 남아(탭은 전체인데 목록은 서울만), 검색 중 해외 나라를 고르고 검색어를 지우면 '국내'로 돌아가 0개가 된다
+  const pinScope = useCallback(() => setPicks((p) => (p.scope ? p : { ...p, scope })), [scope]);
+  const onMapRegions = useCallback(
+    (v: Region[]) => {
+      setRegions(v);
+      pinScope();
+    },
+    [pinScope],
+  );
+  const onMapPlaces = useCallback(
+    (v: string[]) => {
+      setPlaces(v);
+      pinScope();
+    },
+    [pinScope],
+  );
   // 지도는 넘기는 값이 바뀔 때만 다시 그린다 (검색 입력·☆·상세 열기로 path 수백 개를 다시 그리지 않게)
   const mapSection = useMemo(
     () => (
@@ -451,13 +468,13 @@ function Main() {
         scope={scope}
         races={mapRaces}
         regions={regions}
-        onRegions={setRegions}
+        onRegions={onMapRegions}
         places={places}
-        onPlaces={setPlaces}
+        onPlaces={onMapPlaces}
         onScope={setScope}
       />
     ),
-    [scope, mapRaces, regions, places, setScope],
+    [scope, mapRaces, regions, places, setScope, onMapRegions, onMapPlaces],
   );
 
   const openRequest = (from: string) => {
