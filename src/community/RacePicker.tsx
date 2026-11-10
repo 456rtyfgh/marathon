@@ -62,7 +62,8 @@ export default function RacePicker({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={placeholder ?? s.raceSearch}
-          aria-controls={listId}
+          // 목록은 검색어가 있을 때만 그려진다 — 없는 id 를 가리키지 않게(접근성 검사: aria-controls 값이 유효해야 한다)
+          aria-controls={q.trim() ? listId : undefined}
           className={`${inputCls} pl-9`}
         />
       </label>
