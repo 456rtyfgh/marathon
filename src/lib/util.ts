@@ -2,7 +2,9 @@ import type { Race, CostBaseline } from './types';
 import { FX } from './seed';
 import type { Lang } from '../i18n/lang';
 import { translate } from '../i18n/t';
-import { fmtDate as fmtDateLang, fmtKrw, fmtKrwExact, fmtMoney, fmtMonthDay, fmtWeekday, monthShortEn } from '../i18n/format';
+import { fmtKrw, fmtKrwExact, fmtMoney } from '../i18n/format';
+import { fmtDateLong, fmtDateRange, fmtDateShort as fmtDateShortLang, fmtWeekday, monthShortEn } from './dateFormat';
+export { fmtDateRange, fmtDateShortWd } from './dateFormat';
 
 /** 한국 시간 기준 오늘 (UTC 자정으로 표현) */
 export const TODAY = () => new Date(new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10) + 'T00:00:00Z');
@@ -42,22 +44,20 @@ export function isEntryConfirmed(race: Pick<Race, 'entry_confidence'>): boolean 
   return race.entry_confidence !== 'expected' && race.entry_confidence !== 'tbc';
 }
 
-/** 'YYYY-MM-DD' → '11/10' (앞 0 없음) · en 'Nov 10' */
+/** 'YYYY-MM-DD' → 좁은 칸 날짜 '26.11.10' · en 'Nov 10, 2026' (늘 연도 포함, src/lib/dateFormat.ts) */
 export function monthDay(iso: string, lang: Lang = 'ko'): string {
-  if (lang === 'en') return fmtMonthDay(iso, 'en');
-  const d = new Date(iso + 'T00:00:00Z');
-  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+  return fmtDateShortLang(iso, lang);
 }
 
 /**
- * 확정 안 된 접수 일정의 작은 안내 글: '예상 11/10~11/15' / '예상 11/10' / null.
+ * 확정 안 된 접수 일정의 작은 안내 글: '예상 26.11.10~11.15' / '예상 26.11.10' / null (en 'Expected Nov 10–15, 2026').
  * 확정·취소·조기 마감·이미 끝난 대회, 접수일이 둘 다 없는 대회는 null.
  */
 export function expectedEntryText(race: Race, today = TODAY(), lang: Lang = 'ko'): string | null {
   if (isEntryConfirmed(race) || isCancelled(race) || isSoldOut(race, today)) return null;
   if (daysBetween(today, race.race_date) < 0) return null;
   const { entry_opens: o, entry_closes: c } = race;
-  if (o && c && o !== c) return translate(lang, 'st.expectedRange', { a: monthDay(o, lang), b: monthDay(c, lang) });
+  if (o && c && o !== c) return translate(lang, 'st.expectedRange', { r: fmtDateRange(o, c, lang) });
   const one = o ?? c;
   return one ? translate(lang, 'st.expectedOne', { a: monthDay(one, lang) }) : null;
 }
@@ -151,7 +151,7 @@ export function dateParts(iso: string, lang: Lang = 'ko') {
     y: d.getUTCFullYear(),
     m: d.getUTCMonth() + 1,
     d: d.getUTCDate(),
-    w: lang === 'en' ? fmtWeekday(iso, 'en') : WEEKDAY[d.getUTCDay()],
+    w: fmtWeekday(iso, lang),
     mon: monthShortEn(iso),
   };
 }
@@ -214,16 +214,14 @@ export function elevationLabel(race: Race, lang: Lang = 'ko'): string | null {
     : null;
 }
 
-/** '2027년 2월 28일 (일)' · en 'Sun, Feb 28, 2027' */
+/** '2027년 2월 28일(일)' · en 'Sun, Feb 28, 2027' (src/lib/dateFormat.ts) */
 export function fmtDate(iso: string, lang: Lang = 'ko'): string {
-  if (lang === 'en') return `${fmtWeekday(iso, 'en')}, ${fmtDateLang(iso, 'en')}`;
-  const d = new Date(iso + 'T00:00:00Z');
-  return `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 (${WEEKDAY[d.getUTCDay()]})`;
+  return fmtDateLong(iso, lang);
 }
 
-export function fmtDateShort(iso: string): string {
-  const d = new Date(iso + 'T00:00:00Z');
-  return `${d.getUTCFullYear()}.${String(d.getUTCMonth() + 1).padStart(2, '0')}.${String(d.getUTCDate()).padStart(2, '0')}`;
+/** 좁은 칸 날짜 '27.2.28' · en 'Feb 28, 2027' (src/lib/dateFormat.ts) */
+export function fmtDateShort(iso: string, lang: Lang = 'ko'): string {
+  return fmtDateShortLang(iso, lang);
 }
 
 /** 공식 홈페이지를 아직 확인하지 못해 검색 링크를 넣어 둔 경우 */
