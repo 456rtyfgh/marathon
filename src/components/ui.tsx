@@ -36,9 +36,14 @@ export function Panel({
       className={variant}
       aria-label={label}
       tabIndex={-1}
-      onClose={onClose}
+      // React 는 close·cancel 을 컴포넌트 트리로 올려 보낸다 — 창 안에 연 창(내 정보 > 지난 대회 등록)을 닫을 때 바깥 창까지 닫히지 않게 막는다
+      onClose={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
       onCancel={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         onClose();
       }}
       onClick={(e) => {
