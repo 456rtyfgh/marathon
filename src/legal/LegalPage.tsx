@@ -30,7 +30,9 @@ const BODY =
   // 본문 링크: 긴 이메일·주소는 칸 안에서 끊는다
   '[&_:is(p,li,td)_a]:text-ink [&_:is(p,li,td)_a]:underline [&_:is(p,li,td)_a]:decoration-ink-3 [&_:is(p,li,td)_a]:underline-offset-[3px] ' +
   '[&_:is(p,li,td)_a]:[overflow-wrap:anywhere] hover:[&_:is(p,li,td)_a]:decoration-ink ' +
-  '[&_table]:mt-4 [&_table]:w-full [&_table]:border-collapse [&_table]:text-[14px] [&_table]:leading-relaxed ' +
+  // 휴대폰: 문장 속 링크의 눌리는 높이 44px 이상(인라인 위아래 여백은 줄 간격을 밀지 않는다)
+  'max-sm:[&_:is(p,li,td)_a]:py-3.5 ' +
+  '[&_table]:mt-4 [&_table]:w-full [&_table]:border-collapse [&_table]:text-[15px] sm:[&_table]:text-[14px] [&_table]:leading-relaxed ' +
   '[&_th]:border [&_th]:border-line [&_th]:bg-sunken [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:align-top [&_th]:font-semibold [&_th]:text-ink ' +
   '[&_th[scope=row]]:w-[30%] sm:[&_th[scope=row]]:w-40 ' +
   '[&_td]:border [&_td]:border-line [&_td]:bg-surface [&_td]:px-3 [&_td]:py-2.5 [&_td]:align-top [&_td]:break-words ' +
@@ -242,7 +244,7 @@ export default function LegalPage({ kind }: { kind: LegalKind }) {
       </div>
 
       <footer className="border-t border-line">
-        <div className={`${WRAP} flex flex-col py-6 text-[14px] text-ink-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:py-8`}>
+        <div className={`${WRAP} flex flex-col py-6 text-[15px] text-ink-3 sm:flex-row sm:text-[14px] sm:flex-wrap sm:items-center sm:gap-x-6 sm:py-8`}>
           <span className="flex flex-wrap items-center gap-x-1.5">
             {pick(LEGAL.contact, lang)}
             <a

@@ -69,7 +69,9 @@ function Row({ c, ctx, canReply = false }: { c: CommentItem; ctx: Ctx; canReply?
   if (c.state !== 'visible')
     return <p className="text-[15px] text-ink-3">{c.state === 'deleted' ? s.commentGone : s.commentHidden}</p>;
 
-  const link = 'inline-flex min-h-11 items-center text-[13px] font-semibold text-ink-3 underline-offset-4 hover:text-ink hover:underline sm:min-h-8';
+  // 휴대폰: 눌리는 칸 44×44 이상(글자는 왼쪽 정렬), 글자 15px. 640px 부터 예전 크기
+  const link =
+    'inline-flex min-h-11 min-w-11 items-center text-[15px] font-semibold text-ink-3 underline-offset-4 hover:text-ink hover:underline sm:min-h-8 sm:min-w-0 sm:text-[13px]';
   return (
     <div>
       <div className="flex flex-wrap items-baseline gap-x-2">
@@ -83,7 +85,7 @@ function Row({ c, ctx, canReply = false }: { c: CommentItem; ctx: Ctx; canReply?
       ) : (
         <p className="mt-1 max-w-[62ch] text-[15px] leading-relaxed whitespace-pre-wrap text-ink-2 [overflow-wrap:anywhere]">{c.body}</p>
       )}
-      <div className="-mb-2 flex flex-wrap gap-x-4">
+      <div className="-mb-2 flex flex-wrap gap-x-2 sm:gap-x-4">
         {canReply && ctx.open && (
           <button type="button" className={link} aria-expanded={mode === 'reply'} onClick={() => toggle('reply')}>
             {s.cReply}

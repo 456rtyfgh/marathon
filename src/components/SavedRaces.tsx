@@ -54,14 +54,14 @@ export default function SavedRaces() {
       {/* 안내는 목록 위에 — 목록이 길면 아래 것은 안 보인다 */}
       {!bridge.loading && !bridge.loggedIn && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-box bg-sunken px-4 py-3">
-          <p className="min-w-0 flex-1 basis-48 text-[13px] leading-relaxed text-ink-2">{t('me.saved.guest')}</p>
+          <p className="min-w-0 flex-1 basis-48 text-[15px] sm:text-[13px] leading-relaxed text-ink-2">{t('me.saved.guest')}</p>
           <Button size="sm" onClick={bridge.onLogin}>
             {t('auth.login')}
           </Button>
         </div>
       )}
       {!bridge.loading && bridge.loggedIn && !bridge.favSynced && items.length > 0 && (
-        <p className="text-[13px] leading-relaxed text-ink-3">{t('me.saved.local')}</p>
+        <p className="text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('me.saved.local')}</p>
       )}
 
       {bridge.loading ? (
@@ -71,7 +71,7 @@ export default function SavedRaces() {
       ) : items.length === 0 ? (
         <div className="rounded-box border border-dashed border-line px-4 py-4">
           <p className="text-[15px] font-semibold text-ink">{t('me.saved.emptyTitle')}</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-ink-2">
+          <p className="mt-1 text-[15px] sm:text-[13px] leading-relaxed text-ink-2">
             <BookmarkSimple size={14} weight="bold" className="mr-1 inline-block align-[-2px]" aria-hidden />
             {t('me.saved.emptyHow', { btn: t('detail.save') })}
           </p>
