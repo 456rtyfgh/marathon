@@ -38,6 +38,8 @@ export function useFavorites() {
   // 계정과 맞춘 목록. 지금 로그인한 회원 것일 때만 쓴다(아니면 = 비회원·준비 전·실패 → 브라우저 목록)
   const [remote, setRemote] = useState<{ uid: string; ids: string[] } | null>(null);
   const synced = uid && remote?.uid === uid ? remote.ids : null;
+  // 계정과 맞추다 실패한 회원 (그 뒤로는 브라우저 목록으로 동작)
+  const [failed, setFailed] = useState<string | null>(null);
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -62,7 +64,10 @@ export function useFavorites() {
       setLocal([]);
       setRemote({ uid, ids });
       ready = true;
-    })().catch(warn);
+    })().catch((e) => {
+      warn(e);
+      if (alive) setFailed(uid);
+    });
     // 다른 기기에서 바꾼 것도 이 탭으로 돌아오면 보이게
     const onVisible = () => {
       if (document.visibilityState !== 'visible' || !ready) return;
@@ -102,5 +107,7 @@ export function useFavorites() {
   );
 
   const has = useCallback((id: string) => ids.includes(id), [ids]);
-  return useMemo(() => ({ ids, has, toggle }), [ids, has, toggle]);
+  // 회원인데 계정 목록을 아직 받는 중 — 브라우저 목록은 지난 로그인 때 비웠으니 ids 가 비어 보인다
+  const syncing = uid != null && synced == null && failed !== uid;
+  return useMemo(() => ({ ids, has, toggle, synced: synced != null, syncing }), [ids, has, toggle, synced, syncing]);
 }

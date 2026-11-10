@@ -10,6 +10,7 @@ import { SignupConsent } from './SignupConsent';
 import { WithdrawForm } from './WithdrawForm';
 import { PolicyNotice } from './PolicyNotice';
 import MemberPanel from './MemberPanel';
+import SavedRaces from './SavedRaces';
 
 const MyPosts = lazy(() => import('../community/MyPosts'));
 
@@ -125,6 +126,11 @@ function ProfileForm({ onClose, onWithdraw }: { onClose: () => void; onWithdraw:
   const [ok, setOk] = useState(false);
   return (
     <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[20px] font-bold tracking-tight">{t('auth.me')}</h2>
+        <CloseButton onClick={onClose} />
+      </div>
+      <SavedRaces />
       <form
         className="space-y-4"
         onSubmit={async (e) => {
@@ -144,10 +150,6 @@ function ProfileForm({ onClose, onWithdraw }: { onClose: () => void; onWithdraw:
           }
         }}
       >
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-[20px] font-bold tracking-tight">{t('auth.me')}</h2>
-          <CloseButton onClick={onClose} />
-        </div>
         <p className="text-[15px] text-ink-3">
           {t('rights.email')} · {session?.user.email}
         </p>

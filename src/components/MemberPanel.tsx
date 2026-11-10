@@ -156,7 +156,7 @@ function FeedSection({ uid, onError }: { uid: string; onError: (e: unknown) => v
   }
 
   return (
-    <section className={section}>
+    <section id="me-feed" className={section}>
       <h3 className={h3}>{t('me.feed.title')}</h3>
       <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{t('me.feed.text')}</p>
       {since === undefined ? null : shown ? (
