@@ -15,7 +15,7 @@ import {
   type RecordSummary,
 } from '../lib/member';
 import { Button, Note } from './ui';
-import PastRaceLog, { type YearStats } from './PastRaceLog';
+import PastRaceLog, { type RecordStats } from './PastRaceLog';
 
 const feedKey = (uid: string) => `marathon-cal:feed:${uid}`;
 const readFeed = (uid: string) => {
@@ -73,8 +73,10 @@ function RecordsSection({ onError }: { onError: (e: unknown) => void }) {
   const year = Number(todayISO().slice(0, 4));
   const [sum, setSum] = useState<RecordSummary | null>(null);
   const [ver, setVer] = useState(0); // 지난 대회 등록·고치기 뒤 요약 다시 읽기
-  // 올해 참가 수·거리는 참가 회차 기준(PastRaceLog) — 대회 목록을 아직 못 받았으면 DB 요약 그대로
-  const [mine, setMine] = useState<YearStats | null>(null);
+  // 올해 참가 수·거리는 참가 회차 기준(PastRaceLog) — 대회 목록을 아직 못 받았으면 DB 요약 그대로.
+  // 참가한 대회 수·총 참가 횟수·Top3 는 내 대회 목록에서 센다(목록을 받기 전에는 '-')
+  const [mine, setMine] = useState<RecordStats | null>(null);
+  const loc = lang === 'en' ? 'en-US' : 'ko-KR';
   useEffect(() => {
     let alive = true;
     recordSummary(year).then((s) => alive && setSum(s), onError);
@@ -94,8 +96,24 @@ function RecordsSection({ onError }: { onError: (e: unknown) => void }) {
         <Stat label={t('me.records.km', { y: year })} value={sum ? `${km.toLocaleString(lang === 'en' ? 'en-US' : 'ko-KR')} km` : '-'} />
         <Stat label={t('me.records.bestFull')} value={sum?.best_full_sec != null ? fmtFinish(sum.best_full_sec) : '-'} />
         <Stat label={t('me.records.bestHalf')} value={sum?.best_half_sec != null ? fmtFinish(sum.best_half_sec) : '-'} />
+        <Stat label={t('me.records.races')} value={mine ? t('me.records.racesN', { n: mine.races.toLocaleString(loc) }) : '-'} />
+        <Stat label={t('me.records.times')} value={mine ? t('me.records.count', { n: mine.times.toLocaleString(loc) }) : '-'} />
       </dl>
-      <PastRaceLog year={year} onChanged={() => setVer((v) => v + 1)} onYearStats={setMine} onError={onError} />
+      {mine && mine.top.length > 0 && (
+        <div className="mt-4">
+          <h4 className="text-[13px] font-semibold text-ink-2">{t('me.records.top')}</h4>
+          <ol className="mt-2 divide-y divide-line rounded-box border border-line">
+            {mine.top.map((r, i) => (
+              <li key={r.id} className="flex min-h-12 items-center gap-3 px-4 py-2">
+                <span className="num w-4 shrink-0 text-[13px] font-semibold text-ink-3">{i + 1}</span>
+                <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{r.name}</span>
+                <span className="num shrink-0 text-[15px] font-semibold text-ink">{t('me.records.topN', { n: r.n })}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      <PastRaceLog year={year} onChanged={() => setVer((v) => v + 1)} onStats={setMine} onError={onError} />
     </section>
   );
 }

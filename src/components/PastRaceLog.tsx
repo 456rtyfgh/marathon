@@ -1,16 +1,28 @@
 /**
  * 내 정보 '내 기록' 아래: 내가 참가한 대회 목록 + '지난 대회 등록' 버튼과 등록 창.
  * 대회 상세에 가지 않고 여기서 바로 대회를 찾아(한글·영문 이름·도시, 지난 대회 먼저) 종목·완주 기록을 남기고,
+ * 같은 대회를 여러 해 뛰었으면 한 줄에 참가 횟수(또는 참가한 해 목록 — 고르면 횟수 자동)·마지막 참가 해·최고 기록을 둔다(0019).
  * 이미 등록한 대회는 눌러서 고치거나 지운다. 저장은 member.ts 의 user_races(status 'finished') 함수 그대로.
  * 바꾼 뒤에는 onChanged(위 요약 다시 읽기)와 RECORDS_CHANGED 이벤트(대회 목록·상세의 내 기록 다시 읽기)를 보낸다.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CaretLeft, CaretRight, Check, MagnifyingGlass, PencilSimple, Plus } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, Check, MagnifyingGlass, Minus, PencilSimple, Plus } from '@phosphor-icons/react';
 import { useLang } from '../i18n';
 import { DIST_TEXT, fmtCount } from '../i18n/format';
 import { raceName, whereText } from '../i18n/names';
 import { loadAllRaces } from '../lib/data';
-import { deleteRecord, distanceKm, fmtFinish, isMemberNotReady, listRecords, parseFinish, saveRecord, type RaceRecord } from '../lib/member';
+import {
+  cleanYears,
+  deleteRecord,
+  distanceKm,
+  fmtFinish,
+  isMemberNotReady,
+  listRecords,
+  parseFinish,
+  participationReady,
+  saveRecord,
+  type RaceRecord,
+} from '../lib/member';
 import { RECORDS_CHANGED } from '../lib/registered';
 import { buildIndex, normalize, searchRaces, suggestRaces } from '../lib/search';
 import { hasSupabase } from '../lib/supabase';
@@ -62,27 +74,46 @@ function editionDate(r: Pick<Race, 'race_date'>, today = todayISO()): string {
   return r.race_date <= today ? r.race_date : `${Number(r.race_date.slice(0, 4)) - 1}${r.race_date.slice(4)}`;
 }
 
-export interface YearStats {
-  count: number;
-  km: number;
+/** 마지막으로 참가한 해: 적은 해 목록 → 마지막 참가 해 → 대회 행의 참가 회차 */
+function lastYearOf(rec: RaceRecord, r: Race | undefined): number | null {
+  return rec.years?.[0] ?? rec.last_year ?? (r ? Number(editionDate(r).slice(0, 4)) : null);
 }
 
-/** 내 대회 목록 둘째 줄: 지난 대회는 날짜, 다음 회차로 넘어간 대회는 참가 회차의 해만 (요일까지 짐작하지 않는다) */
-function ranLine(r: Race, lang: 'ko' | 'en'): string {
-  const past = r.race_date <= todayISO();
-  return `${past ? fmtDate(r.race_date, lang) : editionDate(r).slice(0, 4)} · ${whereText(r, lang)}`;
+/** year 에 참가했는지 (0019 의 my_record_summary 와 같은 규칙: 해 목록 → 마지막 해 → 대회 행 회차) */
+function ranIn(rec: RaceRecord, r: Race | undefined, year: number): boolean {
+  if (rec.years?.length) return rec.years.includes(year);
+  if (rec.last_year != null) return rec.last_year === year;
+  return !!r && editionDate(r).startsWith(`${year}-`);
+}
+
+export interface RecordStats {
+  /** year 에 참가한 대회 수·거리 (참가 회차 기준) */
+  count: number;
+  km: number;
+  /** 참가한 대회 수(줄 수)·참가 횟수 합 */
+  races: number;
+  times: number;
+  /** 가장 많이 뛴 대회 (2회 이상, 횟수 많은 순 → 최근 순, 3개까지) */
+  top: { id: string; name: string; n: number }[];
+}
+
+/** 내 대회 목록 둘째 줄의 해: 마지막 참가가 그 대회 행의 지난 날짜면 날짜까지, 아니면 해만 (요일까지 짐작하지 않는다) */
+function ranLine(rec: RaceRecord, r: Race, lang: 'ko' | 'en'): string {
+  const y = lastYearOf(rec, r);
+  const sameRow = r.race_date <= todayISO() && y === Number(r.race_date.slice(0, 4));
+  return `${sameRow ? fmtDate(r.race_date, lang) : y} · ${whereText(r, lang)}`;
 }
 
 export default function PastRaceLog({
   year,
   onChanged,
-  onYearStats,
+  onStats,
   onError,
 }: {
   year: number;
   onChanged: () => void;
-  /** 참가 회차 기준 year 의 참가 수·거리 (대회 목록을 받은 뒤). DB 요약은 대회 행 날짜 기준이라 다음 회차로 넘어간 대회를 다음 해로 센다 */
-  onYearStats: (s: YearStats | null) => void;
+  /** 참가 회차 기준 year 의 참가 수·거리와 전체 참가 대회·횟수·Top3 (대회 목록을 받은 뒤). DB 요약(0019 전)은 대회 행 날짜 기준이라 */
+  onStats: (s: RecordStats | null) => void;
   onError: (e: unknown) => void;
 }) {
   const { lang, t } = useLang();
@@ -109,23 +140,35 @@ export default function PastRaceLog({
   const byId = useMemo(() => new Map((races ?? []).map((r) => [r.id, r])), [races]);
   const mine = useMemo(() => {
     const done = (records ?? []).filter((r) => r.status === 'finished');
-    // 참가 회차 최근 순 (목록에 없는 대회는 맨 뒤)
-    const when = (id: string) => {
-      const r = byId.get(id);
-      return r ? editionDate(r) : '';
+    // 마지막 참가 최근 순 → 같은 해면 대회 행 회차 날짜 (목록에 없는 대회는 맨 뒤)
+    const when = (rec: RaceRecord) => {
+      const r = byId.get(rec.race_id);
+      return r ? `${lastYearOf(rec, r)}${editionDate(r).slice(4)}` : '';
     };
-    return done.sort((a, b) => when(b.race_id).localeCompare(when(a.race_id)));
+    return done.sort((a, b) => when(b).localeCompare(when(a)));
   }, [records, byId]);
 
   useEffect(() => {
-    if (!records || !races) return onYearStats(null);
-    const inYear = mine.filter((rec) => {
-      const r = byId.get(rec.race_id);
-      return r && editionDate(r).startsWith(`${year}-`);
+    if (!records || !races) return onStats(null);
+    const inYear = mine.filter((rec) => ranIn(rec, byId.get(rec.race_id), year));
+    // mine 은 이미 최근 순 — 안정 정렬이라 횟수가 같으면 최근에 뛴 대회가 앞
+    const top = mine
+      .filter((rec) => rec.participation_count >= 2)
+      .sort((a, b) => b.participation_count - a.participation_count)
+      .slice(0, 3)
+      .map((rec) => {
+        const r = byId.get(rec.race_id);
+        return { id: rec.race_id, name: r ? raceName(r, lang) : t('pastrace.gone'), n: rec.participation_count };
+      });
+    onStats({
+      count: inYear.length,
+      km: inYear.reduce((n, rec) => n + (rec.distance_km ?? 0), 0),
+      races: mine.length,
+      times: mine.reduce((n, rec) => n + rec.participation_count, 0),
+      top,
     });
-    onYearStats({ count: inYear.length, km: inYear.reduce((n, rec) => n + (rec.distance_km ?? 0), 0) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mine, records, races, byId, year]);
+  }, [mine, records, races, byId, year, lang]);
   const recMap = useMemo(() => new Map((records ?? []).map((r) => [r.race_id, r])), [records]);
 
   const changed = (id: string, row: RaceRecord | null) => {
@@ -160,7 +203,13 @@ export default function PastRaceLog({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] font-semibold text-ink">{name}</span>
                       <span className="num block truncate text-[13px] text-ink-3">
-                        {[rec.distance ? DIST_TEXT[lang](rec.distance) : null, race ? ranLine(race, lang) : null].filter(Boolean).join(' · ')}
+                        {[
+                          rec.participation_count > 1 ? t('pastrace.timesN', { n: rec.participation_count, count: rec.participation_count }) : null,
+                          rec.distance ? DIST_TEXT[lang](rec.distance) : null,
+                          race ? ranLine(rec, race, lang) : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </span>
                     </span>
                     <span className={`num shrink-0 text-right ${rec.finish_sec != null ? 'text-[15px] font-semibold text-ink' : 'text-[13px] text-ink-3'}`}>
@@ -388,6 +437,15 @@ function RacePicker({
   );
 }
 
+const CHIP_YEARS = 12; // 참가한 해 칩으로 바로 보이는 최근 해 수 (그 앞은 '이전 해 추가')
+const FIRST_YEAR = 1970;
+const stepCls = 'grid size-11 shrink-0 place-items-center rounded-ctl border border-line text-ink transition hover:border-ink-3 disabled:opacity-40 sm:size-10';
+
+const chipCls = (on: boolean, size = 'gap-1.5 px-3 text-[15px]') =>
+  `inline-flex min-h-11 items-center justify-center ${size} rounded-ctl border transition active:translate-y-px sm:min-h-9 ${
+    on ? 'border-ink bg-sunken font-semibold text-ink' : 'border-line text-ink-2 hover:border-ink-3 hover:text-ink'
+  }`;
+
 function RecordForm({
   race,
   record,
@@ -407,9 +465,24 @@ function RecordForm({
   const finished = record?.status === 'finished';
   const [dist, setDist] = useState(record?.distance ?? (race.distances.length === 1 ? race.distances[0] : ''));
   const [time, setTime] = useState(finished && record?.finish_sec != null ? fmtFinish(record.finish_sec) : '');
+  const thisYear = Number(todayISO().slice(0, 4));
+  // 0019 전 DB 면 횟수·해 칸이 없다 → 예전처럼 종목·기록만
+  const canCount = participationReady() !== false;
+  const guessYear = Math.min(thisYear, Number(editionDate(race).slice(0, 4)));
+  const [mode, setMode] = useState<'count' | 'years'>(finished && record?.years?.length ? 'years' : 'count');
+  const [count, setCount] = useState(String(finished ? (record?.participation_count ?? 1) : 1));
+  const [lastYear, setLastYear] = useState(String((finished ? record?.last_year : null) ?? guessYear));
+  const [years, setYears] = useState<number[]>(finished && record?.years?.length ? record.years : [guessYear]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [sure, setSure] = useState(false);
+
+  const many = canCount && (mode === 'years' ? years.length : Number(count)) > 1;
+  const chips = [...new Set([...Array.from({ length: CHIP_YEARS }, (_, k) => thisYear - k), ...years])].sort((a, b) => b - a);
+  const allYears = Array.from({ length: thisYear - FIRST_YEAR + 1 }, (_, k) => thisYear - k);
+  const older = allYears.filter((y) => y <= thisYear - CHIP_YEARS && !years.includes(y));
+  const toggleYear = (y: number) => setYears((prev) => (prev.includes(y) ? prev.filter((x) => x !== y) : [...prev, y]).sort((a, b) => b - a));
+  const step = (d: number) => setCount((c) => String(Math.min(99, Math.max(1, (Math.round(Number(c)) || 1) + d))));
 
   const fail = (e: unknown) => {
     if (isMemberNotReady(e)) onNotReady(e);
@@ -421,10 +494,29 @@ function RecordForm({
     const raw = time.trim();
     const sec = raw ? parseFinish(raw) : null;
     if (raw && sec == null) return setErr(t('record.timeBad'));
+    let part: Pick<RaceRecord, 'participation_count' | 'years' | 'last_year'> | null = null;
+    if (canCount) {
+      if (mode === 'years') {
+        const ys = cleanYears(years);
+        if (!ys) return setErr(t('pastrace.yearsNone'));
+        part = { participation_count: ys.length, years: ys, last_year: ys[0] };
+      } else {
+        const c = Number(count);
+        if (!Number.isInteger(c) || c < 1 || c > 99) return setErr(t('pastrace.countBad'));
+        part = { participation_count: c, years: null, last_year: lastYear ? Number(lastYear) : null };
+      }
+    }
     setBusy(true);
     setErr('');
     try {
-      const row = await saveRecord({ race_id: race.id, status: 'finished', distance: dist || null, distance_km: dist ? distanceKm(dist) : null, finish_sec: sec });
+      const row = await saveRecord({
+        race_id: race.id,
+        status: 'finished',
+        distance: dist || null,
+        distance_km: dist ? distanceKm(dist) : null,
+        finish_sec: sec,
+        ...part,
+      });
       if (!finished) track('race_finished', { race_id: race.id, from: 'me' });
       onSaved(row);
     } catch (e2) {
@@ -447,7 +539,7 @@ function RecordForm({
   }
 
   return (
-    <form onSubmit={submit} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-5">
+    <form onSubmit={submit} className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-5">
       {onBack && (
         <button
           type="button"
@@ -463,9 +555,93 @@ function RecordForm({
         <p className="num mt-0.5 text-[13px] text-ink-3">{raceLine(race, lang, t)}</p>
       </div>
 
+      {canCount && (
+        <fieldset>
+          <legend className="mb-2 text-[13px] font-semibold text-ink-2">{t('pastrace.times')}</legend>
+          <div role="radiogroup" aria-label={t('pastrace.times')} className="grid grid-cols-2 gap-2 sm:inline-grid">
+            {(['count', 'years'] as const).map((m) => (
+              <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => setMode(m)} className={chipCls(mode === m)}>
+                {mode === m && <Check size={14} weight="bold" aria-hidden />}
+                {t(m === 'count' ? 'pastrace.modeCount' : 'pastrace.modeYears')}
+              </button>
+            ))}
+          </div>
+          {mode === 'count' ? (
+            <div className="mt-3 flex flex-wrap items-end gap-x-5 gap-y-3">
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => step(-1)} disabled={Number(count) <= 1} aria-label={t('pastrace.less')} className={stepCls}>
+                  <Minus size={16} weight="bold" />
+                </button>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={2}
+                  aria-label={t('pastrace.times')}
+                  value={count}
+                  onChange={(e) => setCount(e.target.value.replace(/\D/g, ''))}
+                  onBlur={() => setCount((c) => String(Math.min(99, Math.max(1, Number(c) || 1))))}
+                  className={`${inputCls.replace('w-full', 'w-16')} num text-center font-semibold`}
+                />
+                <button type="button" onClick={() => step(1)} disabled={Number(count) >= 99} aria-label={t('pastrace.more')} className={stepCls}>
+                  <Plus size={16} weight="bold" />
+                </button>
+                <span className="ml-1 text-[15px] text-ink-2">{t('pastrace.timesUnit', { count: Number(count) || 1 })}</span>
+              </div>
+              <label className="block min-w-36 flex-1 sm:flex-none">
+                <span className="mb-1.5 block text-[13px] text-ink-3">
+                  {t('pastrace.lastYear')}
+                  <span className="ml-2">{t('common.optional')}</span>
+                </span>
+                <select value={lastYear} onChange={(e) => setLastYear(e.target.value)} className={`${inputCls} num`}>
+                  <option value="">{t('pastrace.yearUnknown')}</option>
+                  {allYears.map((y) => (
+                    <option key={y} value={y}>
+                      {t('pastrace.yearOpt', { y })}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <p className="mb-2 text-[13px] leading-relaxed text-ink-3">{t('pastrace.yearsHint')}</p>
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                {chips.map((y) => {
+                  const on = years.includes(y);
+                  return (
+                    <button key={y} type="button" role="checkbox" aria-checked={on} onClick={() => toggleYear(y)} className={`num ${chipCls(on, 'gap-1 px-0 text-[14px]')}`}>
+                      {on && <Check size={12} weight="bold" className="shrink-0" aria-hidden />}
+                      {y}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <select
+                  value=""
+                  onChange={(e) => e.target.value && toggleYear(Number(e.target.value))}
+                  aria-label={t('pastrace.olderYear')}
+                  className={`${inputCls.replace('w-full', 'w-auto')} num min-w-40`}
+                >
+                  <option value="">{t('pastrace.olderYear')}</option>
+                  {older.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                <p className="num text-[15px] font-semibold text-ink" aria-live="polite">
+                  {years.length ? t('pastrace.yearsSum', { n: years.length, count: years.length, y: years[0] }) : t('pastrace.yearsNone')}
+                </p>
+              </div>
+            </div>
+          )}
+        </fieldset>
+      )}
+
       <fieldset>
         <legend className="mb-2 text-[13px] font-semibold text-ink-2">
-          {t('record.distance')}
+          {t(many ? 'pastrace.bestDistance' : 'record.distance')}
           <span className="ml-2 font-normal text-ink-3">{t('common.optional')}</span>
         </legend>
         {race.distances.length ? (
@@ -494,7 +670,7 @@ function RecordForm({
         )}
       </fieldset>
 
-      <Field label={t('record.time')} hint={t('common.optional')}>
+      <Field label={t(many ? 'pastrace.bestTime' : 'record.time')} hint={t('common.optional')}>
         <Input
           inputMode="numeric"
           autoComplete="off"
