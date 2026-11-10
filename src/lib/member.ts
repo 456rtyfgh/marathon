@@ -10,6 +10,10 @@ import { supabase } from './supabase';
 import type { Lang } from '../i18n/lang';
 import type { Race } from './types';
 import { downloadIcs as downloadRaceIcs, type CalKind } from './ics';
+import { devMemberMock } from './memberMock';
+
+/** 개발 서버 로그인 흉내(?amock)일 때 서버 대신 쓰는 흉내 DB (memberMock.ts). 빌드에서는 null */
+const MOCK = import.meta.env.DEV ? devMemberMock() : null;
 
 export class MemberNotReady extends Error {
   constructor(message = 'member features are not ready') {
@@ -77,6 +81,7 @@ const RECORD_COLS = 'race_id, status, distance, distance_km, finish_sec, updated
 const toRecord = (r: RaceRecord): RaceRecord => ({ ...r, distance_km: r.distance_km == null ? null : Number(r.distance_km) });
 
 export async function listRecords(): Promise<RaceRecord[]> {
+  if (MOCK) return MOCK.list();
   const { data, error } = await sb().from('user_races').select(RECORD_COLS).order('created_at').order('race_id');
   check(error);
   return ((data ?? []) as RaceRecord[]).map(toRecord);
@@ -96,18 +101,21 @@ export async function saveRecord(
     distance_km: r.distance_km ?? null,
     finish_sec: r.status === 'finished' ? (r.finish_sec ?? null) : null,
   };
+  if (MOCK) return MOCK.save(row);
   const { data, error } = await sb().from('user_races').upsert(row, { onConflict: 'user_id,race_id' }).select(RECORD_COLS).single();
   check(error);
   return toRecord(data as RaceRecord);
 }
 
 export async function deleteRecord(raceId: string): Promise<void> {
+  if (MOCK) return MOCK.remove(raceId);
   const { error } = await sb().from('user_races').delete().eq('race_id', raceId);
   check(error);
 }
 
 /** 브라우저의 '접수했어요' 를 계정에 합치고(이미 있는 대회는 그대로) 내 대회 전체를 돌려준다 */
 export async function mergeRegistered(ids: string[]): Promise<RaceRecord[]> {
+  if (MOCK) return MOCK.merge(ids);
   const { data, error } = await sb().rpc('merge_registered', { p_ids: ids });
   check(error);
   return ((data ?? []) as RaceRecord[]).map(toRecord);
@@ -124,6 +132,7 @@ export interface RecordSummary {
 }
 
 export async function recordSummary(year: number): Promise<RecordSummary> {
+  if (MOCK) return MOCK.summary(year);
   const { data, error } = await sb().rpc('my_record_summary', { p_year: year });
   check(error);
   const r = ((data ?? []) as RecordSummary[])[0];
@@ -144,6 +153,7 @@ export interface AlertPrefs {
 
 /** 아직 한 번도 설정하지 않았으면 null */
 export async function getAlertPrefs(): Promise<AlertPrefs | null> {
+  if (MOCK) return MOCK.alertPrefs();
   const { data, error } = await sb().from('user_alert_prefs').select('saved_races, days_before').maybeSingle();
   check(error);
   return (data as AlertPrefs | null) ?? null;
@@ -163,6 +173,7 @@ export async function setSavedAlerts(on: boolean): Promise<AlertPrefs> {
 
 /** 내 구독 주소를 만든 시각(ISO), 없으면 null */
 export async function calendarTokenInfo(): Promise<string | null> {
+  if (MOCK) return MOCK.tokenInfo();
   const { data, error } = await sb().rpc('calendar_token_info');
   check(error);
   return (data as string | null) ?? null;
