@@ -74,7 +74,8 @@ const scenes = [
   { name: 'home-top', path: '/' },
   { name: 'home-nostats-top', path: '/?nostats=1', widths: [390] },
   { name: 'home-toolbar', path: '/', steps: [() => toTop('[role=search]', 72)], measure: false },
-  { name: 'home-filters-closed', path: '/', steps: [() => ab('click', 'button[aria-expanded]'), () => toTop('[role=search]', 72)], widths: [390] },
+  // main 안의 첫 aria-expanded 버튼 = 필터 버튼 (머리말의 메뉴 버튼도 aria-expanded 라 main 으로 좁힌다)
+  { name: 'home-filters-closed', path: '/', steps: [() => js(`document.querySelector('main button[aria-expanded]').click()`), () => toTop('[role=search]', 72)], widths: [390] },
   { name: 'home-map-kr', path: '/', steps: [() => toTop('#list', 520)], measure: false },
   { name: 'home-list', path: '/', steps: [() => toTop('#list', 64)], measure: false },
   { name: 'home-list-mid', path: '/', steps: [() => toTop('#list li:nth-child(6)', 64)], measure: false },
@@ -94,8 +95,15 @@ const langs = [
   ['en', '/en'],
 ];
 
-ab('close');
-ab('--init-script', initFile, 'set', 'viewport', '390', '844');
+// 브라우저를 새로 띄운다. 닫자마자 띄우면 죽어 가는 데몬에 붙어 시작 스크립트가 안 실릴 때가 있어, 실렸는지 보고 다시 띄운다
+for (let i = 0; i < 4; i++) {
+  ab('close');
+  execFileSync('sleep', ['1']);
+  ab('--init-script', initFile, 'set', 'viewport', '390', '844');
+  ab('open', `http://127.0.0.1:${PORT}/`);
+  if (js('typeof __mMeasure') === 'function') break;
+  if (i === 3) throw new Error('시작 스크립트(측정 함수)가 실리지 않았습니다');
+}
 ab('set', 'media', 'light'); // 기기 설정이 다크여도 기본 장면은 라이트로
 let shots = 0;
 const run = (scene, w, lang, prefix, tag = '') => {
