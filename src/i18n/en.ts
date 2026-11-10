@@ -68,7 +68,7 @@ export const en: Record<Key, string> & Partial<Record<`${Key}_one`, string>> = {
   'filter.open': 'Open',
   'filter.upcoming': 'Opening soon',
   'filter.closed': 'Closed',
-  'filter.major': 'Majors only',
+  'filter.major': 'Majors',
   'filter.flightAria': 'Maximum flight time',
   'filter.noLimit': 'Any length',
   'filter.hours': 'Up to {n} h',

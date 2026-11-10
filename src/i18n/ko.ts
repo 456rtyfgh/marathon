@@ -70,7 +70,7 @@ export const ko = {
   'filter.open': '접수 중',
   'filter.upcoming': '접수 예정',
   'filter.closed': '접수 끝',
-  'filter.major': '메이저만',
+  'filter.major': '메이저',
   'filter.flightAria': '최대 비행시간',
   'filter.noLimit': '제한 없음',
   'filter.hours': '{n}시간 이내',

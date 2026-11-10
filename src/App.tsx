@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import SortMenu from './components/SortMenu';
+import InstallPrompt from './components/InstallPrompt';
 import { MagnifyingGlass, SlidersHorizontal, CaretDown, Check, X, BookmarkSimple, CheckSquare, Plus } from '@phosphor-icons/react';
 import type { Race, EntryType, Region, Discipline } from './lib/types';
 import { DISCIPLINES } from './lib/types';
@@ -774,6 +775,15 @@ function Main() {
                       {DISCIPLINE_TEXT[lang][d]}
                     </Chip>
                   ))}
+                  <Chip
+                    on={majorOnly}
+                    onClick={() => {
+                      if (!majorOnly) track('filter', { name: 'major', value: 'on' });
+                      setMajorOnly(!majorOnly);
+                    }}
+                  >
+                    {t('filter.major')}
+                  </Chip>
                 </FilterGroup>
                 <FilterGroup label={t('filter.entry')}>
                   {ENTRY_TYPES.map((et) => (
@@ -804,15 +814,6 @@ function Main() {
                       {label}
                     </Chip>
                   ))}
-                  <Chip
-                    on={majorOnly}
-                    onClick={() => {
-                      if (!majorOnly) track('filter', { name: 'major', value: 'on' });
-                      setMajorOnly(!majorOnly);
-                    }}
-                  >
-                    {t('filter.major')}
-                  </Chip>
                 </FilterGroup>
                 {scope !== 'kr' && (
                   <FilterGroup label={t('filter.flight')}>
@@ -1038,6 +1039,8 @@ function Main() {
           </div>
         </footer>
       </main>
+
+      <InstallPrompt />
 
       <Panel open={!!selected} onClose={() => setSelected(null)} label={selected ? raceName(selected, lang) : t('panel.race')}>
         {selected && (
