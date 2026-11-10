@@ -41,7 +41,8 @@ export function PolicyNotice({ onClose, onWithdraw }: { onClose: () => void; onW
         href={langPath(PRIVACY_PATH, lang)}
         target="_blank"
         rel="noopener"
-        className="inline-block py-2 text-[15px] font-semibold text-ink underline underline-offset-4 hover:no-underline"
+        // 휴대폰: 눌리는 높이 44px 이상(py-3). 640px 부터 예전 크기
+        className="inline-block py-3 text-[15px] font-semibold text-ink underline underline-offset-4 hover:no-underline sm:py-2"
       >
         {t('policyNotice.read')}
       </a>
