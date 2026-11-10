@@ -4,6 +4,7 @@ import { MagnifyingGlass, X } from '@phosphor-icons/react';
 import type { Race } from '../lib/types';
 import { useLang } from '../i18n';
 import { raceName } from '../i18n/names';
+import { fmtDateShort } from '../lib/dateFormat';
 import { inputCls } from '../components/ui';
 import { useS } from './strings';
 
@@ -81,7 +82,7 @@ export default function RacePicker({
                   className="flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left text-[15px] hover:bg-sunken"
                 >
                   <span className="min-w-0 truncate font-semibold">{raceName(r, lang)}</span>
-                  <span className="num shrink-0 text-[13px] text-ink-3">{r.race_date.slice(0, 7).replace('-', '.')}</span>
+                  <span className="num shrink-0 text-[13px] text-ink-3">{fmtDateShort(r.race_date, lang)}</span>
                 </button>
               </li>
             ))

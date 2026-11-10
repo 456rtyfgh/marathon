@@ -588,7 +588,7 @@ function Check({ label, checked, onChange }: { label: string; checked: boolean; 
 }
 
 const dt = (s: string | null) =>
-  s ? new Date(s).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+  s ? new Date(s).toLocaleString('ko-KR', { year: '2-digit', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
 
 /** 가입 확인 메일이 스팸함으로 가서 막힌 회원을 직접 인증 처리한다 */
 function Members() {

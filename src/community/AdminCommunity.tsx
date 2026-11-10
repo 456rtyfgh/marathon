@@ -11,7 +11,7 @@ const REASON: Record<ReportReason, string> = { spam: '광고·도배', abuse: '�
 const ACTION: Record<AdminAction, string> = { hide: '숨김', restore: '복구', delete: '삭제', temp_hide: '임시조치 30일', dismiss: '기각' };
 
 const dt = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+  iso ? new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e));
 
 function statusText(r: AdminReportRow): string {
