@@ -38,7 +38,8 @@ const warn = (e: unknown) => {
 const toMap = (rows: RaceRecord[]) => new Map(rows.map((r) => [r.race_id, r]));
 const EMPTY: Map<string, RaceRecord> = new Map();
 
-export type RecordInput = Pick<RaceRecord, 'race_id' | 'status'> & Partial<Pick<RaceRecord, 'distance' | 'distance_km' | 'finish_sec'>>;
+export type RecordInput = Pick<RaceRecord, 'race_id' | 'status'> &
+  Partial<Pick<RaceRecord, 'distance' | 'distance_km' | 'finish_sec' | 'participation_count' | 'years' | 'last_year'>>;
 
 /**
  * 접수를 마친 대회('접수했어요')와 참가 기록('참가했어요' + 종목·기록).
@@ -112,7 +113,10 @@ export function useRegistered() {
   const saveRecord = useCallback(
     async (r: RecordInput) => {
       if (!synced) throw new Error('not synced');
-      const row = await saveRecordRemote(r);
+      // 대회 상세는 종목·기록만 보낸다 — 내 정보에서 적은 참가 횟수·해는 그대로 둔다(빠진 칸을 비우는 saveRecord 라서)
+      const prev = synced.get(r.race_id);
+      const keep = prev?.status === 'finished' && r.status === 'finished' && r.participation_count === undefined && r.years === undefined;
+      const row = await saveRecordRemote(keep ? { ...r, participation_count: prev.participation_count, years: prev.years, last_year: prev.last_year } : r);
       put(r.race_id, row);
       return row;
     },
@@ -149,7 +153,7 @@ export function useRegistered() {
         put(id, undefined);
         deleteRecord(id).catch(fail);
       } else {
-        put(id, { race_id: id, status: 'registered', distance: null, distance_km: null, finish_sec: null, updated_at: new Date().toISOString() });
+        put(id, { race_id: id, status: 'registered', distance: null, distance_km: null, finish_sec: null, participation_count: 1, years: null, last_year: null, updated_at: new Date().toISOString() });
         saveRecordRemote({ race_id: id, status: 'registered' }).then((row) => put(id, row), fail);
       }
     },

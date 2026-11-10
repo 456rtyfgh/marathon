@@ -69,42 +69,98 @@ export async function mergeFavorites(ids: string[]): Promise<string[]> {
 export interface RaceRecord {
   race_id: string;
   status: 'registered' | 'finished';
-  /** 고른 종목 이름 (race.distances 의 값) */
+  /** 고른 종목 이름 (race.distances 의 값). 여러 번 뛰었으면 최고 기록의 종목 */
   distance: string | null;
   distance_km: number | null;
-  /** 완주 기록(초) — status 가 finished 일 때만 */
+  /** 완주 기록(초) — status 가 finished 일 때만. 여러 번 뛰었으면 최고 기록 */
   finish_sec: number | null;
+  /** 이 대회 참가 횟수 1~99 (0019 전 DB 는 늘 1) */
+  participation_count: number;
+  /** 참가한 해(최근 순). 있으면 participation_count = 개수, last_year = 첫 값 (DB 트리거가 맞춘다) */
+  years: number[] | null;
+  /** 마지막으로 참가한 해 */
+  last_year: number | null;
   updated_at: string;
 }
 
-const RECORD_COLS = 'race_id, status, distance, distance_km, finish_sec, updated_at';
-const toRecord = (r: RaceRecord): RaceRecord => ({ ...r, distance_km: r.distance_km == null ? null : Number(r.distance_km) });
+const RECORD_COLS_OLD = 'race_id, status, distance, distance_km, finish_sec, updated_at';
+const RECORD_COLS = `${RECORD_COLS_OLD}, participation_count, years, last_year`;
+
+/**
+ * 0019(참가 횟수 칸)가 DB 에 있는지. null = 아직 모름. 칸이 없다는 오류를 한 번 받으면 false 로 두고
+ * 예전 칸만 읽고 쓴다(0019 전에도 지금처럼 동작). 화면은 false 일 때 횟수 입력을 감춘다.
+ */
+let hasParticipation: boolean | null = null;
+export const participationReady = (): boolean | null => (MOCK ? MOCK.participation : hasParticipation);
+
+// 42703: 칸 없음(select), PGRST204: 칸 없음(insert·update 의 스키마 캐시)
+const isMissingCol = (e: PostgrestError | null) =>
+  !!e && (e.code === '42703' || e.code === 'PGRST204' || /column .*(does not exist|of 'user_races')/i.test(e.message));
+
+const toRecord = (r: Partial<RaceRecord> & Omit<RaceRecord, 'participation_count' | 'years' | 'last_year'>): RaceRecord => {
+  const years = Array.isArray(r.years) && r.years.length ? r.years.map(Number) : null;
+  return {
+    ...r,
+    distance_km: r.distance_km == null ? null : Number(r.distance_km),
+    participation_count: years ? years.length : Math.max(1, Number(r.participation_count ?? 1)),
+    years,
+    last_year: years ? years[0] : r.last_year == null ? null : Number(r.last_year),
+  };
+};
 
 export async function listRecords(): Promise<RaceRecord[]> {
-  if (MOCK) return MOCK.list();
-  const { data, error } = await sb().from('user_races').select(RECORD_COLS).order('created_at').order('race_id');
+  if (MOCK) return (await MOCK.list()).map(toRecord);
+  const q = () => sb().from('user_races').select(hasParticipation === false ? RECORD_COLS_OLD : RECORD_COLS).order('created_at').order('race_id');
+  let { data, error } = await q();
+  if (hasParticipation !== false && isMissingCol(error)) {
+    hasParticipation = false;
+    ({ data, error } = await q());
+  } else if (!error) hasParticipation ??= true;
   check(error);
-  return ((data ?? []) as RaceRecord[]).map(toRecord);
+  return ((data ?? []) as unknown as RaceRecord[]).map(toRecord);
+}
+
+type RecordInput = Pick<RaceRecord, 'race_id' | 'status'> &
+  Partial<Pick<RaceRecord, 'distance' | 'distance_km' | 'finish_sec' | 'participation_count' | 'years' | 'last_year'>>;
+
+/** 참가한 해: 중복 빼고 최근 순, 1900~2100 만, 99개까지. 비면 null (DB 트리거와 같은 규칙) */
+export function cleanYears(ys: readonly number[] | null | undefined): number[] | null {
+  const out = [...new Set((ys ?? []).filter((y) => Number.isInteger(y) && y >= 1900 && y <= 2100))].sort((a, b) => b - a).slice(0, 99);
+  return out.length ? out : null;
 }
 
 /**
- * 한 대회의 내 기록을 통째로 저장(있으면 바꾼다). 빠진 칸(distance·distance_km·finish_sec)은 비운다.
- * status 가 registered 면 finish_sec 은 비워야 한다(DB check).
+ * 한 대회의 내 기록을 통째로 저장(있으면 바꾼다). 빠진 칸(distance·distance_km·finish_sec·참가 횟수·해)은 비운다(횟수는 1).
+ * status 가 registered 면 finish_sec 은 비워야 한다(DB check). years 를 주면 횟수·마지막 해는 거기에 맞춘다.
+ * 0019 전 DB 면 참가 횟수·해는 빼고 저장한다.
  */
-export async function saveRecord(
-  r: Pick<RaceRecord, 'race_id' | 'status'> & Partial<Pick<RaceRecord, 'distance' | 'distance_km' | 'finish_sec'>>,
-): Promise<RaceRecord> {
-  const row = {
+export async function saveRecord(r: RecordInput): Promise<RaceRecord> {
+  const years = cleanYears(r.years);
+  const base = {
     race_id: r.race_id,
     status: r.status,
     distance: r.distance ?? null,
     distance_km: r.distance_km ?? null,
     finish_sec: r.status === 'finished' ? (r.finish_sec ?? null) : null,
   };
-  if (MOCK) return MOCK.save(row);
-  const { data, error } = await sb().from('user_races').upsert(row, { onConflict: 'user_id,race_id' }).select(RECORD_COLS).single();
+  const row = {
+    ...base,
+    participation_count: years ? years.length : Math.min(99, Math.max(1, Math.round(r.participation_count ?? 1))),
+    years,
+    last_year: years ? years[0] : (r.last_year ?? null),
+  };
+  if (MOCK) return toRecord(await MOCK.save(MOCK.participation ? row : base));
+  const q = () =>
+    hasParticipation === false
+      ? sb().from('user_races').upsert(base, { onConflict: 'user_id,race_id' }).select(RECORD_COLS_OLD).single()
+      : sb().from('user_races').upsert(row, { onConflict: 'user_id,race_id' }).select(RECORD_COLS).single();
+  let { data, error } = await q();
+  if (hasParticipation !== false && isMissingCol(error)) {
+    hasParticipation = false;
+    ({ data, error } = await q());
+  } else if (!error) hasParticipation ??= true;
   check(error);
-  return toRecord(data as RaceRecord);
+  return toRecord(data as unknown as RaceRecord);
 }
 
 export async function deleteRecord(raceId: string): Promise<void> {
@@ -115,7 +171,7 @@ export async function deleteRecord(raceId: string): Promise<void> {
 
 /** 브라우저의 '접수했어요' 를 계정에 합치고(이미 있는 대회는 그대로) 내 대회 전체를 돌려준다 */
 export async function mergeRegistered(ids: string[]): Promise<RaceRecord[]> {
-  if (MOCK) return MOCK.merge(ids);
+  if (MOCK) return (await MOCK.merge(ids)).map(toRecord);
   const { data, error } = await sb().rpc('merge_registered', { p_ids: ids });
   check(error);
   return ((data ?? []) as RaceRecord[]).map(toRecord);
