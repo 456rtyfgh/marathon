@@ -629,7 +629,8 @@ function Main() {
               <h2 className="text-[17px] font-bold">{t('hot.title')}</h2>
               <button
                 onClick={() => {
-                  setSort('views');
+                  // '조회순 전체 보기': 고르지 않은 지역·상태는 기본(국내·접수 중) 대신 전체·모두로 — 위 인기 대회(해외·접수 전 포함)가 목록에서 빠지지 않게
+                  setPicks((p) => ({ scope: p.scope ?? 'all', status: p.status ?? [], sort: 'views' }));
                   track('filter', { name: 'sort', value: 'views' });
                   document.getElementById('list')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
                 }}
