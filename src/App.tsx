@@ -549,10 +549,16 @@ function Main() {
   };
   // 도구 막대의 정렬·필터 줄. 이 줄이 화면 위로 사라지면 휴대폰에서는 아래 고정 줄이 대신 나온다
   const toolsRef = useRef<HTMLDivElement>(null);
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
   /** 아래 고정 줄의 '필터': 필터를 펼치고 도구 막대(검색·범위·정렬·필터)로 올라간다 */
   const toFilters = () => {
     setFiltersOpen(true);
-    requestAnimationFrame(() => document.getElementById(TOOLS_ID)?.scrollIntoView({ block: 'start' }));
+    requestAnimationFrame(() => {
+      // 누른 버튼(아래 고정 줄)은 도구 막대가 보이면 사라진다 → 초점을 도구 막대의 필터 버튼으로 옮겨 둔다
+      // (안 옮기면 초점이 문서 맨 위로 떨어져 키보드·화면 낭독기 사용자가 자리를 잃는다)
+      filterBtnRef.current?.focus({ preventScroll: true });
+      document.getElementById(TOOLS_ID)?.scrollIntoView({ block: 'start' });
+    });
   };
 
   /** 현황판 숫자: 그것만 고른다 (그것만 골라져 있으면 풀기). 칩에서 더 얹으면 합쳐진다 */
@@ -773,6 +779,7 @@ function Main() {
                 </button>
               )}
               <button
+                ref={filterBtnRef}
                 onClick={() => setFiltersOpen((v) => !v)}
                 aria-expanded={filtersOpen}
                 className={`inline-flex h-11 items-center gap-2 rounded-ctl border px-3 text-[15px] font-semibold whitespace-nowrap transition-colors sm:h-10 ${
@@ -1215,9 +1222,14 @@ function MobileListBar({
     // 위쪽 56px 은 머리말에 가린 자리. 줄이 그 위로 다 올라갔을 때(아래쪽에 있을 때는 아님)만 켠다.
     // 알림은 '보임 ↔ 안 보임'이 바뀌는 순간 한 번만 온다 — 그때 줄은 머리말 바로 뒤(top 이 0~12px)에 있으므로
     // 'top < 0' 으로 보면 천천히 내릴 때 끝내 켜지지 않는다. 머리말 아래 선(56px)보다 위인지로 본다
-    const io = new IntersectionObserver(([e]) => setShown(!e.isIntersecting && e.boundingClientRect.top < HEADER_H), {
-      rootMargin: `-${HEADER_H}px 0px 0px 0px`,
-    });
+    // 알림이 밀려 한꺼번에 여러 개 오면 마지막 것이 지금 상태다 (첫 것을 쓰면 옛 상태로 굳는다)
+    const io = new IntersectionObserver(
+      (entries) => {
+        const e = entries[entries.length - 1];
+        setShown(!e.isIntersecting && e.boundingClientRect.top < HEADER_H);
+      },
+      { rootMargin: `-${HEADER_H}px 0px 0px 0px` },
+    );
     io.observe(el);
     return () => io.disconnect();
   }, [watch]);
