@@ -1,3 +1,4 @@
+import { brandText, isRunEvent, kindsText, runEventMeta, RUN_EVENT_TEXT, stripRunEventHead } from '../lib/runEvent';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, CalendarPlus, LinkSimple, Check, BookmarkSimple, CheckSquare, Square } from '@phosphor-icons/react';
 import { calDates, calLabel, googleCalUrl, openOutside, type CalKind } from '../lib/ics';
@@ -204,7 +205,10 @@ function RaceDetailView({
   const reviewCount = rating?.review_count ?? 0;
   // 취소된 대회: D-day·접수 상태 대신 취소 안내, 캘린더 저장·알림 신청은 닫는다
   const cancelled = isCancelled(race);
-  const note = noteText(race, lang);
+  // 러닝 이벤트: undefined = 이벤트 아님, null = 이벤트지만 브랜드 머리말 없음
+  const evMeta = isRunEvent(race) ? runEventMeta(race) : undefined;
+  const evKinds = evMeta ? kindsText(evMeta.kinds, lang) : '';
+  const note = evMeta !== undefined && lang === 'ko' ? stripRunEventHead(noteText(race, lang)) : noteText(race, lang);
   const entryLabel = ENTRY_TEXT[lang][race.entry_type];
   const view: Tab = cancelled && tab === 'alert' ? 'overview' : tab;
 
@@ -246,6 +250,11 @@ function RaceDetailView({
           {trail && (
             <span className="ml-2 inline-flex h-5 items-center rounded-tag border border-ink-3 px-2 align-middle text-[12px] font-bold tracking-normal whitespace-nowrap text-ink-2">
               {t('row.trail')}
+            </span>
+          )}
+          {evMeta !== undefined && (
+            <span className="ml-2 inline-flex h-5 items-center rounded-tag border border-ink-3 px-2 align-middle text-[12px] font-bold tracking-normal whitespace-nowrap text-ink-2">
+              {RUN_EVENT_TEXT[lang].badge}
             </span>
           )}
           {major && (
@@ -436,6 +445,12 @@ function RaceDetailView({
             </section>
 
             <dl className="grid grid-cols-2 gap-3">
+              {evMeta && (
+                <>
+                  <Fact label={RUN_EVENT_TEXT[lang].brand} value={brandText(evMeta.brand, lang)} />
+                  <Fact label={RUN_EVENT_TEXT[lang].kind} value={evKinds || '-'} />
+                </>
+              )}
               <Fact
                 label={t('detail.fee')}
                 value={feeLabel(race, lang)}
