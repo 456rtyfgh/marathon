@@ -95,7 +95,12 @@ test('supabasePushStore: RPC 이름·인자·헤더, 오류에 키 값이 없다
   await supabasePushStore(env, ok).targets(['u1'], []);
   assert.equal(calls[0].url, 'https://db.example/rest/v1/rpc/automation_push_targets');
   assert.deepEqual(JSON.parse(calls[0].init.body as string), { p_key: 'auto-test', p_user_ids: ['u1'], p_emails: null });
-  assert.equal((calls[0].init.headers as Record<string, string>).Authorization, 'Bearer svc-test');
+  // 새 sb_secret_ 키(여기 'svc-test')는 apikey 만, 예전 JWT(eyJ…)만 Authorization 도
+  assert.equal((calls[0].init.headers as Record<string, string>).apikey, 'svc-test');
+  assert.equal((calls[0].init.headers as Record<string, string>).Authorization, undefined);
+  await supabasePushStore({ ...env, SUPABASE_SERVICE_KEY: 'eyJ-test' }, ok).targets(['u1'], []);
+  assert.equal((calls[1].init.headers as Record<string, string>).Authorization, 'Bearer eyJ-test');
+  calls.length = 1;
   assert.equal(await supabasePushStore(env, ok).remove([]), 0);
   assert.equal(calls.length, 1, '지울 것이 없으면 부르지 않는다');
   const bad = (async () => new Response('invalid automation key', { status: 403 })) as unknown as typeof fetch;

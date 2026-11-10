@@ -2,8 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   // 예약 실행 전용(공개 주소 없음).
   //  - 매일 03:17, 15:17 UTC: Supabase 를 깨워 둔다 (03:17 = 12:17 KST 에는 알림 메일 재시도도)
-  //  - 매일 23:00 UTC = 08:00 KST: 일정 알림 메일 (worker/alerts/email.ts)
-  // 비밀값(wrangler secret put … --config wrangler.cron.jsonc): RESEND_API_KEY, AUTOMATION_KEY, SUPABASE_SECRET_KEY — 여기엔 넣지 않는다.
+  //  - 매일 23:00 UTC = 08:00 KST: 일정 알림 메일 (worker/alerts/email.ts) + 휴대폰 알림 (worker/alerts/pushRun.ts)
+  // 비밀값(wrangler secret put … --config wrangler.cron.jsonc): RESEND_API_KEY, AUTOMATION_KEY, SUPABASE_SECRET_KEY,
+  //   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT(mailto:…) — 여기엔 넣지 않는다. VAPID_PUBLIC_KEY 는 사이트(Pages)에도 같은 값.
   "name": "marathoncalendar-cron",
   "main": "worker/cron.ts",
   "compatibility_date": "2026-08-01",
