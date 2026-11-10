@@ -1024,6 +1024,7 @@ function Main() {
               recordsReady={reg.synced}
               onSaveRecord={reg.saveRecord}
               onClearRecord={reg.clearRecord}
+              onRaceSaved={(r) => { setSelected(r); reload(true).finally(() => setData((d) => ({ ...d, races: d.races.map((x) => (x.id === r.id ? r : x)) }))); }}
               {...similarProps}
             />
           </Suspense>
