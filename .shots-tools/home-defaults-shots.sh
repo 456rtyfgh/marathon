@@ -8,7 +8,7 @@
 # 끝나면 브라우저 세션을 닫는다. 서버는 직접 끈다: lsof -ti:<포트> | xargs kill
 # 주의
 #  - node_modules 가 다른 폴더를 가리키는 심볼릭 링크(git worktree)면 글꼴이 'serving allow list 밖' 으로 막혀
-#    글자 폭이 달라진다 → serve 는 server.fs.allow 에 그 node_modules 를 더한 임시 설정(.duo-data/, git 무시)으로 띄운다.
+#    글자 폭이 달라진다 → serve 는 server.fs.allow 에 그 node_modules 를 더한 임시 설정(.duo-shots/, git 무시)으로 띄운다.
 #  - agent-browser screenshot 의 상대 경로는 브라우저 데몬 기준이라 저장 폴더를 절대 경로로 바꿔 쓴다.
 #  - 묶음 안 대회는 React 의 key(=대회 id)로 알아내고 /data.json 과 맞춰 날짜·국내 여부를 본다.
 set -u
@@ -18,8 +18,10 @@ ROOT=$(cd "$HERE/.." && pwd)
 if [ "${1:-}" = serve ]; then
   PORT=${2:-5198}
   NM=$(cd "$ROOT/node_modules" && pwd -P)
-  mkdir -p "$ROOT/.duo-data"
-  CFG="$ROOT/.duo-data/vite-home-defaults.config.ts"
+  # 임시 설정은 worktree 안 git 무시 폴더에 (.duo-data 는 원래 저장소를 가리키는 링크라 거기 쓰면 worktree 밖에 파일이 생기고,
+  # 설정 안의 '../vite.config.ts' 가 원래 저장소 쪽으로 풀릴 수 있다)
+  mkdir -p "$ROOT/.duo-shots"
+  CFG="$ROOT/.duo-shots/vite-home-defaults.config.ts"
   cat > "$CFG" <<EOF
 import base from '../vite.config.ts';
 export default { ...base, server: { fs: { allow: ['$ROOT', '$NM'] } } };
