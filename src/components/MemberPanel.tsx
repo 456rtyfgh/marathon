@@ -180,7 +180,8 @@ function FeedSection({ uid, onError }: { uid: string; onError: (e: unknown) => v
   }
 
   return (
-    <section id="me-feed" className={section}>
+    // scroll-mt: '캘린더 구독으로' 버튼(SavedRaces)이 여기로 내릴 때 위에 붙어 있는 제목 줄(AuthPanel — 휴대폰 80px, 640px 부터 72px)에 제목이 가려지지 않게
+    <section id="me-feed" className={`${section} scroll-mt-20 sm:scroll-mt-[72px]`}>
       <h3 className={h3}>{t('me.feed.title')}</h3>
       <p className="mt-1 text-[15px] sm:text-[13px] leading-relaxed text-ink-2">{t('me.feed.text')}</p>
       {since === undefined ? null : shown ? (

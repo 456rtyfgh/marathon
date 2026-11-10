@@ -160,8 +160,11 @@ export function Panel({
         onClose();
       }}
       onClick={(e) => {
-        // 배경(::backdrop) 클릭 시 닫기
-        if (e.target === e.currentTarget) onClose();
+        // 배경(::backdrop) 클릭 시 닫기. 창 자기 여백(휴대폰 시트의 아래 안전 영역 — index.css 의 padding-bottom)을 눌러도 target 은 dialog 라
+        // 눌린 자리가 창 밖일 때만 닫는다 (안 가리면 아이폰에서 제출 버튼 아래를 스친 손가락에 로그인·가입 시트가 닫혀 입력이 사라진다)
+        if (e.target !== e.currentTarget) return;
+        const r = e.currentTarget.getBoundingClientRect();
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) onClose();
       }}
     >
       {open && children}
