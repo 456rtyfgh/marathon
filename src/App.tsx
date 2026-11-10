@@ -97,7 +97,7 @@ function Main() {
   const [types, setTypes] = useState<EntryType[]>([]);
   const [majorOnly, setMajorOnly] = useState(false);
   const [maxFlight, setMaxFlight] = useState(24);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [showPast, setShowPast] = useState(false);
   const [pastLimit, setPastLimit] = useState(PAGE);
   const fav = useFavorites();
