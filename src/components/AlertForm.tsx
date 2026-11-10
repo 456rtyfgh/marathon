@@ -8,6 +8,7 @@ import { track } from '../lib/analytics';
 import { langPath, useLang } from '../i18n';
 import { COLLECT_ALERT, PRIVACY_PATH } from '../lib/policy';
 import MemberGate, { type OnLogin } from './MemberGate';
+import PushToggle from './PushToggle';
 
 const OPTIONS = [30, 14, 7, 3, 1];
 
@@ -116,6 +117,8 @@ export default function AlertForm({ race, onLogin }: { race: Race; onLogin: OnLo
               </Button>
             </div>
           </Field>
+          {/* 이 기기로도 받기 (바로 켜고 끈다 — 위 '알림 받기' 와 따로) */}
+          <PushToggle />
           {/* 수집·이용 고지(목적·항목·보유기간·거부 권리) — 문구는 lib/policy 의 COLLECT_ALERT */}
           <p className="text-[13px] leading-relaxed text-ink-3">
             <span className="font-semibold text-ink-2">{t('consent.alertTitle')}</span> · {t('consent.purpose')}: {COLLECT_ALERT.purpose[lang]} ·{' '}

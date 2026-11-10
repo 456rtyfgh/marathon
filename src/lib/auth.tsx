@@ -57,6 +57,8 @@ const Ctx = createContext<AuthState>({
 });
 
 export const useAuth = () => useContext(Ctx);
+/** 개발 미리보기(src/dev/pushPreview.tsx)가 가짜 로그인 상태를 넣을 때만 쓴다 */
+export const AuthContextForPreview = Ctx;
 
 const redirectTo = () => `${window.location.origin}/`;
 

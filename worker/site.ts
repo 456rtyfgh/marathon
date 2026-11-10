@@ -10,6 +10,7 @@
  *  - /cal/대회id.ics: 캘린더 일정 파일. 로그인 회원만(Authorization: Bearer, worker/memberCal.ts). ?lang=en 이면 영어.
  *  - /cal/u/토큰.ics: 회원의 '내 일정 구독' 캘린더 (저장한 대회 전부, worker/memberCal.ts).
  *  - /api/admin/ga  : 관리 화면 GA 분석 숫자 (관리자만, worker/gaRoute.ts). 그 밖 /api/* 는 404.
+ *  - /api/push/key  : 휴대폰 알림 VAPID 공개키 (env.VAPID_PUBLIC_KEY, 없으면 503).
  *  - /api/community : 러닝톡 글 목록(제목 등만, 본문 없음). 우리 사이트 안에서 부른 것만 (worker/community.ts).
  *  - /community, /community/<글id> (+ /en/…) : 러닝톡 목록·글의 검색엔진용 제목·구조화 데이터 (본문 없음, worker/community.ts).
  *  - /unsubscribe?t=… : 알림 메일 수신 거부 (GET 은 확인 버튼, POST 가 처리 — worker/alerts/unsubscribe.ts).
@@ -38,6 +39,9 @@ export const CSP = [
   "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com",
   "font-src 'self' data:",
   "connect-src 'self' https://zhwmfvkwtmakieatlqtz.supabase.co https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com",
+  // 서비스 워커(public/sw.js, 휴대폰 알림)는 우리 주소의 파일만
+  "worker-src 'self'",
+  "manifest-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -53,6 +57,8 @@ export interface SiteEnv extends GaEnv {
   ASSETS: { fetch: (req: Request | string) => Promise<Response> };
   /** 있으면 러닝톡이 공개 Supabase 대신 이 주소를 부른다 (로컬 확인용 — 배포 환경엔 없음) */
   COMMUNITY_SUPABASE_URL?: string;
+  /** 휴대폰 알림 VAPID 공개키 (Pages 비밀값). 브라우저가 /api/push/key 로 받아 구독에 쓴다 — 공개키라 내보내도 된다 */
+  VAPID_PUBLIC_KEY?: string;
 }
 type Env = SiteEnv;
 
@@ -578,6 +584,12 @@ export async function siteFetch(req: Request, env: SiteEnv): Promise<Response> {
   const url = new URL(req.url);
   if (url.pathname === '/api/admin/ga') return gaRoute(req, env);
   if (url.pathname === '/api/community') return communityApi(req, env);
+  if (url.pathname === '/api/push/key') {
+    // 공개키 모양(base64url 65바이트 = 87자)만 내보낸다 — 비밀값 칸을 잘못 넣었어도 다른 값이 새지 않게
+    const key = env.VAPID_PUBLIC_KEY?.trim() ?? '';
+    if (!/^B[A-Za-z0-9_-]{86}$/.test(key)) return json(JSON.stringify({ error: 'unavailable' }), 503);
+    return json(JSON.stringify({ key }));
+  }
   if (url.pathname.startsWith('/api/')) return json(JSON.stringify({ error: 'not_found', message: '없는 주소입니다.' }), 404);
   if (url.pathname === '/data.json') return notFound();
   if (url.pathname === '/unsubscribe') return unsubscribeRoute(req, env);
