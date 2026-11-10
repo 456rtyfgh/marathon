@@ -9,11 +9,13 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const [mode, port, widthArg = '360,390,414,1280', only = '.', scheme = 'light'] = process.argv.slice(2);
+const [mode, port, widthArg = '360,390,414,1280', only = '.', scheme = 'light', session = 'mobile-b'] = process.argv.slice(2);
 if (!/^(before|after)$/.test(mode ?? '') || !port) {
-  console.error('사용: node .shots-tools/mobile-b-shots.mjs <before|after> <포트> [폭들] [장면 필터] [light|dark]');
+  console.error('사용: node .shots-tools/mobile-b-shots.mjs <before|after> <포트> [폭들] [장면 필터] [light|dark] [세션 이름]');
   process.exit(1);
 }
+// 세션 이름: 기준(before)과 현재(after)를 동시에 찍을 때 여섯째 인자로 나눈다
+const SESSION = session;
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
 const out = join(root, '.duo-shots/mobile', mode);
@@ -26,7 +28,7 @@ let W = 390;
 
 const ab = (...args) => {
   try {
-    return execFileSync('agent-browser', ['--session', 'mobile-b', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 40000 }).trim();
+    return execFileSync('agent-browser', ['--session', SESSION, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 40000 }).trim();
   } catch (e) {
     return `ERR ${String(e.stderr || e.message).slice(0, 200)}`;
   }
