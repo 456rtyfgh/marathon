@@ -1,14 +1,20 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  // 예약 실행 전용(공개 주소 없음): 매일 03:17, 15:17 UTC 에 Supabase 를 깨워 둔다.
+  // 예약 실행 전용(공개 주소 없음).
+  //  - 매일 03:17, 15:17 UTC: Supabase 를 깨워 둔다 (03:17 = 12:17 KST 에는 알림 메일 재시도도)
+  //  - 매일 23:00 UTC = 08:00 KST: 일정 알림 메일 (worker/alerts/email.ts)
+  // 비밀값(wrangler secret put … --config wrangler.cron.jsonc): RESEND_API_KEY, AUTOMATION_KEY, SUPABASE_SECRET_KEY — 여기엔 넣지 않는다.
   "name": "marathoncalendar-cron",
   "main": "worker/cron.ts",
   "compatibility_date": "2026-08-01",
   "workers_dev": false,
   "preview_urls": false,
-  "triggers": { "crons": ["17 3,15 * * *"] },
+  "triggers": { "crons": ["17 3,15 * * *", "0 23 * * *"] },
+  "observability": { "enabled": true },
   "vars": {
     "SUPABASE_URL": "https://zhwmfvkwtmakieatlqtz.supabase.co",
-    "SUPABASE_KEY": "sb_publishable_uOBwP5-BbK7keBuq3gsMAg_Oil1yg6O"
+    "SUPABASE_KEY": "sb_publishable_uOBwP5-BbK7keBuq3gsMAg_Oil1yg6O",
+    "SITE_ORIGIN": "https://marathon82.com",
+    "ALERT_DAILY_LIMIT": "100"
   }
 }
