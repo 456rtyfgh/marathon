@@ -95,7 +95,7 @@ export default function PackageTable({ packages, agencies }: { packages: Package
                       >
                         {krwExact(p.price_solo_krw, lang)}
                       </div>
-                      <div className="mt-1 text-[13px] text-ink-3">
+                      <div className="mt-1 text-[13px] text-ink-3 sm:text-[12px]">
                         {low ? t('pkg.cheapest') : t('pkg.solo')}
                         {p.price_group_krw != null && t('pkg.group', { v: krwExact(p.price_group_krw, lang) })}
                       </div>

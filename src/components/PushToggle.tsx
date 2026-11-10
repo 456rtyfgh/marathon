@@ -136,7 +136,7 @@ function IosGuide() {
       <ol className="mt-2 space-y-2">
         {steps.map((s, i) => (
           <li key={i} className="flex items-start gap-2.5 text-[15px] sm:text-[13px] leading-relaxed text-ink-2">
-            <span className="num mt-px inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-line text-[12px] font-semibold text-ink-2">
+            <span className="num mt-px inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-line text-[12px] font-semibold text-ink-2 sm:text-[11px]">
               {i + 1}
             </span>
             <span className="flex min-w-0 items-start gap-1.5">
@@ -226,7 +226,7 @@ export function PushSection({ className = '' }: { className?: string }) {
                     <span className="flex items-center gap-2 text-[15px] text-ink">
                       <span className="truncate">{name}</span>
                       {here && (
-                        <span className="shrink-0 rounded-full border border-line px-2 py-px text-[12px] font-semibold text-ink-2">{t('push.thisDevice')}</span>
+                        <span className="shrink-0 rounded-full border border-line px-2 py-px text-[12px] font-semibold text-ink-2 sm:text-[11px]">{t('push.thisDevice')}</span>
                       )}
                     </span>
                     <span className="block text-[13px] text-ink-3">{t('push.since', { d: fmtDate(d.created_at.slice(0, 10), lang) })}</span>
