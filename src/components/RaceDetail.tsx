@@ -36,6 +36,7 @@ import ReviewsTab from './ReviewsTab';
 import RaceTalkTab from '../community/RaceTalkTab';
 import { COMMUNITY_TEXT } from '../community/strings';
 import SimilarRaces from './SimilarRaces';
+import RaceEditor, { EDIT_TAB_LABEL } from './RaceEditor';
 import { Button, CloseButton, Field, Input, Note, Tabs, inputCls } from './ui';
 import MemberGate, { type OnLogin } from './MemberGate';
 import { useAuth } from '../lib/auth';
@@ -47,7 +48,7 @@ import type { RecordInput } from '../lib/registered';
 
 const dday = (n: number) => (n === 0 ? 'D-DAY' : `D-${n}`);
 
-type Tab = 'overview' | 'reviews' | 'talk' | 'packages' | 'cost' | 'alert';
+type Tab = 'overview' | 'reviews' | 'talk' | 'packages' | 'cost' | 'alert' | 'edit';
 
 interface RaceDetailProps {
   race: Race;
@@ -75,6 +76,8 @@ interface RaceDetailProps {
   isFavorite?: (id: string) => boolean;
   isRegistered?: (id: string) => boolean;
   onOpenRace?: (race: Race) => void;
+  /** 관리자 '수정' 탭에서 저장한 뒤 (DB 에서 다시 읽은 값) */
+  onRaceSaved?: (r: Race) => void;
 }
 
 /**
@@ -100,7 +103,8 @@ export default function RaceDetail(props: RaceDetailProps) {
     };
   }, [race.id, hasDetail]);
 
-  if (hasDetail) return <RaceDetailView {...props} />;
+  // 관리자 '수정' 저장 뒤엔 race 가 DB 에서 다시 읽은 전체 값이 된다 → 그 값을 쓰되 패키지·경비는 처음 받은 상세 그대로
+  if (hasDetail && !detail) return <RaceDetailView {...props} />;
   if (!detail)
     return (
       <div className="relative h-full overflow-y-auto">
@@ -115,7 +119,7 @@ export default function RaceDetail(props: RaceDetailProps) {
   return (
     <RaceDetailView
       {...props}
-      race={{ ...race, ...detail.race }}
+      race={hasDetail ? race : { ...race, ...detail.race }}
       packages={detail.packages}
       agencies={detail.agencies}
       costs={detail.costs}
@@ -145,9 +149,10 @@ function RaceDetailView({
   isFavorite,
   isRegistered,
   onOpenRace,
+  onRaceSaved,
 }: RaceDetailProps) {
   const { lang, t } = useLang();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [tab, setTab] = useState<Tab>('overview');
   const [copied, setCopied] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
@@ -206,7 +211,8 @@ function RaceDetailView({
   const cancelled = isCancelled(race);
   const note = noteText(race, lang);
   const entryLabel = ENTRY_TEXT[lang][race.entry_type];
-  const view: Tab = cancelled && tab === 'alert' ? 'overview' : tab;
+  const isAdmin = !!profile?.is_admin;
+  const view: Tab = (cancelled && tab === 'alert') || (!isAdmin && tab === 'edit') ? 'overview' : tab;
 
   return (
     <div ref={scrollRef} className="relative h-full overflow-y-auto">
@@ -369,7 +375,7 @@ function RaceDetailView({
           value={view}
           onChange={(t) => {
             setTab(t);
-            track('race_tab', { race_id: race.id, tab: t });
+            if (t !== 'edit') track('race_tab', { race_id: race.id, tab: t }); // 관리자 '수정' 은 방문 통계에 넣지 않는다
             // 탭 줄이 이미 위에 붙어 있으면, 새 탭 내용이 첫머리부터 보이게 탭 줄 바로 아래로 맞춘다
             const box = scrollRef.current;
             const head = headRef.current;
@@ -382,6 +388,7 @@ function RaceDetailView({
             ['packages', racePackages.length ? t('tab.packagesN', { n: racePackages.length }) : t('tab.packages')],
             ['cost', t('tab.cost')],
             ...(cancelled ? [] : ([['alert', t('tab.alert')]] as [Tab, string][])),
+            ...(isAdmin ? ([['edit', EDIT_TAB_LABEL[lang]]] as [Tab, string][]) : []),
           ]}
         />
       </div>
@@ -543,6 +550,7 @@ function RaceDetailView({
         {view === 'packages' && <PackageTable packages={racePackages} agencies={agencies} />}
         {view === 'cost' && <CostCalculator race={race} costs={costs} />}
         {view === 'alert' && <AlertForm race={race} onLogin={onLogin} />}
+        {view === 'edit' && isAdmin && <RaceEditor raceId={race.id} onSaved={onRaceSaved} />}
       </div>
 
       <p className="max-w-[60ch] px-5 pb-8 text-[13px] leading-relaxed text-ink-3 sm:px-7">
