@@ -3,6 +3,7 @@ import { MagnifyingGlass } from '@phosphor-icons/react';
 import type { Race } from '../lib/types';
 import { matchRaces, matchRange } from '../lib/adminSearch';
 import { inputCls } from './ui';
+import { fmtDateShort } from '../lib/dateFormat';
 
 /** 맞은 글자만 굵게 */
 function Mark({ text, q }: { text: string; q: string }): ReactNode {
@@ -137,7 +138,7 @@ export default function AdminRaceSearch({
                   </span>
                 ))}
                 {' · '}
-                <span className="num">{r.race_date}</span>
+                <span className="num">{fmtDateShort(r.race_date, 'ko')}</span>
                 {' · '}
                 <span className="font-mono">
                   <Mark text={r.id} q={q} />

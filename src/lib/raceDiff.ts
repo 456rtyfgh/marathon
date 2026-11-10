@@ -7,6 +7,7 @@
  */
 import type { Race } from './types.ts';
 import { REGIONS, COURSES, CONFIDENCE_LABEL, ENTRY_LABEL, DISCIPLINE_LABEL } from './types.ts';
+import { fmtDateLong } from './dateFormat.ts';
 
 export type RaceKey = Exclude<keyof Race, 'id'>;
 export type FieldKind = 'text' | 'textarea' | 'date' | 'number' | 'select' | 'check' | 'list';
@@ -114,6 +115,8 @@ export function formatValue(key: RaceKey, v: unknown): string {
   if (isBlank(v)) return '—';
   if (m?.kind === 'select') return m.options?.find(([val]) => val === String(v))?.[1] ?? String(v);
   if (m?.kind === 'number' && typeof v === 'number') return v.toLocaleString('ko-KR');
+  // 날짜 칸은 공용 포맷터로 연도까지 ('2026년 11월 15일(일)')
+  if (m?.kind === 'date' && /^\d{4}-\d{2}-\d{2}/.test(String(v))) return fmtDateLong(String(v), 'ko');
   return String(v);
 }
 

@@ -3,6 +3,7 @@
  * 대회 기본은 '대회 날짜 가까운 순': 오늘 이후 대회를 날짜 순으로 먼저, 지난 대회는 뒤에 최근 것부터.
  */
 import type { Race } from './types';
+import { fmtDateShort } from './dateFormat';
 
 export type RaceSort = 'date' | 'name' | 'updated';
 export const RACE_SORT_LABEL: Record<RaceSort, string> = { date: '날짜', name: '이름', updated: '최근 수정' };
@@ -36,7 +37,7 @@ export function sortRaces(races: Race[], sort: RaceSort, today: string): RaceGro
 }
 
 /** 고르기 목록 한 줄: '2027-06-13 · 윈더미어 마라톤 · 윈더미어 (windermere)' — 이름이 같은 대회도 날짜·도시·id 로 구분된다 */
-export const raceOptionLabel = (r: Race) => `${r.race_date} · ${r.name_ko}${r.city_ko ? ` · ${r.city_ko}` : ''} (${r.id})`;
+export const raceOptionLabel = (r: Race) => `${fmtDateShort(r.race_date, 'ko')} · ${r.name_ko}${r.city_ko ? ` · ${r.city_ko}` : ''} (${r.id})`;
 
 /** 대회 추가 요청·마감 제보 정렬 */
 export type RequestSort = 'status' | 'newest';
