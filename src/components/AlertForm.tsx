@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Check } from '@phosphor-icons/react';
 import type { Race } from '../lib/types';
 import { subscribeAlert } from '../lib/data';
 import { useAuth } from '../lib/auth';
@@ -98,10 +99,11 @@ export default function AlertForm({ race, onLogin }: { race: Race; onLogin: OnLo
                     key={n}
                     aria-pressed={on}
                     onClick={() => toggle(n)}
-                    className={`num h-11 min-w-14 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition active:translate-y-px sm:h-10 ${
-                      on ? 'bg-ink text-bg' : 'bg-surface text-ink-2 hover:bg-sunken'
+                    className={`num inline-flex h-11 min-w-14 items-center justify-center gap-1 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition active:translate-y-px sm:h-10 ${
+                      on ? 'bg-surface text-ink shadow-[inset_0_0_0_2px_var(--ink)]' : 'bg-surface text-ink-2 hover:bg-sunken'
                     }`}
                   >
+                    {on && <Check size={14} weight="bold" aria-hidden />}
                     D-{n}
                   </button>
                 );
@@ -120,11 +122,11 @@ export default function AlertForm({ race, onLogin }: { race: Race; onLogin: OnLo
           {/* 이 기기로도 받기 (바로 켜고 끈다 — 위 '알림 받기' 와 따로) */}
           <PushToggle />
           {/* 수집·이용 고지(목적·항목·보유기간·거부 권리) — 문구는 lib/policy 의 COLLECT_ALERT */}
-          <p className="text-[13px] leading-relaxed text-ink-3">
+          <p className="text-[15px] sm:text-[13px] leading-relaxed text-ink-3">
             <span className="font-semibold text-ink-2">{t('consent.alertTitle')}</span> · {t('consent.purpose')}: {COLLECT_ALERT.purpose[lang]} ·{' '}
             {t('consent.items')}: {COLLECT_ALERT.items[lang]} · {t('consent.retention')}: {COLLECT_ALERT.retention[lang]} ·{' '}
             {COLLECT_ALERT.refusal[lang]}{' '}
-            <a href={langPath(PRIVACY_PATH, lang)} target="_blank" rel="noopener" className="py-1 underline underline-offset-2 hover:no-underline">
+            <a href={langPath(PRIVACY_PATH, lang)} target="_blank" rel="noopener" className="py-3.5 underline underline-offset-2 hover:no-underline">
               {t('rights.policy')}
             </a>
           </p>

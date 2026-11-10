@@ -157,14 +157,23 @@ export function Tabs<T extends string>({
   items: [T, ReactNode][];
 }) {
   return (
-    <div role="tablist" className="flex gap-4 overflow-x-auto border-b border-line px-5 sm:gap-5 sm:px-7">
+    // 휴대폰: 탭마다 가로 44px 이상(글자 양옆 8px), 넘치면 가로로 밀어 본다 — 오른쪽 끝에서 잘려 보이는 탭이 '더 있음' 표시.
+    // 아래 선은 테두리 대신 안쪽 그림자로 그린다(세로로 1px 넘쳐 스크롤 상자가 되지 않게). 640px 부터는 예전 간격 그대로
+    <div
+      role="tablist"
+      className="flex gap-1 overflow-x-auto px-3 shadow-[inset_0_-1px_0_var(--line)] [scrollbar-width:none] sm:gap-5 sm:px-7"
+    >
       {items.map(([id, label]) => (
         <button
           key={id}
           role="tab"
           aria-selected={value === id}
-          onClick={() => onChange(id)}
-          className={`-mb-px h-12 shrink-0 border-b-2 text-[15px] font-semibold whitespace-nowrap transition ${
+          onClick={(e) => {
+            onChange(id);
+            // 잘려 있던 탭을 누르면 다 보이게 (세로 위치는 그대로)
+            e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          }}
+          className={`h-12 min-w-11 shrink-0 border-b-2 px-2 text-[15px] font-semibold whitespace-nowrap transition sm:min-w-0 sm:px-0 ${
             value === id ? 'border-ink text-ink' : 'border-transparent text-ink-3 hover:text-ink-2'
           }`}
         >

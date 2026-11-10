@@ -1,6 +1,6 @@
 import { brandText, isRunEvent, kindsText, runEventMeta, RUN_EVENT_TEXT, stripRunEventHead } from '../lib/runEvent';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, CalendarPlus, LinkSimple, Check, BookmarkSimple, CheckSquare, Square } from '@phosphor-icons/react';
+import { ArrowUpRight, Bell, CalendarPlus, LinkSimple, Check, BookmarkSimple, CheckSquare, Square } from '@phosphor-icons/react';
 import { calDates, calLabel, googleCalUrl, openOutside, type CalKind } from '../lib/ics';
 import { track } from '../lib/analytics';
 import type { Race, Agency, Package, CostBaseline, RaceRating } from '../lib/types';
@@ -218,10 +218,27 @@ function RaceDetailView({
   const isAdmin = !!profile?.is_admin;
   const view: Tab = (cancelled && tab === 'alert') || (!isAdmin && tab === 'edit') ? 'overview' : tab;
 
+  // 위쪽 '관심' 버튼(PC)과 휴대폰 아래 고정 줄이 같이 쓴다
+  const toggleFavorite = () => {
+    if (!favorite) track('favorite', { race_id: race.id });
+    onToggleFavorite();
+  };
+  /** 탭 바꾸기. toTabs = 탭 줄이 맨 위에 오게 내린다(휴대폰 아래 줄의 '알림' — 위쪽 요약에 가려 내용이 안 보이지 않게) */
+  const goTab = (next: Tab, toTabs = false) => {
+    setTab(next);
+    if (next !== 'edit') track('race_tab', { race_id: race.id, tab: next }); // 관리자 '수정' 은 방문 통계에 넣지 않는다
+    // 탭 줄이 이미 위에 붙어 있으면, 새 탭 내용이 첫머리부터 보이게 탭 줄 바로 아래로 맞춘다
+    const box = scrollRef.current;
+    const head = headRef.current;
+    if (box && head && (toTabs || box.scrollTop > head.offsetHeight)) box.scrollTop = head.offsetHeight;
+  };
+  const officialLabel = isSearchLink(race.official_url) ? t('detail.officialSearch') : t('detail.official');
+
   return (
-    <div ref={scrollRef} className="relative h-full overflow-y-auto">
+    // 휴대폰은 세로 flex: 내용이 짧은 탭에서도 아래 고정 줄(mt-auto)이 화면 맨 아래에 붙는다
+    <div ref={scrollRef} className="relative h-full overflow-y-auto max-sm:flex max-sm:flex-col">
       {/* 맨 윗줄: 스크롤해도 붙어 있어 휴대폰에서도 닫기를 늘 누를 수 있다 (높이 64/56 = 아래 탭 줄의 top) */}
-      <div className="sticky top-0 z-10 flex h-16 items-center justify-between gap-2 bg-bg px-5 sm:h-14 sm:px-7">
+      <div className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-2 bg-bg px-5 sm:h-14 sm:px-7">
         <span className="line-clamp-2 min-w-0 text-[15px] leading-snug text-ink-2">
           {lang === 'en'
             ? domestic
@@ -232,14 +249,12 @@ function RaceDetailView({
               : `${race.country_ko} ${race.city_ko}`}
         </span>
         <div className="flex shrink-0 items-center gap-1">
+          {/* 휴대폰에서는 아래 고정 줄에 있다(엄지 닿는 곳) — 여기는 640px 부터 */}
           <button
-            onClick={() => {
-              if (!favorite) track('favorite', { race_id: race.id });
-              onToggleFavorite();
-            }}
+            onClick={toggleFavorite}
             aria-pressed={favorite}
-            className={`inline-flex h-11 items-center gap-2 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition active:translate-y-px sm:h-9 ${
-              favorite ? 'bg-ink text-bg' : 'text-ink-2 hover:bg-sunken hover:text-ink'
+            className={`hidden h-9 items-center gap-2 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition active:translate-y-px sm:inline-flex ${
+              favorite ? 'bg-surface text-ink shadow-[inset_0_0_0_2px_var(--ink)]' : 'text-ink-2 hover:bg-sunken hover:text-ink'
             }`}
           >
             <BookmarkSimple size={16} weight={favorite ? 'fill' : 'bold'} />
@@ -288,7 +303,7 @@ function RaceDetailView({
                 onClick={() => track('official_click', { race_id: race.id, search: isSearchLink(race.official_url), cancelled: true })}
                 target="_blank"
                 rel="noreferrer"
-                className="font-semibold whitespace-nowrap text-ink underline decoration-ink-3 underline-offset-4 hover:decoration-ink"
+                className="py-3.5 font-semibold whitespace-nowrap text-ink underline decoration-ink-3 underline-offset-4 hover:decoration-ink"
               >
                 {t('detail.cancelledLink')}
               </a>
@@ -351,14 +366,14 @@ function RaceDetailView({
             }}
             aria-pressed={registered}
             className={`mt-4 inline-flex min-h-11 flex-wrap items-center gap-x-2 rounded-ctl px-4 py-2 text-left text-[15px] font-semibold transition active:translate-y-px sm:min-h-10 ${
-              registered ? 'bg-ink text-bg' : 'bg-surface text-ink hover:bg-sunken'
+              registered ? 'bg-surface text-ink shadow-[inset_0_0_0_2px_var(--ink)]' : 'bg-surface text-ink hover:bg-sunken'
             }`}
           >
             <span className="inline-flex items-center gap-2 whitespace-nowrap">
               {registered ? <CheckSquare size={18} weight="fill" /> : <Square size={18} weight="bold" />}
               {registered ? t('detail.registered') : t('detail.register')}
             </span>
-            <span className={`text-[13px] font-normal ${registered ? 'opacity-70' : 'text-ink-3'}`}>
+            <span className={`text-[13px] font-normal ${registered ? 'text-ink-2' : 'text-ink-3'}`}>
               {cancelled ? t('detail.unregister') : registered ? t('detail.byRaceDay') : t('detail.registerHint')}
             </span>
           </button>
@@ -382,14 +397,7 @@ function RaceDetailView({
       <div className="sticky top-16 z-10 bg-bg sm:top-14">
         <Tabs<Tab>
           value={view}
-          onChange={(t) => {
-            setTab(t);
-            if (t !== 'edit') track('race_tab', { race_id: race.id, tab: t }); // 관리자 '수정' 은 방문 통계에 넣지 않는다
-            // 탭 줄이 이미 위에 붙어 있으면, 새 탭 내용이 첫머리부터 보이게 탭 줄 바로 아래로 맞춘다
-            const box = scrollRef.current;
-            const head = headRef.current;
-            if (box && head && box.scrollTop > head.offsetHeight) box.scrollTop = head.offsetHeight;
-          }}
+          onChange={(t) => goTab(t)}
           items={[
             ['overview', t('tab.overview')],
             ['reviews', reviewCount ? t('tab.reviewsN', { n: reviewCount }) : t('tab.reviews')],
@@ -490,20 +498,23 @@ function RaceDetailView({
             )}
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* 휴대폰에서는 아래 고정 줄에 있다 — 여기는 640px 부터 */}
               <a
                 href={safeUrl(race.official_url)}
                 onClick={() => track('official_click', { race_id: race.id, search: isSearchLink(race.official_url) })}
                 target="_blank"
                 rel="noreferrer"
-                className={`${actBtn} bg-ink text-bg hover:opacity-85`}
+                className={`${actBtn} bg-ink text-bg hover:opacity-85 max-sm:hidden`}
               >
-                {isSearchLink(race.official_url) ? t('detail.officialSearch') : t('detail.official')} <ArrowUpRight size={14} weight="bold" />
+                {officialLabel} <ArrowUpRight size={14} weight="bold" />
               </a>
               {!cancelled && (
                 <button
                   onClick={() => setCalOpen((v) => !v)}
                   aria-expanded={calOpen}
-                  className={`${actBtn} active:translate-y-px ${calOpen ? 'bg-ink text-bg' : 'bg-surface text-ink hover:bg-sunken'}`}
+                  className={`${actBtn} active:translate-y-px ${
+                    calOpen ? 'bg-surface text-ink shadow-[inset_0_0_0_2px_var(--ink)]' : 'bg-surface text-ink hover:bg-sunken'
+                  }`}
                 >
                   <CalendarPlus size={14} weight="bold" /> {calDates(race).length === 1 ? t('detail.calRaceOnly') : t('detail.cal')}
                 </button>
@@ -532,19 +543,19 @@ function RaceDetailView({
               ))}
             {/* 비회원에게 회원 혜택 한 줄 (안내 상자가 열려 있으면 거기 이미 있다) */}
             {!session && !(calOpen && !cancelled) && (
-              <p className="-mt-5 max-w-[60ch] text-[13px] leading-relaxed text-ink-3">
+              <p className="-mt-5 max-w-[60ch] text-[15px] sm:text-[13px] leading-relaxed text-ink-3">
                 {t('member.perks')}{' '}
                 <button
                   type="button"
                   onClick={() => onLogin('up')}
-                  className="font-semibold whitespace-nowrap text-ink-2 underline underline-offset-2 hover:text-ink"
+                  className="-my-3 py-3 font-semibold whitespace-nowrap text-ink-2 underline underline-offset-2 hover:text-ink"
                 >
                   {t('member.signup')}
                 </button>
               </p>
             )}
 
-            <p className="max-w-[60ch] text-[13px] leading-relaxed text-ink-3">{t('detail.disclaimer')}</p>
+            <p className="max-w-[60ch] text-[15px] sm:text-[13px] leading-relaxed text-ink-3">{t('detail.disclaimer')}</p>
 
             {races && onOpenRace && (
               <SimilarRaces
@@ -568,15 +579,47 @@ function RaceDetailView({
         {view === 'edit' && isAdmin && <RaceEditor raceId={race.id} onSaved={onRaceSaved} />}
       </div>
 
-      <p className="max-w-[60ch] px-5 pb-8 text-[13px] leading-relaxed text-ink-3 sm:px-7">
+      <p className="max-w-[60ch] px-5 pb-8 text-[15px] sm:text-[13px] leading-relaxed text-ink-3 sm:px-7">
         {t('footer.notice')}{' '}
-        <a href={langPath('/terms', lang)} className="underline underline-offset-2 hover:no-underline">
+        <a href={langPath('/terms', lang)} className="py-3.5 underline underline-offset-2 hover:no-underline">
           {t('footer.terms')}
         </a>
       </p>
+
+      {/* 휴대폰: 자주 쓰는 동작(공식 홈페이지·관심·알림)을 스크롤해도 엄지가 닿는 아래 줄에 고정. 위·본문의 같은 버튼은 640px 부터 보인다 */}
+      <div className="sticky bottom-0 z-10 mt-auto flex shrink-0 items-stretch gap-2 border-t border-line bg-bg px-5 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:hidden">
+        <a
+          href={safeUrl(race.official_url)}
+          onClick={() => track('official_click', { race_id: race.id, search: isSearchLink(race.official_url) })}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-ctl bg-ink px-3 text-[15px] font-semibold text-bg transition hover:opacity-85"
+        >
+          <span className="truncate">{officialLabel}</span>
+          <ArrowUpRight size={14} weight="bold" className="shrink-0" />
+        </a>
+        <button
+          onClick={toggleFavorite}
+          aria-pressed={favorite}
+          className={`${barBtn} ${favorite ? 'bg-surface text-ink shadow-[inset_0_0_0_2px_var(--ink)]' : 'bg-surface text-ink-2'}`}
+        >
+          <BookmarkSimple size={18} weight={favorite ? 'fill' : 'bold'} />
+          <span>{favorite ? t('detail.saved') : t('detail.save')}</span>
+        </button>
+        {!cancelled && (
+          <button onClick={() => goTab('alert', true)} className={`${barBtn} bg-surface ${view === 'alert' ? 'text-ink' : 'text-ink-2'}`}>
+            <Bell size={18} weight={view === 'alert' ? 'fill' : 'bold'} />
+            <span>{t('tab.alert')}</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
+
+/** 휴대폰 아래 고정 줄의 작은 버튼(아이콘 위 · 글자 아래) */
+const barBtn =
+  'inline-flex h-12 min-w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-ctl px-2 text-[13px] leading-none font-semibold whitespace-nowrap transition active:translate-y-px';
 
 /** 위쪽 요약 두 칸: 부모 줄을 같이 써서(subgrid) 한쪽 라벨이 두 줄이어도 큰 값의 기준선이 같다 */
 const sumCell = 'row-span-3 grid grid-rows-subgrid gap-y-1 px-4 py-3';
@@ -675,7 +718,7 @@ function CalendarPicker({ race, onLogin }: { race: Race; onLogin: OnLogin }) {
           <Note tone="error">{t('cal.icsFail')}</Note>
         </div>
       )}
-      <p className="mt-3 text-[13px] leading-relaxed text-ink-3">
+      <p className="mt-3 text-[15px] sm:text-[13px] leading-relaxed text-ink-3">
         {dates.length > 1 ? t('cal.reminder') : race.sold_out_on ? t('cal.soldOnly') : t('cal.raceOnly')}
         {t('cal.kakao')}
       </p>
@@ -806,7 +849,7 @@ function FinishedRecord({
         ))}
 
       {gate && !session && <MemberGate raceId={race.id} action="record" onLogin={onLogin} className="mt-3 max-w-[60ch]" />}
-      {soon && session && !ready && <p className="mt-2 text-[13px] text-ink-3">{t('member.soon')}</p>}
+      {soon && session && !ready && <p className="mt-2 text-[15px] sm:text-[13px] text-ink-3">{t('member.soon')}</p>}
 
       {open && session && (
         <form onSubmit={submit} className="max-w-[60ch] space-y-3 rounded-box border border-line p-4">
@@ -916,7 +959,7 @@ function SoldOutReport({ race, onLogin }: { race: Race; onLogin: OnLogin }) {
         <Note tone="ok">{t('report.thanks')}</Note>
       </div>
     ) : (
-      <p className="mt-3 text-[13px] text-ink-3">{t('report.sent')}</p>
+      <p className="mt-3 text-[15px] sm:text-[13px] text-ink-3">{t('report.sent')}</p>
     );
 
   if (!open)
