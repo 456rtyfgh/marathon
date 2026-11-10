@@ -31,7 +31,8 @@ export function WithdrawForm({ onBack, onClose, onDone }: { onBack: () => void; 
         }
       }}
     >
-      <div className="flex items-center justify-between gap-3">
+      {/* 시트가 스크롤돼도 제목·닫기는 위에 붙어 있다 (아래 여백 pb-3 + mb-2 = 원래 간격 20px) */}
+      <div className="sticky top-0 z-10 -mx-6 -mt-6 mb-2 flex items-center justify-between gap-3 bg-surface px-6 pt-6 pb-3">
         <h2 className="text-[20px] font-bold tracking-tight">{t('withdraw.title')}</h2>
         <CloseButton onClick={onClose} />
       </div>
