@@ -3,7 +3,107 @@ import { X } from '@phosphor-icons/react';
 import { useLang } from '../i18n';
 import { fmtCount } from '../i18n/format';
 
-/* ── 오른쪽에서 열리는 패널 (native <dialog>) ─────────────────── */
+/* ── 패널과 뒤로 가기 ───────────────────────────────────────────
+ * 열린 패널 한 겹마다 히스토리 한 칸. 그 칸의 history.state.panelDepth = 그 칸에서 열려 있어야 하는 패널 수(없으면 0).
+ *  - 뒤로 가기(popstate): 지금 칸의 깊이보다 위에 있는 패널을 닫는다.
+ *  - 닫기 버튼·밖 누르기·ESC·제출 완료로 닫히면: 남는 칸을 도로 뺀다(history.go). 뺀 뒤 주소가 앱이 정해 둔 주소와 다르면 맞춘다
+ *    (/r/<id> 로 바로 들어와 X 를 누른 경우 — 빠진 자리의 주소가 /r/<id> 라서).
+ * 패널마다 따로 넣고 빼지 않고 한 곳(sync)에서 '열린 패널 수'와 panelDepth 를 맞춘다. 맞추기는 한 박자 뒤(setTimeout 0)라
+ *  - StrictMode 의 효과 두 번 실행, 한 패널이 닫히며 다른 패널이 열리는 순간(수가 그대로)에는 히스토리를 건드리지 않고,
+ *  - 닫을 때 App 의 주소 맞춤 효과(부모라 Panel 효과보다 늦게 돈다)가 끝난 주소를 읽는다.
+ * 러닝톡은 App 의 openTalk 이 주소 칸(/community)을 panelDepth 와 함께 직접 넣는다 — 깊이가 이미 맞아 여기서 더 넣지 않는다.
+ * history.state 를 지우는 코드가 있어도(깊이 0 으로 보임) 깨지지는 않는다: 뒤로 가기에 패널이 닫히는 쪽으로 간다.
+ * 뒤로 가기로 닫는 것은 '자기 칸이 잡힌(anchored)' 패널뿐이다. 휴대폰 메뉴는 자기 칸이 빠지는 popstate 안에서 항목의 동작(패널 열기)을
+ * 부르고 React 가 그 자리에서 패널을 그린다 — 그 같은 popstate 를 방금 열린 패널의 '뒤로 가기'로 읽으면 열리자마자 닫힌다.
+ */
+type Layer = { close: () => void; anchored: boolean };
+const layers: Layer[] = [];
+let syncTimer: ReturnType<typeof setTimeout> | undefined;
+let popTimer: ReturnType<typeof setTimeout> | undefined;
+/** 우리가 부른 history.go() 의 popstate 를 기다리는 중 */
+let awaitingPop = false;
+/** 칸을 뺀 뒤 맞출 주소 (닫을 때 앱이 정해 둔 주소) */
+let urlAfterPop: string | null = null;
+/** 패널이 (뒤로 가기가 아닌 이유로도) 닫혔다 — 다음 맞춤 때 그 시점의 주소를 '앱이 정해 둔 주소'로 적어 둔다 */
+let closedSinceSync = false;
+/** 한 번의 닫힘에서 칸을 빼는 횟수 한도 (히스토리가 예상과 달라도 끝없이 뒤로 가지 않게) */
+let popBudget = 0;
+
+const panelDepth = () => (history.state as { panelDepth?: number } | null)?.panelDepth ?? 0;
+const here = () => location.pathname + location.search + location.hash;
+
+function syncHistory() {
+  if (awaitingPop) return; // 우리 popstate 가 온 뒤(afterOwnPop)에 다시 맞춘다
+  const want = layers.length;
+  const have = panelDepth();
+  if (want > have) {
+    urlAfterPop = null;
+    for (let d = have + 1; d <= want; d++) history.pushState({ ...(history.state ?? {}), panelDepth: d }, '');
+  } else if (want < have && popBudget > 0) {
+    popBudget--;
+    awaitingPop = true;
+    history.go(want - have);
+    // popstate 가 안 오면(막힌 경우) 그냥 넘어간다
+    popTimer = setTimeout(afterOwnPop, 400);
+  } else {
+    settleUrl();
+  }
+  // 지금 칸의 깊이 안에 든 패널은 자기 칸이 있다 — 이제부터 뒤로 가기로 닫을 수 있다
+  const depth = panelDepth();
+  layers.forEach((l, i) => {
+    if (i < depth) l.anchored = true;
+  });
+}
+
+function settleUrl() {
+  // 칸을 뺀 자리의 주소가 앱이 정해 둔 주소와 다르면 맞춘다
+  if (urlAfterPop != null && here() !== urlAfterPop) history.replaceState(history.state, '', urlAfterPop);
+  urlAfterPop = null;
+}
+
+function afterOwnPop() {
+  clearTimeout(popTimer);
+  awaitingPop = false;
+  syncHistory(); // 아직 남은 칸이 있으면(러닝톡에서 글을 연 채 닫음) 더 빼고, 그 사이 열린 패널이 있으면 넣는다
+}
+
+function scheduleSync() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    popBudget = 6;
+    // 패널이 닫힌 뒤의 맞춤: 이 시점의 주소가 앱이 정해 둔 주소다(App 의 주소 맞춤 효과가 이미 돌았다).
+    // 뒤로·앞으로 가기만 있었던 맞춤(닫힌 패널 없음)에서는 적지 않는다 — 앞으로 가기로 온 칸의 옛 주소를 되살리지 않게
+    if (!awaitingPop) urlAfterPop = closedSinceSync ? here() : null;
+    closedSinceSync = false;
+    syncHistory();
+  }, 0);
+}
+
+function onPopState() {
+  if (awaitingPop) return afterOwnPop(); // 우리가 뺀 칸
+  // 사용자가 뒤로(또는 앞으로) 갔다: 그 칸의 깊이보다 위에 있는 패널을 위에서부터 닫는다
+  const have = panelDepth();
+  for (let i = layers.length - 1; i >= have; i--) if (layers[i]?.anchored) layers[i].close();
+  // 닫히지 않은 패널이 남았거나(다시 칸을 넣는다) 앞으로 가기로 패널 없는 칸에 왔으면(그 칸을 뺀다) 다음 박자에 맞춘다
+  scheduleSync();
+}
+
+// 모듈을 읽을 때 등록한다(앱이 그려지기 전) — 같은 popstate 를 듣는 화면 코드(휴대폰 메뉴·러닝톡)보다 먼저 돌게
+if (typeof window !== 'undefined') window.addEventListener('popstate', onPopState, true);
+
+function addLayer(layer: Layer) {
+  layers.push(layer);
+  scheduleSync();
+}
+
+function removeLayer(layer: Layer) {
+  const i = layers.indexOf(layer);
+  if (i >= 0) layers.splice(i, 1);
+  closedSinceSync = true;
+  scheduleSync();
+}
+
+/* ── 패널 (native <dialog>): 640px 부터 오른쪽에서, 휴대폰은 아래에서 올라온다 (index.css) ── */
 
 export function Panel({
   open,
@@ -19,6 +119,11 @@ export function Panel({
   variant?: 'panel' | 'sheet';
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // 뒤로 가기로 닫을 때 부를 최신 onClose (효과를 onClose 가 바뀔 때마다 다시 돌리지 않게)
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
 
   useEffect(() => {
     const d = ref.current;
@@ -28,6 +133,14 @@ export function Panel({
       d.focus({ preventScroll: true }); // 첫 버튼에 포커스 링이 잡히지 않게 패널 자체에 둔다
     }
     if (!open && d.open) d.close();
+  }, [open]);
+
+  // 열려 있는 동안 히스토리 한 칸을 차지한다 (위 '패널과 뒤로 가기')
+  useEffect(() => {
+    if (!open) return;
+    const layer: Layer = { close: () => closeRef.current(), anchored: false };
+    addLayer(layer);
+    return () => removeLayer(layer);
   }, [open]);
 
   return (

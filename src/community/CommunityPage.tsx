@@ -1,6 +1,7 @@
 /**
  * 러닝톡 (상단 메뉴). 카테고리 칩·대회 거르기·목록·더 보기·글쓰기, 글을 열면 같은 패널 안에서 상세.
  * 주소: /community?cat=&race= ↔ /community/<id> (영어 /en 접두). 글을 열면 pushState, '목록으로'·뒤로 가기는 이전 주소로.
+ * 히스토리 호출은 history.state 를 그대로 넘긴다 — 패널을 뒤로 가기로 닫는 표시(panelDepth, components/ui.tsx)가 이어지게.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PencilSimple } from '@phosphor-icons/react';
@@ -38,6 +39,8 @@ export default function CommunityPage({ races, onClose, onLogin }: { races: Race
   const scrollRef = useRef<HTMLDivElement>(null);
   const listTop = useRef(0);
   const pushed = useRef(false);
+  // 지금 보이는 화면의 주소. 주소가 그대로인 popstate(러닝톡 위에 뜬 로그인 시트가 닫히며 Panel 이 뺀 칸)는 넘긴다
+  const shownUrl = useRef(location.pathname + location.search);
 
   /** 그 상태의 주소 (cmock 같은 다른 쿼리는 그대로 둔다) */
   const href = (p: string | null, c: Category | null = cat, r: string | null = race) => {
@@ -54,6 +57,9 @@ export default function CommunityPage({ races, onClose, onLogin }: { races: Race
   useEffect(() => {
     const onPop = () => {
       if (!/^(?:\/en)?\/community(\/|$)/.test(location.pathname)) return onClose();
+      const url = location.pathname + location.search;
+      if (url === shownUrl.current) return; // 주소 그대로 — 글쓰기 중인 내용·목록 자리를 건드리지 않는다
+      shownUrl.current = url;
       pushed.current = false;
       setWriting(false);
       setRoute(parseCommunity(location));
@@ -73,19 +79,22 @@ export default function CommunityPage({ races, onClose, onLogin }: { races: Race
   }, [post]);
 
   const filter = (c: Category | null, r: string | null) => {
-    history.replaceState(null, '', href(null, c, r));
+    history.replaceState(history.state, '', href(null, c, r));
+    shownUrl.current = location.pathname + location.search;
     setRoute({ post: null, cat: c, race: r });
   };
   const open = (id: string) => {
     listTop.current = scrollRef.current?.scrollTop ?? 0;
-    history.pushState(null, '', href(id));
+    history.pushState(history.state, '', href(id));
+    shownUrl.current = location.pathname + location.search;
     pushed.current = true;
     setWriting(false);
     setRoute((x) => ({ ...x, post: id }));
   };
   const back = () => {
     if (pushed.current) return history.back(); // popstate 가 목록으로 되돌린다
-    history.replaceState(null, '', href(null));
+    history.replaceState(history.state, '', href(null));
+    shownUrl.current = location.pathname + location.search;
     setRoute((x) => ({ ...x, post: null }));
   };
 
