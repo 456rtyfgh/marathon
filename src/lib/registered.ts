@@ -11,6 +11,9 @@ import {
 
 const KEY = 'marathon-cal:registered';
 
+/** 이 훅 밖(내 정보의 '지난 대회 등록')에서 기록을 바꾼 뒤 보내는 창 이벤트 — 받으면 계정 기록을 다시 읽는다 */
+export const RECORDS_CHANGED = 'marathon-cal:records-changed';
+
 function read(): string[] {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? '[]');
@@ -73,14 +76,18 @@ export function useRegistered() {
       setRemote({ uid, map: toMap(rows) });
       ready = true;
     })().catch(warn);
+    const reload = () => {
+      if (ready) listRecords().then((rows) => alive && setRemote({ uid, map: toMap(rows) }), warn);
+    };
     const onVisible = () => {
-      if (document.visibilityState !== 'visible' || !ready) return;
-      listRecords().then((rows) => alive && setRemote({ uid, map: toMap(rows) }), warn);
+      if (document.visibilityState === 'visible') reload();
     };
     document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener(RECORDS_CHANGED, reload);
     return () => {
       alive = false;
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener(RECORDS_CHANGED, reload);
     };
   }, [uid]);
 
