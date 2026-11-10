@@ -201,7 +201,8 @@ function Main() {
     const u = new URL(location.href);
     u.searchParams.delete('r');
     u.pathname = langPath(selected ? `/r/${selected.id}` : '/', lang);
-    history.replaceState(null, '', u.pathname + u.search + u.hash);
+    // history.state 는 그대로 둔다 — 열린 패널이 거기에 겹 수(panelDepth)를 적어 둔다 (components/ui.tsx 의 Panel)
+    history.replaceState(history.state, '', u.pathname + u.search + u.hash);
     document.title = selected
       ? t('title.race', { name: raceName(selected, lang), year: selected.race_date.slice(0, 4) })
       : t('title.home');
@@ -502,7 +503,9 @@ function Main() {
 
   // 머리말 버튼과 휴대폰 메뉴가 같이 쓰는 일
   const openTalk = () => {
-    history.pushState(null, '', langPath(COMMUNITY_PATH, lang));
+    // 이 칸이 곧 러닝톡 패널의 칸이라는 표시(panelDepth) — Panel 이 같은 주소로 한 칸을 더 넣지 않게
+    const st = (history.state ?? {}) as { panelDepth?: number };
+    history.pushState({ ...st, panelDepth: (st.panelDepth ?? 0) + 1 }, '', langPath(COMMUNITY_PATH, lang));
     setTalkOpen(true);
   };
   const nextLang = lang === 'ko' ? 'en' : 'ko';
