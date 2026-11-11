@@ -13,6 +13,7 @@ import {
   matchesAnyStatus,
   matchesStatus,
   inDateRange,
+  orderRange,
   picksFromSearch,
   rangeFromSearch,
   resolveListPrefs,
@@ -69,6 +70,10 @@ t('?from=&to= 둘 다', () => assert.deepEqual(rangeFromSearch('?from=2027-03-01
 t('?from= 한쪽만', () => assert.deepEqual(rangeFromSearch('?from=2027-03-01'), { from: '2027-03-01', to: null }));
 t('?to= 한쪽만', () => assert.deepEqual(rangeFromSearch('?to=2027-03-10'), { from: null, to: '2027-03-10' }));
 t('from>to 면 바꿈', () => assert.deepEqual(rangeFromSearch('?from=2027-03-10&to=2027-03-01'), { from: '2027-03-01', to: '2027-03-10' }));
+t('orderRange: 달력에서 거꾸로 골라도 바꿈, 한쪽만은 그대로', () => {
+  assert.deepEqual(orderRange({ from: '2027-03-20', to: '2027-03-10' }), { from: '2027-03-10', to: '2027-03-20' });
+  assert.deepEqual(orderRange({ from: '2027-03-20', to: null }), { from: '2027-03-20', to: null });
+});
 t('없는 날짜·잘못된 형식은 버림', () => {
   assert.deepEqual(rangeFromSearch('?from=2027-02-30&to=2027-3-1'), { from: null, to: null });
   assert.deepEqual(rangeFromSearch('?from=abc'), { from: null, to: null });

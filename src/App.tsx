@@ -29,7 +29,7 @@ import { Panel, Note, MoreButton } from './components/ui';
 import { Logo } from './components/Logo';
 import { MobileMenu, type MenuItem } from './components/MobileMenu';
 import MapSection, { type Scope } from './components/MapSection';
-import { byRaceDate, inDateRange, inScope, matchesAnyStatus, matchesStatus, NO_RANGE, picksFromSearch, rangeFromSearch, resolveListPrefs, type DateRange, type ListPicks, type ListSort, type StatusFilter } from './lib/listPrefs';
+import { byRaceDate, inDateRange, inScope, matchesAnyStatus, matchesStatus, NO_RANGE, orderRange, picksFromSearch, rangeFromSearch, resolveListPrefs, type DateRange, type ListPicks, type ListSort, type StatusFilter } from './lib/listPrefs';
 import { DISTANCE_BUCKETS, distancesFromSearch, matchesDistances, type DistanceBucket } from './lib/distanceFilter';
 import { matchesPlaces, placeOf } from './lib/places';
 import { buildIndex, searchRaces, suggestRaces } from './lib/search';
@@ -891,7 +891,7 @@ function Main() {
                         value={range.from ?? ''}
                         min={todayKey}
                         max={range.to ?? undefined}
-                        onChange={(e) => setRange((r) => ({ ...r, from: e.target.value || null }))}
+                        onChange={(e) => setRange((r) => orderRange({ ...r, from: e.target.value || null }))}
                         aria-label={t('filter.dateFrom')}
                         className={DATE_INPUT}
                       />
@@ -902,7 +902,7 @@ function Main() {
                         type="date"
                         value={range.to ?? ''}
                         min={range.from ?? todayKey}
-                        onChange={(e) => setRange((r) => ({ ...r, to: e.target.value || null }))}
+                        onChange={(e) => setRange((r) => orderRange({ ...r, to: e.target.value || null }))}
                         aria-label={t('filter.dateTo')}
                         className={DATE_INPUT}
                       />

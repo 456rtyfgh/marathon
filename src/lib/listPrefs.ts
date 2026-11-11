@@ -92,7 +92,12 @@ export function rangeFromSearch(search: string): DateRange {
   const p = new URLSearchParams(search);
   const from = validDate(p.get('from'));
   const to = validDate(p.get('to'));
-  return from && to && from > to ? { from: to, to: from } : { from, to };
+  return orderRange({ from, to });
+}
+
+/** from>to 면 서로 바꾼다 — iOS 달력은 input 의 min·max 를 막지 않아 거꾸로 고를 수 있다 */
+export function orderRange(r: DateRange): DateRange {
+  return r.from && r.to && r.from > r.to ? { from: r.to, to: r.from } : r;
 }
 
 /** race_date 가 범위 안인지 (양 끝 포함, 한쪽만 있으면 그쪽만 비교) */
