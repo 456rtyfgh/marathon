@@ -404,14 +404,21 @@ function eventLd(r: RaceMeta, url: string, desc: string, lang: Lang = 'ko') {
         addressCountry: r.country_code || r.country_ko,
       },
     },
-    organizer: { '@type': 'Organization', name: en ? nameEn(r) : r.name_ko, ...(org ? { url: org } : {}) },
-    offers: {
-      '@type': 'Offer',
-      url: org || url,
-      ...(r.entry_fee != null ? { price: r.entry_fee, priceCurrency: r.entry_fee_currency } : {}),
-      ...(avail ? { availability: avail } : {}),
-      ...(r.entry_opens ? { validFrom: r.entry_opens } : {}),
-    },
+    // 서치콘솔 '권장 칸 누락' 경고 정리: 주최 주소가 없으면 이 페이지, 출연자는 주최(대회 자체), 참가비를 모르면 offers 를 빼고(가격 없는 Offer 는 경고) 접수 시작일이 있으면 validFrom
+    organizer: { '@type': 'Organization', name: en ? nameEn(r) : r.name_ko, url: org || url },
+    performer: { '@type': 'Organization', name: en ? nameEn(r) : r.name_ko, url: org || url },
+    ...(r.entry_fee != null && r.entry_fee_currency
+      ? {
+          offers: {
+            '@type': 'Offer',
+            url: org || url,
+            price: r.entry_fee,
+            priceCurrency: r.entry_fee_currency,
+            ...(avail ? { availability: avail } : {}),
+            ...(r.entry_opens ? { validFrom: r.entry_opens } : {}),
+          },
+        }
+      : {}),
     publisher: en ? ORG_EN : ORG,
   };
   const cpath = COUNTRY_PATH(r);
