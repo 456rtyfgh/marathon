@@ -12,6 +12,7 @@ import { DIST_TEXT, STATUS_TEXT } from '../i18n/format';
 import { raceName, whereText } from '../i18n/names';
 import { expectedEntryText, fmtDate, isOpenNoClose, TODAY } from '../lib/util';
 import { fmtFinish } from '../lib/member';
+import { TONE_BADGE, toneOf } from '../lib/statusTone';
 import { MY_GROUPS, type MyGroup, type MyRaceItem } from '../lib/myRaces';
 import { useMyRaceList } from '../lib/myRacesContext';
 import { Button, MoreButton } from './ui';
@@ -187,12 +188,13 @@ function Row({ item, onOpen, onUnsave }: { item: MyRaceItem; onOpen: () => void;
       : group === 'registered'
         ? t('row.registered')
         : STATUS_TEXT[lang][status];
+  // 접수 상태 배지만 상태별 색(lib/statusTone). 접수 완료·지난 대회 배지는 내 상태라 지금 모양
   const badgeCls =
     group === 'registered' || (group === 'past' && finished)
       ? 'border border-ink text-ink'
-      : group === 'open'
-        ? 'bg-sunken text-ink'
-        : 'border border-line text-ink-3';
+      : group === 'past'
+        ? 'border border-line text-ink-3'
+        : TONE_BADGE[toneOf(status)];
   // 거리: 기록에 고른 종목이 있으면 그것만, 아니면 대회 종목 전부
   const dists = record?.distance ? [record.distance] : race.distances;
   const distText = dists.map((d) => DIST_TEXT[lang](d)).join(' · ');

@@ -49,6 +49,28 @@
   /* 지도에서 고른 곳: 단계색(연두·올리브)과 색상이 확실히 다른 파랑 */
   --map-sel-light: #0a1f52;
   --map-sel-dark: #e4eeff;
+  /* 접수 상태 배지 (lib/statusTone.ts): 연한 배경 + 진한 글자. 글자는 배경·surface·bg 모두와 4.5 이상
+     (scripts/status-tone-test.mjs). 주황·크림·베이지는 쓰지 않는다(주황은 로고 전용) */
+  --st-open-bg-light: #e2f3e7;
+  --st-open-bg-dark: #14301f;
+  --st-open-ink-light: #17603a;
+  --st-open-ink-dark: #86dca2;
+  --st-upcoming-bg-light: #e3ecfb;
+  --st-upcoming-bg-dark: #152841;
+  --st-upcoming-ink-light: #1d4f9f;
+  --st-upcoming-ink-dark: #9cc0f7;
+  --st-closed-bg-light: #e8eaed;
+  --st-closed-bg-dark: #24272c;
+  --st-closed-ink-light: #4a4f58;
+  --st-closed-ink-dark: #b3b8c0;
+  --st-tbd-bg-light: #ece8f7;
+  --st-tbd-bg-dark: #251f3a;
+  --st-tbd-ink-light: #57409a;
+  --st-tbd-ink-dark: #c1b0f2;
+  --st-cancelled-bg-light: #f9e5e6;
+  --st-cancelled-bg-dark: #3a181b;
+  --st-cancelled-ink-light: #a3242c;
+  --st-cancelled-ink-dark: #f4a3a6;
 
   /* 모드와 상관없는 그림자 */
   --shadow: rgb(0 0 0 / 0.08);
@@ -70,6 +92,16 @@
   --map-4: var(--map4-light);
   --map-5: var(--map5-light);
   --map-selected: var(--map-sel-light);
+  --st-open: var(--st-open-bg-light);
+  --st-open-ink: var(--st-open-ink-light);
+  --st-upcoming: var(--st-upcoming-bg-light);
+  --st-upcoming-ink: var(--st-upcoming-ink-light);
+  --st-closed: var(--st-closed-bg-light);
+  --st-closed-ink: var(--st-closed-ink-light);
+  --st-tbd: var(--st-tbd-bg-light);
+  --st-tbd-ink: var(--st-tbd-ink-light);
+  --st-cancelled: var(--st-cancelled-bg-light);
+  --st-cancelled-ink: var(--st-cancelled-ink-light);
 
   @media (prefers-color-scheme: dark) {
     --bg: var(--bg-dark);
@@ -88,6 +120,16 @@
     --map-4: var(--map4-dark);
     --map-5: var(--map5-dark);
     --map-selected: var(--map-sel-dark);
+    --st-open: var(--st-open-bg-dark);
+    --st-open-ink: var(--st-open-ink-dark);
+    --st-upcoming: var(--st-upcoming-bg-dark);
+    --st-upcoming-ink: var(--st-upcoming-ink-dark);
+    --st-closed: var(--st-closed-bg-dark);
+    --st-closed-ink: var(--st-closed-ink-dark);
+    --st-tbd: var(--st-tbd-bg-dark);
+    --st-tbd-ink: var(--st-tbd-ink-dark);
+    --st-cancelled: var(--st-cancelled-bg-dark);
+    --st-cancelled-ink: var(--st-cancelled-ink-dark);
   }
 
   @supports (color: light-dark(white, black)) {
@@ -107,6 +149,16 @@
     --map-4: light-dark(var(--map4-light), var(--map4-dark));
     --map-5: light-dark(var(--map5-light), var(--map5-dark));
     --map-selected: light-dark(var(--map-sel-light), var(--map-sel-dark));
+    --st-open: light-dark(var(--st-open-bg-light), var(--st-open-bg-dark));
+    --st-open-ink: light-dark(var(--st-open-ink-light), var(--st-open-ink-dark));
+    --st-upcoming: light-dark(var(--st-upcoming-bg-light), var(--st-upcoming-bg-dark));
+    --st-upcoming-ink: light-dark(var(--st-upcoming-ink-light), var(--st-upcoming-ink-dark));
+    --st-closed: light-dark(var(--st-closed-bg-light), var(--st-closed-bg-dark));
+    --st-closed-ink: light-dark(var(--st-closed-ink-light), var(--st-closed-ink-dark));
+    --st-tbd: light-dark(var(--st-tbd-bg-light), var(--st-tbd-bg-dark));
+    --st-tbd-ink: light-dark(var(--st-tbd-ink-light), var(--st-tbd-ink-dark));
+    --st-cancelled: light-dark(var(--st-cancelled-bg-light), var(--st-cancelled-bg-dark));
+    --st-cancelled-ink: light-dark(var(--st-cancelled-ink-light), var(--st-cancelled-ink-dark));
   }
 
   color-scheme: light dark;
@@ -136,6 +188,16 @@
   --color-accent: var(--accent);
   --color-on-accent: var(--on-accent);
   --color-accent-ink: var(--accent-ink);
+  --color-st-open: var(--st-open);
+  --color-st-open-ink: var(--st-open-ink);
+  --color-st-upcoming: var(--st-upcoming);
+  --color-st-upcoming-ink: var(--st-upcoming-ink);
+  --color-st-closed: var(--st-closed);
+  --color-st-closed-ink: var(--st-closed-ink);
+  --color-st-tbd: var(--st-tbd);
+  --color-st-tbd-ink: var(--st-tbd-ink);
+  --color-st-cancelled: var(--st-cancelled);
+  --color-st-cancelled-ink: var(--st-cancelled-ink);
 
   --radius-box: 10px;
   --radius-ctl: 6px;

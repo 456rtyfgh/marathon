@@ -2,7 +2,8 @@ import { Fragment, memo, type ReactNode } from 'react';
 import { CaretRight, Star, BookmarkSimple, Eye, CalendarCheck, Check } from '@phosphor-icons/react';
 import type { Race, RaceRating } from '../lib/types';
 import { isRunEvent, RUN_EVENT_TEXT } from '../lib/runEvent';
-import { dateParts, feeLabel, isDomestic, isTrail, statusLine, raceDayLine, TODAY, shortCount, mayFillEarly, isCancelled, expectedEntryText, majorKind } from '../lib/util';
+import { dateParts, feeLabel, isDomestic, isTrail, statusLine, raceDayLine, TODAY, shortCount, mayFillEarly, isCancelled, expectedEntryText, majorKind, entryStatus } from '../lib/util';
+import { TONE_BADGE, toneOf } from '../lib/statusTone';
 import { useLang } from '../i18n';
 import { ENTRY_TEXT } from '../i18n/format';
 import { raceName, whereText } from '../i18n/names';
@@ -177,10 +178,13 @@ function RaceRow({
               {t('row.registered')}
             </span>
           )}
+          {/* 접수 상태는 상태별 색 배지(색은 보조, 글자 그대로). 접수했어요 행은 대회일 기준이라 지금 모양 */}
           {cancelled ? (
-            <span className={`${TAG} border border-ink-3 text-ink-2`}>{t('st.cancelled')}</span>
-          ) : (
+            <span className={`${TAG} ${TONE_BADGE.cancelled}`}>{t('st.cancelled')}</span>
+          ) : registered ? (
             <span className="text-[13px] whitespace-nowrap text-ink-3 sm:text-[12px]">{st.label}</span>
+          ) : (
+            <span className={`${TAG} whitespace-nowrap ${TONE_BADGE[toneOf(entryStatus(race, today))]}`}>{st.label}</span>
           )}
           {cancelled ? null : st.days != null ? (
             <span

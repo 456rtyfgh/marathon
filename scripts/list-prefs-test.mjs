@@ -12,7 +12,10 @@ import {
   inScope,
   matchesAnyStatus,
   matchesStatus,
+  inDateRange,
+  orderRange,
   picksFromSearch,
+  rangeFromSearch,
   resolveListPrefs,
 } from '../src/lib/listPrefs.ts';
 import { entryStatus } from '../src/lib/util.ts';
@@ -61,6 +64,43 @@ t('안 고른 status 는 부를 때마다 같은 배열(참조)', () => {
   assert.equal(resolveListPrefs(NO_PICKS, { searching: false }).status, resolveListPrefs(NO_PICKS, { searching: false }).status);
   assert.equal(resolveListPrefs(NO_PICKS, { searching: true }).status, resolveListPrefs(NO_PICKS, { searching: true }).status);
 });
+
+// ── 대회 날짜 범위 (?from= ?to=) ──
+t('?from=&to= 둘 다', () => assert.deepEqual(rangeFromSearch('?from=2027-03-01&to=2027-03-10'), { from: '2027-03-01', to: '2027-03-10' }));
+t('?from= 한쪽만', () => assert.deepEqual(rangeFromSearch('?from=2027-03-01'), { from: '2027-03-01', to: null }));
+t('?to= 한쪽만', () => assert.deepEqual(rangeFromSearch('?to=2027-03-10'), { from: null, to: '2027-03-10' }));
+t('from>to 면 바꿈', () => assert.deepEqual(rangeFromSearch('?from=2027-03-10&to=2027-03-01'), { from: '2027-03-01', to: '2027-03-10' }));
+t('orderRange: 달력에서 거꾸로 골라도 바꿈, 한쪽만은 그대로', () => {
+  assert.deepEqual(orderRange({ from: '2027-03-20', to: '2027-03-10' }), { from: '2027-03-10', to: '2027-03-20' });
+  assert.deepEqual(orderRange({ from: '2027-03-20', to: null }), { from: '2027-03-20', to: null });
+});
+t('없는 날짜·잘못된 형식은 버림', () => {
+  assert.deepEqual(rangeFromSearch('?from=2027-02-30&to=2027-3-1'), { from: null, to: null });
+  assert.deepEqual(rangeFromSearch('?from=abc'), { from: null, to: null });
+  assert.deepEqual(rangeFromSearch(''), { from: null, to: null });
+});
+t('날짜·거리 쿼리는 picks 에 섞이지 않음', () => assert.deepEqual(picksFromSearch('?from=2027-03-01&to=2027-03-10&dist=half'), NO_PICKS));
+t('inDateRange: 양 끝 포함', () => {
+  const R = { from: '2027-03-01', to: '2027-03-10' };
+  assert.equal(inDateRange({ race_date: '2027-03-01' }, R), true);
+  assert.equal(inDateRange({ race_date: '2027-03-10' }, R), true);
+  assert.equal(inDateRange({ race_date: '2027-02-28' }, R), false);
+  assert.equal(inDateRange({ race_date: '2027-03-11' }, R), false);
+});
+t('inDateRange: 한쪽만·없음', () => {
+  assert.equal(inDateRange({ race_date: '2027-12-31' }, { from: '2027-03-01', to: null }), true);
+  assert.equal(inDateRange({ race_date: '2027-02-01' }, { from: '2027-03-01', to: null }), false);
+  assert.equal(inDateRange({ race_date: '2026-12-01' }, { from: null, to: '2027-03-10' }), true);
+  assert.equal(inDateRange({ race_date: '2027-04-01' }, { from: null, to: '2027-03-10' }), false);
+  assert.equal(inDateRange({ race_date: '2027-04-01' }, { from: null, to: null }), true);
+});
+t('날짜를 고르면 안 고른 상태는 모두([]), 범위는 그대로', () =>
+  assert.deepEqual(resolveListPrefs(NO_PICKS, { searching: false, dated: true }), { scope: 'kr', sort: 'race_date', status: [] }));
+t('날짜를 골라도 고른 상태는 그대로', () =>
+  assert.deepEqual(resolveListPrefs({ ...NO_PICKS, status: ['upcoming'] }, { searching: false, dated: true }).status, ['upcoming']));
+t('dated=false 면 기본값(접수 중)', () => assert.deepEqual(resolveListPrefs(NO_PICKS, { searching: false, dated: false }).status, ['open']));
+t('dated 로 푼 status 도 같은 배열(참조)', () =>
+  assert.equal(resolveListPrefs(NO_PICKS, { searching: false, dated: true }).status, resolveListPrefs(NO_PICKS, { searching: true }).status));
 
 // ── 상태 판단 ──
 const T = new Date('2026-11-10T00:00:00Z');

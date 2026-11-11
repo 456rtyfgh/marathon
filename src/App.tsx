@@ -29,7 +29,8 @@ import { Panel, Note, MoreButton } from './components/ui';
 import { Logo } from './components/Logo';
 import { MobileMenu, type MenuItem } from './components/MobileMenu';
 import MapSection, { type Scope } from './components/MapSection';
-import { byRaceDate, inScope, matchesAnyStatus, matchesStatus, picksFromSearch, resolveListPrefs, type ListPicks, type ListSort, type StatusFilter } from './lib/listPrefs';
+import { byRaceDate, inDateRange, inScope, matchesAnyStatus, matchesStatus, NO_RANGE, orderRange, picksFromSearch, rangeFromSearch, resolveListPrefs, type DateRange, type ListPicks, type ListSort, type StatusFilter } from './lib/listPrefs';
+import { DISTANCE_BUCKETS, distancesFromSearch, matchesDistances, type DistanceBucket } from './lib/distanceFilter';
 import { matchesPlaces, placeOf } from './lib/places';
 import { buildIndex, searchRaces, suggestRaces } from './lib/search';
 import { scrollToResults, RESULTS_EMPTY_ID } from './lib/scrollToResults';
@@ -117,6 +118,10 @@ function Main() {
   const reg = useRegistered();
   const [regOnly, setRegOnly] = useState(false);
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
+  // 거리(5km·10km·하프·풀·울트라, 여러 개면 합집합)와 대회 날짜 범위(여행 기간). 주소 ?dist= ?from= ?to= 로도 시작
+  const [dists, setDists] = useState<DistanceBucket[]>(() => distancesFromSearch(location.search));
+  const [range, setRange] = useState<DateRange>(() => rangeFromSearch(location.search));
+  const dated = !!(range.from || range.to);
   // 마지막 접수 표시를 지우면 버튼이 사라지므로 필터도 같이 끈다
   useEffect(() => {
     if (!reg.ids.length) setRegOnly(false);
@@ -287,8 +292,9 @@ function Main() {
 
   // 검색창은 바로 바뀌고, 목록은 입력을 막지 않게 뒤따라 바뀐다 (목록·결과 문구는 모두 dq 기준)
   const dq = useDeferredValue(q);
-  // 실제 적용 값: 고른 값이 이기고, 검색 중에는 고르지 않은 지역·접수 상태 기본값을 푼다(전체·모두)
-  const { scope, sort, status } = resolveListPrefs(picks, { searching: !!dq.trim() });
+  // 실제 적용 값: 고른 값이 이기고, 검색 중에는 고르지 않은 지역·접수 상태 기본값을 푼다(전체·모두).
+  // 대회 날짜를 고르면 고르지 않은 접수 상태 기본값만 푼다(모두) — 여행 기간 대회가 '접수 중' 에 묶여 적게 보이지 않게
+  const { scope, sort, status } = resolveListPrefs(picks, { searching: !!dq.trim(), dated });
   // 범위 탭 숫자 = 그 범위에서 지금 상태 필터에 맞는 수, 현황판 숫자 = 지금 범위 안의 수 (화면에 적용된 조건과 맞춘다)
   const counts = useMemo(() => {
     const st = (r: Race) => info.get(r)!.status;
@@ -317,6 +323,8 @@ function Main() {
       if (regions.length && !regions.includes(r.region)) return false;
       if (!matchesPlaces(r, x.domestic, places)) return false;
       if (types.length && !types.includes(r.entry_type)) return false;
+      if (!matchesDistances(r, dists)) return false;
+      if (!inDateRange(r, range)) return false;
       if (!matchesAnyStatus(r, x.status, status, today)) return false;
       if (!x.domestic && r.flight_hours != null && r.flight_hours > maxFlight) return false;
       if (hits && !hits.has(r)) return false;
@@ -370,7 +378,7 @@ function Main() {
             ? t('group.saves')
             : t('group.views');
     return [{ key: 'all', title, races: sorted }];
-  }, [upcomingRaces, info, hits, scope, regions, places, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, disciplines, lang, t]);
+  }, [upcomingRaces, info, hits, scope, regions, places, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, disciplines, dists, range, lang, t]);
 
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
   // 검색 결과 0개일 때 '혹시 이 대회인가요?' (필터와 무관하게 다가오는 대회 중). 결과 수(shown)에는 넣지 않는다 → search_empty 기록 그대로
@@ -379,7 +387,7 @@ function Main() {
     [shown, dq, searchIndex],
   );
   const activeFilters =
-    types.length + status.length + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0) + disciplines.length;
+    types.length + status.length + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0) + disciplines.length + dists.length + (dated ? 1 : 0);
 
   const reset = () => {
     setQ('');
@@ -393,6 +401,8 @@ function Main() {
     setFavOnly(false);
     setRegOnly(false);
     setDisciplines([]);
+    setDists([]);
+    setRange(NO_RANGE);
   };
 
   const openRace = useCallback((r: Race) => setSelected(r), []);
@@ -447,10 +457,15 @@ function Main() {
     const t = setTimeout(() => track('filter', { name: 'flight', value: `${maxFlight}h` }), 1200);
     return () => clearTimeout(t);
   }, [maxFlight]);
+  useEffect(() => {
+    if (!range.from && !range.to) return;
+    const t = setTimeout(() => track('filter', { name: 'date', value: `${range.from ?? ''}~${range.to ?? ''}` }), 1200);
+    return () => clearTimeout(t);
+  }, [range]);
 
   // 묶음(접수 중·곧 시작…)마다 처음 GROUP_PAGE 개만, '더 보기' 한 번에 GROUP_MORE 개씩 더.
   // 다시 접는 건 필터·정렬 값이 바뀔 때만 — groups 는 저장·접수 표시에도 다시 만들어져서 거기에 걸면 ☆ 하나에 접혀 버린다
-  const foldKey = JSON.stringify([dq.trim(), scope, regions, places, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, disciplines]);
+  const foldKey = JSON.stringify([dq.trim(), scope, regions, places, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, disciplines, dists, range.from, range.to]);
   const [unfold, setUnfold] = useState<{ key: string; n: Record<string, number> }>({ key: foldKey, n: {} });
   // 키가 바뀌는 순간 비운다 (렌더 중 갱신). 비교만 하면 검색어를 지워 원래 키로 돌아올 때 예전 펼침이 되살아난다
   if (unfold.key !== foldKey) setUnfold({ key: foldKey, n: {} });
@@ -821,6 +836,20 @@ function Main() {
                     {t('filter.major')}
                   </Chip>
                 </FilterGroup>
+                <FilterGroup label={t('filter.distance')}>
+                  {DISTANCE_BUCKETS.map((d) => (
+                    <Chip
+                      key={d}
+                      on={dists.includes(d)}
+                      onClick={() => {
+                        if (!dists.includes(d)) track('filter', { name: 'distance', value: d });
+                        toggle(dists, setDists, d);
+                      }}
+                    >
+                      {t(`filter.dist.${d}` as const)}
+                    </Chip>
+                  ))}
+                </FilterGroup>
                 <FilterGroup label={t('filter.entry')}>
                   {ENTRY_TYPES.map((et) => (
                     <Chip key={et} on={types.includes(et)} onClick={() => {
@@ -852,6 +881,43 @@ function Main() {
                     </Chip>
                   ))}
                 </FilterGroup>
+                {/* 대회 날짜(여행 기간): 한쪽만 골라도 된다. 휴대폰에서 칸이 모자라면 지우기 버튼은 다음 줄로 */}
+                <div className="grid grid-cols-[4rem_minmax(0,1fr)] items-start gap-x-2">
+                  <span className="flex h-11 items-center text-[13px] font-semibold text-ink-3 sm:h-10">{t('filter.date')}</span>
+                  <div className="flex min-h-11 flex-wrap items-center gap-2 sm:min-h-10">
+                    <div className="flex w-full items-center gap-1.5 sm:w-auto">
+                      <input
+                        type="date"
+                        value={range.from ?? ''}
+                        min={todayKey}
+                        max={range.to ?? undefined}
+                        onChange={(e) => setRange((r) => orderRange({ ...r, from: e.target.value || null }))}
+                        aria-label={t('filter.dateFrom')}
+                        className={DATE_INPUT}
+                      />
+                      <span className="text-ink-3" aria-hidden>
+                        ~
+                      </span>
+                      <input
+                        type="date"
+                        value={range.to ?? ''}
+                        min={range.from ?? todayKey}
+                        onChange={(e) => setRange((r) => orderRange({ ...r, to: e.target.value || null }))}
+                        aria-label={t('filter.dateTo')}
+                        className={DATE_INPUT}
+                      />
+                    </div>
+                    {dated && (
+                      <button
+                        onClick={() => setRange(NO_RANGE)}
+                        className="inline-flex h-11 items-center gap-1 rounded-ctl border border-line bg-surface px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:border-ink hover:text-ink"
+                      >
+                        <X size={14} weight="bold" />
+                        {t('filter.dateClear')}
+                      </button>
+                    )}
+                  </div>
+                </div>
                 {scope !== 'kr' && (
                   <FilterGroup label={t('filter.flight')}>
                     <input
@@ -1270,6 +1336,10 @@ function Stat({
     </button>
   );
 }
+
+/** 대회 날짜 입력: 16px(iOS 확대 방지)·높이 44px. 달력의 고른 날은 검정으로 꽉 차지 않게 파랑 계열(지도 색 토큰) */
+const DATE_INPUT =
+  'h-11 min-w-0 flex-1 rounded-ctl sm:w-[9.25rem] sm:flex-none border border-line bg-surface px-2 text-[16px] text-ink [accent-color:var(--map-4)] focus:border-ink';
 
 function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
