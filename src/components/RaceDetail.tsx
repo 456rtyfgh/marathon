@@ -31,6 +31,7 @@ import {
   monthDay,
   majorKind,
 } from '../lib/util';
+import { TONE_BADGE, TONE_TEXT, toneOf } from '../lib/statusTone';
 import CostCalculator from './CostCalculator';
 import PackageTable from './PackageTable';
 import AlertForm from './AlertForm';
@@ -291,7 +292,7 @@ function RaceDetailView({
         {cancelled ? (
           <div className="mt-5 rounded-box border border-line bg-surface px-4 py-4">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="text-[20px] leading-tight font-bold">{t('detail.cancelled')}</span>
+              <span className={`text-[20px] leading-tight font-bold ${TONE_TEXT.cancelled}`}>{t('detail.cancelled')}</span>
               <span className="text-[13px] text-ink-3">
                 {t('detail.wasScheduled', { date: fmtDate(race.race_date, lang) })}
               </span>
@@ -335,7 +336,18 @@ function RaceDetailView({
               </div>
             ) : (
               <div className={`${sumCell} ${st.hot ? 'bg-accent text-on-accent' : 'bg-surface'}`}>
-                <div className={`text-[13px] ${st.hot ? 'opacity-85' : 'text-ink-3'}`}>{st.label}</div>
+                {/* 마감 임박(연두 칸)은 지금 모양, 그 밖엔 접수 상태별 색 배지 (색은 보조, 글자 그대로) */}
+                {st.hot ? (
+                  <div className="text-[13px] opacity-85">{st.label}</div>
+                ) : (
+                  <div>
+                    <span
+                      className={`inline-flex h-5 items-center rounded-tag px-2 text-[12px] font-bold whitespace-nowrap ${TONE_BADGE[toneOf(entryStatus(race, today))]}`}
+                    >
+                      {st.label}
+                    </span>
+                  </div>
+                )}
                 <div className={`text-[26px] leading-none font-bold ${soldOut ? '' : 'num'}`}>
                   {st.days != null ? dday(st.days) : soldOut ? t('detail.closedShort') : '-'}
                 </div>
