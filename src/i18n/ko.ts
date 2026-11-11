@@ -126,6 +126,7 @@ export const ko = {
   // 접수 상태 한 줄 (util.statusLine·raceDayLine)
   'st.cancelled': '대회 취소',
   'st.untilFull': '정원 마감 시까지',
+  'st.closeTba': '마감일 미공지',
   'st.closesToday': '오늘 마감',
   'st.closesIn': '마감까지',
   'st.opensIn': '접수 시작까지',

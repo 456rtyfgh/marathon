@@ -35,6 +35,12 @@ export function noteText(race: Pick<Race, 'notes_ko' | 'notes_en'>, lang: Lang =
 }
 
 /** 조기 마감일이 들어 있고 오늘이거나 지났으면 true */
+/** 공식에 '접수 중'만 있고 날짜가 없다고 확인된 대회 (notes 의 '공식: 접수 중(마감일 미공지, …)' 표시). 대회일 전까지 접수 중으로 본다 */
+const OPEN_NO_CLOSE_RE = /공식: 접수 중\(마감일 미공지/;
+export function isOpenNoClose(race: Pick<Race, 'notes_ko' | 'race_date'>, today = TODAY()): boolean {
+  return !!race.notes_ko && OPEN_NO_CLOSE_RE.test(race.notes_ko) && daysBetween(today, race.race_date) >= 0;
+}
+
 export function isSoldOut(race: Race, today = TODAY()): boolean {
   return !!race.sold_out_on && daysBetween(today, race.sold_out_on) <= 0;
 }
@@ -70,7 +76,7 @@ export function expectedEntryText(race: Race, today = TODAY(), lang: Lang = 'ko'
 export function entryStatusByDate(race: Race, today = TODAY()): EntryStatus {
   if (isCancelled(race)) return 'cancelled';
   const { entry_opens, entry_closes } = race;
-  if (!entry_opens && !entry_closes) return isSoldOut(race, today) ? 'soldout' : 'unknown';
+  if (!entry_opens && !entry_closes) return isSoldOut(race, today) ? 'soldout' : isOpenNoClose(race, today) ? 'open' : 'unknown';
   const o = entry_opens ? daysBetween(today, entry_opens) : -Infinity;
   const c = entry_closes ? daysBetween(today, entry_closes) : Infinity;
   if (o > 0) return 'upcoming';
@@ -88,6 +94,8 @@ export function entryStatus(race: Race, today = TODAY()): EntryStatus {
   if (isCancelled(race)) return 'cancelled';
   if (isEntryConfirmed(race)) return entryStatusByDate(race, today);
   if (isSoldOut(race, today)) return 'soldout';
+  // 공식에서 '접수 중'을 봤지만 날짜가 없는 대회 → 접수 중 (마감일 미공지)
+  if (isOpenNoClose(race, today)) return 'open';
   // 이미 끝난 대회는 날짜상 마감이면 지금처럼 '접수 마감' (끝난 대회 목록이 '접수 미정' 으로 바뀌지 않게)
   if (daysBetween(today, race.race_date) < 0 && entryStatusByDate(race, today) === 'closed') return 'closed';
   return 'unknown';
@@ -128,6 +136,7 @@ export function statusLine(
   if (registered) return { ...raceDayLine(race, today, lang), hot: false };
   const st = entryStatus(race, today);
   if (st === 'open') {
+    if (isOpenNoClose(race, today)) return { label: t('st.closeTba'), days: null, hot: false };
     if (!race.entry_closes) return { label: t('st.untilFull'), days: null, hot: false };
     const d = daysBetween(today, race.entry_closes);
     return { label: d === 0 ? t('st.closesToday') : t('st.closesIn'), days: d, hot: d <= 7 };

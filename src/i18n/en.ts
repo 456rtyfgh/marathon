@@ -126,6 +126,7 @@ export const en: Record<Key, string> & Partial<Record<`${Key}_one`, string>> = {
 
   'st.cancelled': 'Cancelled',
   'st.untilFull': 'Until full',
+  'st.closeTba': 'Deadline TBA',
   'st.closesToday': 'Closes today',
   'st.closesIn': 'Closes in',
   'st.opensIn': 'Opens in',

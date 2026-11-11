@@ -195,7 +195,7 @@ function RaceRow({
             <span className="num mt-0.5 hidden text-[12px] whitespace-nowrap text-ink-3 sm:inline">{expected}</span>
           ) : (
             <span className="mt-1 text-[15px] font-semibold whitespace-nowrap text-ink-3">
-              {st.label === t('st.untilFull') ? t('row.open') : st.label === t('st.soldout') ? t('row.full') : ''}
+              {st.label === t('st.untilFull') || st.label === t('st.closeTba') ? t('row.open') : st.label === t('st.soldout') ? t('row.full') : ''}
             </span>
           )}
           {/* 휴대폰: 참가비 칸이 숨으므로 대회일 D-day 를 여기 작게 */}

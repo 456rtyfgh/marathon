@@ -10,7 +10,7 @@ import { useLang } from '../i18n';
 import type { Key } from '../i18n/t';
 import { DIST_TEXT, STATUS_TEXT } from '../i18n/format';
 import { raceName, whereText } from '../i18n/names';
-import { expectedEntryText, fmtDate, TODAY } from '../lib/util';
+import { expectedEntryText, fmtDate, isOpenNoClose, TODAY } from '../lib/util';
 import { fmtFinish } from '../lib/member';
 import { MY_GROUPS, type MyGroup, type MyRaceItem } from '../lib/myRaces';
 import { useMyRaceList } from '../lib/myRacesContext';
@@ -213,7 +213,7 @@ function Row({ item, onOpen, onUnsave }: { item: MyRaceItem; onOpen: () => void;
     right = { label: t('me.saved.record'), value: fmtFinish(record.finish_sec) };
   } else if (group === 'open') {
     // 접수 중인데 마감일이 없는 대회 (선착순 — 정원이 차면 마감)
-    right = { label: t('st.untilFull'), value: null };
+    right = { label: t(isOpenNoClose(race) ? 'st.closeTba' : 'st.untilFull'), value: null };
   }
 
   return (
