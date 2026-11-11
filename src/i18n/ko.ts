@@ -75,6 +75,16 @@ export const ko = {
   'filter.flightAria': '최대 비행시간',
   'filter.noLimit': '제한 없음',
   'filter.hours': '{n}시간 이내',
+  'filter.distance': '거리',
+  'filter.dist.5k': '5km',
+  'filter.dist.10k': '10km',
+  'filter.dist.half': '하프',
+  'filter.dist.full': '풀',
+  'filter.dist.ultra': '울트라',
+  'filter.date': '대회 날짜',
+  'filter.dateFrom': '시작일',
+  'filter.dateTo': '종료일',
+  'filter.dateClear': '지우기',
 
   // 목록 묶음
   'group.open': '지금 접수 중',

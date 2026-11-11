@@ -4,6 +4,7 @@
  *
  * 규칙: 사용자가 고른 값(pick, 주소 쿼리 포함)이 이긴다. 안 고른(null) 값만 기본값.
  * 검색어가 있으면 안 고른 지역·상태 기본값은 풀린다(전체·모두) — 국내·접수 중에 묶여 해외 대회가 검색되지 않는 일이 없게.
+ * 대회 날짜(여행 기간)를 고르면 안 고른 상태 기본값만 풀린다(모두) — 그 기간 대회가 '접수 중' 에 묶여 적게 보이지 않게.
  */
 import type { Race } from './types.ts';
 import { daysBetween, isDomestic, type EntryStatus } from './util.ts';
@@ -61,17 +62,44 @@ const ALL_STATUS: StatusFilter[] = [];
 
 /**
  * 실제 적용 값. searching=true 면 고르지 않은 scope→'all', status→[].
+ * dated=true(대회 날짜를 하나라도 고름)면 고르지 않은 status→[] (scope 는 그대로).
  * 안 고른 status 는 늘 같은 배열(LIST_DEFAULTS.status 또는 ALL_STATUS)을 돌려준다 — 고쳐 쓰지 말 것.
  */
 export function resolveListPrefs(
   picks: ListPicks,
-  opts: { searching: boolean },
+  opts: { searching: boolean; dated?: boolean },
 ): { scope: ListScope; sort: ListSort; status: StatusFilter[] } {
   return {
     scope: picks.scope ?? (opts.searching ? 'all' : LIST_DEFAULTS.scope),
     sort: picks.sort ?? LIST_DEFAULTS.sort,
-    status: picks.status ?? (opts.searching ? ALL_STATUS : LIST_DEFAULTS.status),
+    status: picks.status ?? (opts.searching || opts.dated ? ALL_STATUS : LIST_DEFAULTS.status),
   };
+}
+
+/** 대회 날짜 범위 (여행 기간). 'YYYY-MM-DD' 또는 null(그쪽 끝 없음) */
+export type DateRange = { from: string | null; to: string | null };
+export const NO_RANGE: DateRange = { from: null, to: null };
+
+/** 'YYYY-MM-DD' 이고 실제 있는 날짜면 그대로, 아니면 null (2027-02-30 은 버림) */
+export function validDate(v: string | null | undefined): string | null {
+  if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const d = new Date(v + 'T00:00:00Z');
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v ? v : null;
+}
+
+/** ?from=2027-03-01&to=2027-03-10 → 형식이 맞는 값만. from>to 면 서로 바꾼다 */
+export function rangeFromSearch(search: string): DateRange {
+  const p = new URLSearchParams(search);
+  const from = validDate(p.get('from'));
+  const to = validDate(p.get('to'));
+  return from && to && from > to ? { from: to, to: from } : { from, to };
+}
+
+/** race_date 가 범위 안인지 (양 끝 포함, 한쪽만 있으면 그쪽만 비교) */
+export function inDateRange(r: Race, range: DateRange): boolean {
+  if (range.from && r.race_date < range.from) return false;
+  if (range.to && r.race_date > range.to) return false;
+  return true;
 }
 
 /** 상태 필터 하나에 맞는지. st = entryStatus(r, today) */
