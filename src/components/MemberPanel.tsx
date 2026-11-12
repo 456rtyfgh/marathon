@@ -17,6 +17,8 @@ import {
 import { Button, Note } from './ui';
 import PastRaceLog, { type RecordStats } from './PastRaceLog';
 import { PushSection } from './PushToggle';
+import { DONATE_URL } from '../lib/donate';
+import { track } from '../lib/analytics';
 
 const feedKey = (uid: string) => `marathon-cal:feed:${uid}`;
 const readFeed = (uid: string) => {
@@ -62,11 +64,35 @@ export default function MemberPanel() {
     );
   return (
     <>
+      <DonateSection />
       <RecordsSection onError={onError} />
       <FeedSection uid={uid} onError={onError} />
       <AlertsSection email={session.user.email ?? ''} onError={onError} />
       <PushSection className={section} />
     </>
+  );
+}
+
+/** 로그인한 회원에게만 보이는 후원 안내 (내 정보 맨 위). 후원 주소가 없으면 숨긴다 */
+function DonateSection() {
+  const { t } = useLang();
+  if (!DONATE_URL) return null;
+  return (
+    <section className={section}>
+      <div className="rounded-box bg-sunken px-4 py-4">
+        <h3 className={h3}>{t('donate.title')}</h3>
+        <p className="mt-1.5 text-[15px] leading-relaxed text-ink-2 sm:text-[14px]">{t('donate.body')}</p>
+        <a
+          href={DONATE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => track('donate_click')}
+          className="mt-3 inline-flex h-11 items-center rounded-ctl border border-ink bg-surface px-4 text-[15px] font-semibold text-ink transition hover:bg-line active:translate-y-px sm:h-10"
+        >
+          {t('donate.button')}
+        </a>
+      </div>
+    </section>
   );
 }
 
