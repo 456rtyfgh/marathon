@@ -1042,7 +1042,7 @@ function Main() {
         </section>
 
         {/* 요청 안내 */}
-        {/* 요즘 인기: 최근 7일 조회·저장이 많은 대회 */}
+        {/* 어제 많이 본 대회: 어제(서울 날짜) 대회 상세 조회 수 순 (race_public_stats.hot) */}
         {hotList.length >= 3 && (
           <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6" aria-label={t('hot.aria')}>
             <div className="flex items-baseline justify-between gap-3">
@@ -1086,17 +1086,9 @@ function Main() {
                             : r.country_ko}
                       </span>
                       <span className="mt-auto pt-1 text-[13px] text-ink-3 sm:text-[12px]">
-                        {t('views.pre')}
-                        <span className="num">{shortCount(st?.views ?? 0, lang)}</span>
-                        {t('views.post', { count: st?.views ?? 0 })}
-                        {(st?.saves ?? 0) > 0 && (
-                          <>
-                            {t('saves.sep')}
-                            {t('saves.pre')}
-                            <span className="num">{shortCount(st!.saves!, lang)}</span>
-                            {t('saves.post', { count: st!.saves! })}
-                          </>
-                        )}
+                        {t('hot.views.pre')}
+                        <span className="num">{shortCount(st?.hot ?? 0, lang)}</span>
+                        {t('views.post', { count: st?.hot ?? 0 })}
                       </span>
                     </button>
                   </li>
