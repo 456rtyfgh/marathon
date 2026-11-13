@@ -31,7 +31,7 @@ export const en: Record<Key, string> & Partial<Record<`${Key}_one`, string>> = {
   'stat.opening30': 'Opening within 30 days',
   'donate.title': 'Support Marathon Calendar',
   'donate.body': 'Marathon Calendar started as a site for my mom and is run by one student developer. Your support helps keep race information fast and accurate.',
-  'donate.button': 'Support via Toss',
+  'donate.button': 'Support via KakaoPay',
   'hot.aria': 'Most viewed yesterday',
   'hot.title': 'Most viewed yesterday',
   'hot.views.pre': 'Yesterday ',

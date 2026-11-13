@@ -34,7 +34,7 @@ export const ko = {
   'stat.opening30': '30일 안에 시작',
   'donate.title': '마라톤 캘린더 응원하기',
   'donate.body': '마라톤 캘린더는 엄마를 위해 만든 사이트를 학생 개발자 혼자 운영하고 있어요. 후원해 주시면 대회 정보를 더 빠르고 정확하게 채우는 데 많은 도움이 됩니다.',
-  'donate.button': '토스로 후원하기',
+  'donate.button': '카카오페이로 후원하기',
   'hot.aria': '어제 많이 본 대회',
   'hot.title': '어제 많이 본 대회',
   'hot.views.pre': '어제 조회 ',
