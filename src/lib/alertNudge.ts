@@ -44,3 +44,11 @@ export function nudgeEligible(race: Race, today: Date = TODAY()): boolean {
   const st = entryStatus(race, today);
   return st === 'upcoming' || st === 'open' || st === 'unknown';
 }
+
+/**
+ * 제안을 지금 띄워도 되는지 동기 판정: 보여도 되는 대회, 닫은 적 없음, 이 브라우저 신청 기록 없음.
+ * 회원의 저장한 대회 알림(saved_races)은 읽어야 알 수 있어 여기 포함하지 않는다(alertNudgeFlow.ts).
+ */
+export function shouldOfferNudge(race: Race, today: Date = TODAY()): boolean {
+  return nudgeEligible(race, today) && !isNudgeDismissed(race.id) && !hasLocalAlert(race.id);
+}
