@@ -190,6 +190,7 @@ function RaceDetailView({
   // 패널 전체가 하나의 스크롤 상자: 위쪽 요약은 같이 올라가고 맨 윗줄(지역·관심·닫기)과 탭 줄만 붙어 있다
   const scrollRef = useRef<HTMLDivElement>(null);
   const headRef = useRef<HTMLElement>(null);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   async function share() {
     track('share', { race_id: race.id });
@@ -201,18 +202,23 @@ function RaceDetailView({
       try {
         await nav.share({ title: msg.title, text: msg.text, url });
         return;
-      } catch {
-        /* 사용자가 취소 */
+      } catch (e) {
+        // 공유창을 사용자가 닫은 것(AbortError)이면 그대로 끝. 지원 안 함·실패일 때만 아래 복사로 넘어간다
+        if (e instanceof DOMException && e.name === 'AbortError') return;
       }
     }
     try {
       await navigator.clipboard.writeText(msg.full);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(false), 1800);
     } catch {
       prompt(t('detail.copyPrompt'), msg.full);
     }
   }
+  // 위쪽 줄과 본문 동작 줄의 공유 버튼이 같이 쓴다 (글자·아이콘만 다르게 그리는 한 덩어리)
+  const shareLabel = copied ? t('detail.copied') : t('detail.share');
+  const shareIcon = copied ? <Check size={14} weight="bold" /> : <ShareNetwork size={14} weight="bold" />;
   /** 알림 제안 띄우기: 접수 전·접수 중인 대회이고, 닫은 적 없고, 이미 알림을 걸어 두지 않았을 때만 */
   async function offerNudge(from: 'save' | 'cal') {
     const id = race.id;
@@ -307,6 +313,17 @@ function RaceDetailView({
               : `${race.country_ko} ${race.city_ko}`}
         </span>
         <div className="flex shrink-0 items-center gap-1">
+          {/* 공유: 이 줄은 스크롤해도 붙어 있어 어느 탭·어느 위치에서든 눌린다. 휴대폰·PC 모두 글자 포함 */}
+          <button
+            onClick={share}
+            className="inline-flex h-11 items-center gap-1.5 rounded-ctl bg-surface px-3 text-[15px] font-semibold whitespace-nowrap text-ink transition hover:bg-sunken active:translate-y-px sm:h-9"
+          >
+            {shareIcon}
+            {shareLabel}
+          </button>
+          <span role="status" aria-live="polite" className="sr-only">
+            {copied ? t('detail.copied') : ''}
+          </span>
           {/* 휴대폰에서는 아래 고정 줄에 있다(엄지 닿는 곳) — 여기는 640px 부터 */}
           <button
             onClick={toggleFavorite}
@@ -592,8 +609,8 @@ function RaceDetailView({
                 </button>
               )}
               <button onClick={share} className={`${actBtn} bg-surface text-ink hover:bg-sunken active:translate-y-px`}>
-                {copied ? <Check size={14} weight="bold" /> : <ShareNetwork size={14} weight="bold" />}
-                {copied ? t('detail.copied') : t('detail.share')}
+                {shareIcon}
+                {shareLabel}
               </button>
               {race.source_url && (
                 <a

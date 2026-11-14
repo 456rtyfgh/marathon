@@ -40,18 +40,20 @@ const where = (race: ShareRace, lang: Lang) =>
 
 /**
  * 접수 부분만: '접수 9/1~9/30 (접수 중)' · 'Entry 9/1–9/30 (Open)'.
- * 접수 날짜는 확정일 때만 넣는다. 한쪽만 있으면 '접수 9/1~' / '접수 ~9/30'. 확정이 아니거나 날짜가 없으면 '(일정 미공개)' 처럼 상태만.
+ * 접수 일정이 확정이 아니면(예상·미정) 날짜 앞에 '예상' 을 붙인다: '접수 예상 9/1~9/30 (일정 미공개)' · 'Entry expected 9/1–9/30 (Dates TBA)'.
+ * 한쪽만 있으면 '접수 9/1~' / '접수 ~9/30'. 날짜가 없거나 취소된 대회는 상태만 '(일정 미공개)' · '(대회 취소)'.
  */
 export function shareEntryLine(race: ShareRace, lang: Lang, today: Date = TODAY()): string {
   const st = statusOf(race, today);
   const label = `(${STATUS_TEXT[lang][st]})`;
-  if (st === 'cancelled' || !isEntryConfirmed({ entry_confidence: race.entry_confidence as Race['entry_confidence'] })) return label;
+  if (st === 'cancelled') return label;
   const o = race.entry_opens;
   const c = race.entry_closes;
   if (!o && !c) return label;
   const sep = lang === 'en' ? '–' : '~';
   const range = o && c ? (o === c ? md(o) : `${md(o)}${sep}${md(c)}`) : o ? `${md(o)}${sep}` : `${sep}${md(c!)}`;
-  return `${translate(lang, 'share.entry', { r: range })} ${label}`;
+  const key = isEntryConfirmed({ entry_confidence: race.entry_confidence as Race['entry_confidence'] }) ? 'share.entry' : 'share.entryExpected';
+  return `${translate(lang, key, { r: range })} ${label}`;
 }
 
 /** og:title 용: '대회명 · 2027년 3월 15일 · 서울' · 'Seoul Marathon · Mar 15, 2027 · Seoul' */

@@ -72,15 +72,20 @@ for (const { label, r } of cases) {
     assert.ok(!/[가-힣]/.test(en.text.replace(r.name_en?.trim() ? '' : r.name_ko, '')), `en 에 한글: ${en.text}`);
   });
   check(`${r.id} 접수 날짜`, () => {
+    const conf = isEntryConfirmed(r);
+    const range = (sep) => {
+      const { entry_opens: o, entry_closes: c } = r;
+      return o && c ? (o === c ? md(o) : `${md(o)}${sep}${md(c)}`) : o ? `${md(o)}${sep}` : `${sep}${md(c)}`;
+    };
     const line = shareEntryLine(r, 'ko', today);
-    if (s === 'cancelled' || !isEntryConfirmed(r) || (!r.entry_opens && !r.entry_closes)) assert.equal(line, `(${STATUS_KO[s]})`);
-    else if (r.entry_opens && r.entry_closes && r.entry_opens !== r.entry_closes) assert.equal(line, `접수 ${md(r.entry_opens)}~${md(r.entry_closes)} (${STATUS_KO[s]})`);
-    else if (r.entry_opens && !r.entry_closes) assert.equal(line, `접수 ${md(r.entry_opens)}~ (${STATUS_KO[s]})`);
-    else if (!r.entry_opens && r.entry_closes) assert.equal(line, `접수 ~${md(r.entry_closes)} (${STATUS_KO[s]})`);
-    if (!isEntryConfirmed(r)) assert.ok(!/\d+\/\d+/.test(line), `예상 날짜가 들어감: ${line}`);
     const lineEn = shareEntryLine(r, 'en', today);
-    if (r.entry_opens && r.entry_closes && r.entry_opens !== r.entry_closes && isEntryConfirmed(r) && s !== 'cancelled')
-      assert.equal(lineEn, `Entry ${md(r.entry_opens)}–${md(r.entry_closes)} (${STATUS_EN[s]})`);
+    if (s === 'cancelled' || (!r.entry_opens && !r.entry_closes)) {
+      assert.equal(line, `(${STATUS_KO[s]})`);
+      assert.equal(lineEn, `(${STATUS_EN[s]})`);
+    } else {
+      assert.equal(line, `${conf ? '접수' : '접수 예상'} ${range('~')} (${STATUS_KO[s]})`);
+      assert.equal(lineEn, `${conf ? 'Entry' : 'Entry expected'} ${range('–')} (${STATUS_EN[s]})`);
+    }
   });
   check(`${r.id} og 제목`, () => {
     const t = ogTitle(r, 'ko');
