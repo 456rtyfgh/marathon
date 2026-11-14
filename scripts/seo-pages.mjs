@@ -384,7 +384,7 @@ for (const y of years) {
     path,
     page({
       path,
-      title: `트레일러닝 대회 일정 ${ys} — 국내 ${kr}개·해외 ${rs.length - kr}개 접수 | 마라톤 캘린더`,
+      title: `트레일러닝 대회 일정 ${ys} — 국내 ${kr}개·해외 ${rs.length - kr}개 대회 접수 기간 | 마라톤 캘린더`,
       description: `다가오는 트레일러닝 대회 ${rs.length}개(국내 ${kr}, 해외 ${rs.length - kr}${ultra ? `, 울트라 거리 ${ultra}` : ''})의 날짜, 장소, 거리, 접수 시작·마감일.${etc(rs)}`.slice(0, 160),
       h1: '트레일러닝 대회 일정',
       lead: `앞으로 열리는 트레일러닝 대회는 국내 ${kr}개, 해외 ${rs.length - kr}개입니다.${ultra ? ` 42.195km보다 긴 울트라 거리가 있는 대회가 ${ultra}개 있습니다.` : ''}${firstTrail ? ` 가장 가까운 대회는 ${fmt(firstTrail.race_date)}에 열리는 ${firstTrail.name_ko}입니다.` : ''} 날짜순으로 모았고, 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
@@ -961,7 +961,7 @@ for (const p of monthRegionPages) {
     p.path,
     page({
       path: p.path,
-      title: `${label} ${p.name} 마라톤 대회 일정 — ${n}개 접수 | 마라톤 캘린더`,
+      title: `${label} ${p.name} 마라톤 대회 일정 — ${n}개 대회 접수 기간 | 마라톤 캘린더`,
       description: `${label} ${p.name} 지역에서 열리는 마라톤·러닝 대회 ${n}개(접수 중 ${open}개)의 날짜, 장소, 종목, 접수 기간.${etc(rs)}`.slice(0, 160),
       h1: `${label} ${p.name} 마라톤 대회 일정`,
       lead: `${label} ${p.name}에서는 ${when} 대회 ${n}개가 열리고 접수 중인 대회는 ${open}개입니다.${mix ? ` 종목별로는 ${mix}(한 대회에 여러 종목이 있으면 각각 셉니다)입니다.` : ''} 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
