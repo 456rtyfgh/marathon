@@ -15,6 +15,15 @@ const urls = [
   ...listPagesEn.map((p) => url(`${ORIGIN}${p.path}`, p.lastmod ?? lastmodOf(p.races))),
   ...races.map((r) => url(`${ORIGIN}/en/r/${encodeURIComponent(r.id)}`, r.last_verified ?? today)),
 ];
+// 잘못된 sitemap 이 나가지 않게 빌드에서 바로 멈춘다: 주소 중복·lastmod 형식·noindex 넘김(/open/)·빈 목록 페이지
+const locs = urls.map((u) => u.match(/<loc>([^<]*)<\/loc>/)[1]);
+const dupLoc = locs.filter((l, i) => locs.indexOf(l) !== i);
+if (dupLoc.length) throw new Error(`sitemap: 주소 중복 ${dupLoc.slice(0, 3).join(' ')}`);
+const badMod = urls.filter((u) => !/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/.test(u));
+if (badMod.length) throw new Error(`sitemap: lastmod 형식 이상 ${badMod.slice(0, 2).join(' ')}`);
+if (locs.some((l) => /\/(en\/)?open\/$/.test(l))) throw new Error('sitemap: /open/ 넘김 주소가 들어 있음');
+const emptyList = [...listPages, ...listPagesEn].filter((p) => !p.races.length);
+if (emptyList.length) throw new Error(`sitemap: 대회 0개 페이지가 들어 있음 ${emptyList.map((p) => p.path).join(' ')}`);
 writeFileSync(
   new URL('../dist/sitemap.xml', import.meta.url),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`,
