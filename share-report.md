@@ -39,6 +39,51 @@
 
 ## 파트 B
 
+### 바꾼 파일
+- `src/lib/ogMeta.ts` (신규) — `ogDescription(race, lang, summary, today?)`: `<접수 줄> <요약>` 을 160자 안쪽으로. 워커 안에 인라인으로 있던 조립 로직을 순수 함수로 옮겨 node 로 시험할 수 있게 했다. 동작은 같고 하나만 고쳤다. 대회명·장소 속 `St. Jude`·`Mt. Fuji` 의 `. ` 를 문장 끝으로 보지 않게 했다(전에는 넘칠 때 이름 중간에서 잘릴 수 있었다). 취소 대회는 요약만 쓴다(ko `[대회 취소]`, en `[Cancelled]`). 예상·미정 표시는 파트 A 의 `shareEntryLine` 을 그대로 쓴다.
+- `worker/site.ts` — `withRaceMeta` 는 `ogTitle` 과 `ogDescription` 만 부른다. og·twitter `content` 에 넣는 값은 `&` 만 `&amp;` 로 바꾼다. HTMLRewriter `setAttribute` 가 `"` 는 `&quot;` 로 바꾸지만 `&` 는 그대로 두는 것을 실제 응답으로 확인했다(`Run & Learn` 이 생으로 나왔다). `describe`·`describeEn` 에는 `export` 만 붙였다(시험용 import, 동작 그대로).
+  - `<title>`·`meta description`·canonical·hreflang·JSON-LD·og:image 는 바꾸지 않았다.
+- `scripts/og-desc-test.mjs` (신규) — 워커의 실제 `describe`/`describeEn` 을 esbuild 로 묶어 부르고, data.json 2661개 × ko·en 을 검사한다. 160자 이내인지, 문장 중간에서 자르지 않는지, 취소 대회 형식, 예상 표시, 날짜 없음, 영어에 한글이 섞이지 않는지, 이름 속 점, 만든 사례 4개를 본다.
+- `scripts/og-check.mjs` (신규) — 로컬 Pages 함수 응답에서 og·twitter·canonical 을 뽑아 기대값(`ogTitle`·`ogDescription`)과 비교한다. 이스케이프(이중 `&amp;amp;`, 생 `&`·`<`)와 없는 대회의 404 도 본다. 대표 대회의 `<head>` 는 `evidence/share/og/` 에 저장한다. `--all` 을 주면 전 대회 응답을 검사한다.
+
+### 브리프와 다르게 한 것
+- **`dist/r/<id>/index.html` 은 만들지 않았다.** 이 저장소 빌드에는 그 파일이 없다. `/r/*`·`/en/r/*` 는 `_routes.json` 으로 함수(`dist/_worker.js`)가 받고, `dist/index.html` 을 HTMLRewriter 로 고쳐서 준다(`npm run build` 뒤 `ls dist/r` 으로 없음 확인). 정적 파일을 만들어도 함수가 먼저 받아서 내보내지지 않는다. 그래서 같은 확인을 `wrangler pages dev dist` 의 실제 응답으로 했고, 받은 `<head>` 를 `evidence/share/og/<ko|en>-<id>.head.html` 24개로 저장해 직접 열어 봤다.
+
+### 확인 (직접 한 것)
+- `npm run build` EXIT 0, `npx tsc -b` EXIT 0, `npx oxlint`(바꾼 4개 파일) 경고 0.
+- `node scripts/share-test.mjs` 통과(파트 A 커밋 a14cb10 반영 상태).
+- `node scripts/og-desc-test.mjs`: 검사 34602건, 실패 0.
+- `node scripts/og-check.mjs http://localhost:8791`: 대표 12개 × ko·en, 실패 0. `--all`: 5322개 응답 실패 0.
+  - 메모 1건: `en stanley-marathon` 의 장소가 응답(workerd)에서는 `Falkland Islands (Islas Malvinas)`, node 에서는 `Falkland Islands` 다. 나라 이름이 Intl(ICU) 데이터라 런타임마다 다르다. 결함은 아니어서 og-check 는 장소 칸이 비었는지만 본다.
+- 스크린샷(agent-browser — Playwright MCP 는 이 세션에서 권한이 없었다). `wrangler pages dev` 의 함수 응답 페이지로 찍었고, 모두 화면이 정상으로 뜨고 `scrollWidth` 가 창 폭과 같다(가로 넘침 없음).
+  - `evidence/share/b-375-ko-chiangmai-utmb-trail.png`, `evidence/share/b-1280-ko-chiangmai-utmb-trail.png` (확정)
+  - `evidence/share/b-375-en-hanam-misa-energy-run.png`, `evidence/share/b-1280-en-hanam-misa-energy-run.png` (취소)
+- 포트: 8788 과 8790 은 다른 세션의 wrangler 가 쓰고 있어 건드리지 않고 8791 을 썼다. 끝낸 뒤 8791 에 연결이 거부되는 것(꺼짐)을 확인했다.
+
+### 남은 것
+- 예상 대회의 미리보기 설명은 `접수 예상 8/31~11/25 (일정 미공개)` 로 시작하지만, 뒤에 붙는 요약(검색용 meta description 과 같은 글)이 `선착순 접수 2026년 8월 31일부터 2026년 11월 25일까지.` 처럼 날짜를 확정처럼 다시 말한다. meta description 은 검색 결과가 바뀌지 않게 그대로 두기로 해서 손대지 않았다. 고치려면 `describe`/`describeEn` 의 접수 문장에 예상 표시를 넣어야 하고, 그러면 검색 설명도 함께 바뀐다(따로 정할 일).
+- 원래 있던 문구 문제: 상시 접수 대회의 한국어 요약이 `상시 접수 접수 기간 미공개` 처럼 '접수' 를 두 번 쓴다(`worker/site.ts` `entryText`, 이번 변경 전부터 있었다). 검색 설명에도 나오는 글이라 이번 범위에서는 고치지 않았다.
+
 ## 미리보기 확인(실제 응답)
+
+`wrangler pages dev dist --port 8791` 의 응답 값 그대로(오늘 2026-11-14, 한국 시간). 모든 대회에서 `og:image`·`twitter:image` = `https://marathon82.com/og.png`, `twitter:card` = `summary_large_image`, `og:url` = canonical = `https://marathon82.com[/en]/r/<id>`, `twitter:title`·`twitter:description` 은 og 와 같다. `og:locale` 은 ko `ko_KR`, en `en_US`.
+
+| 경우 | 주소 | og:title | og:description |
+|---|---|---|---|
+| 확정 | `/r/chiangmai-utmb-trail` | 치앙마이 타일랜드 바이 UTMB · 2026년 12월 4일 · 태국 치앙마이 | 접수 7/1~10/31 (접수 마감) 치앙마이 타일랜드 바이 UTMB은 2026년 12월 4일 태국 치앙마이에서 열리는 트레일러닝 대회입니다. 종목 173K·100K·63K·57K·26K. 선착순 접수 2026년 7월 1일부터 2026년 10월 31일까지. |
+| 확정 | `/en/r/chiangmai-utmb-trail` | HOKA Chiang Mai Thailand by UTMB · Dec 4, 2026 · Chiang Mai, Thailand | Entry 7/1–10/31 (Closed) HOKA Chiang Mai Thailand by UTMB is a trail race on Dec 4, 2026 in Chiang Mai, Thailand. |
+| 예상 | `/r/geumsan-goldrun` | 전마협 금산 골드런 레이스 · 2026년 12월 5일 · 충남 금산 | 접수 예상 8/31~11/25 (일정 미공개) 전마협 금산 골드런 레이스는 2026년 12월 5일 충남 금산에서 열리는 마라톤 대회입니다. 종목 하프·10km·5km. 선착순 접수 2026년 8월 31일부터 2026년 11월 25일까지. 일정, 비용, 후기를 확인하세요. |
+| 예상 | `/en/r/geumsan-goldrun` | Geumsan Gold Run Race · Dec 5, 2026 · Geumsan, Chungnam | Entry expected 8/31–11/25 (Dates TBA) Geumsan Gold Run Race is a marathon on Dec 5, 2026 in Geumsan, Chungnam. |
+| 접수 미정 | `/r/aqaba-ayla-red-sea-half` | 아일라 홍해 하프마라톤 아카바 · 2026년 12월 4일 · 요르단 아카바 | (일정 미공개) 아일라 홍해 하프마라톤 아카바는 2026년 12월 4일 요르단 아카바에서 열리는 마라톤 대회입니다. 종목 하프·10km. 상시 접수 접수 기간 미공개. 일정, 비용, 후기를 확인하세요. |
+| 접수 미정 | `/en/r/aqaba-ayla-red-sea-half` | Ayla Red Sea Half Marathon · Dec 4, 2026 · Aqaba, Jordan | (Dates TBA) Ayla Red Sea Half Marathon is a marathon on Dec 4, 2026 in Aqaba, Jordan. Distances: Half, 10km. Registration (Open entry) dates TBA. |
+| 취소 | `/r/hanam-misa-energy-run` | 하남 미사 호수 에너지런 · 2026년 12월 5일 · 경기 하남 | [대회 취소] 하남 미사 호수 에너지런은 2026년 12월 5일 경기 하남에서 열리는 마라톤 대회입니다. 종목 10km·5km. 상시 접수 접수 2026년 11월 26일 마감. 일정, 비용, 후기를 확인하세요. |
+| 취소 | `/en/r/hanam-misa-energy-run` | Hanam Misa Lake Energy Run · Dec 5, 2026 · Hanam, Gyeonggi | [Cancelled] Hanam Misa Lake Energy Run is a marathon on Dec 5, 2026 in Hanam, Gyeonggi. Distances: 10km, 5km. Registration (Open entry) closes Nov 26, 2026. |
+
+특수문자(응답 원문, 속성값 그대로):
+- `"` — `en gwangju-youth-marathon`: `content="Gwangju Youth Marathon &quot;Here in Seo-gu, Run with Youth&quot; · Sep 20, 2025 · Seo-gu, Gwangju"` (속성 안 깨짐, 이중 이스케이프 없음)
+- `'` — `en jeonju-savethechildren-kids-marathon`: `Save the Children International Children's Marathon Jeonju · …` (큰따옴표로 감싼 속성이라 그대로 둬도 된다)
+- `&` — `en seoul-run-and-learn-donation-run`: `content="Run &amp; Learn Donation Run · Oct 25, 2025 · Guro, Seoul"`, `incheon-third-bridge-walk-run`: `WALK &amp; RUN` (`&amp;amp;` 없음)
+- 그 밖의 대표 대회(조기 마감 `charlotte-marathon`, 지난 대회 `tongyeong-hansando-trail`, 긴 이름 `jirisan-hwadae-utmb-trail`, 이름에 점 `memphis-stjude`)도 ko·en 모두 통과. 저장한 head 는 `evidence/share/og/` 에 있다.
+- 없는 대회 `/r/no-such-race-og-check` 는 404 그대로다.
 
 ## 다른 파트 메모

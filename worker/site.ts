@@ -21,7 +21,8 @@ import type { Lang } from '../src/i18n/lang.ts';
 import { DIST_TEXT, ENTRY_TEXT, fmtDate, fmtMoney, fmtMonth } from '../src/i18n/format.ts';
 import { cityName, countryName, provinceName, whereText } from '../src/i18n/names.ts';
 import { BLOCKED_TEXT, DATA_NOTICE, noticeHtml } from '../src/lib/notice.ts';
-import { ogTitle, shareEntryLine } from '../src/lib/shareText.ts';
+import { ogTitle } from '../src/lib/shareText.ts';
+import { ogDescription } from '../src/lib/ogMeta.ts';
 import { gaRoute, type GaEnv } from './gaRoute';
 import { communityApi, communityPage } from './community';
 import { unsubscribeRoute } from './alerts/unsubscribe';
@@ -126,8 +127,8 @@ function entryText(r: RaceMeta): string {
   return `${how} 기간 미공개`;
 }
 
-/** 검색 결과 설명: 날짜·도시·거리·접수 시작/마감을 문장으로, 160자 안쪽 (넘치면 꼬리부터 뺀다) */
-function describe(r: RaceMeta): string {
+/** 검색 결과 설명: 날짜·도시·거리·접수 시작/마감을 문장으로, 160자 안쪽 (넘치면 꼬리부터 뺀다). scripts/og-desc-test.mjs 가 시험용으로 import */
+export function describe(r: RaceMeta): string {
   const head = `${isCancelled(r) ? '[대회 취소] ' : ''}${r.name_ko}${eun(r.name_ko)} ${fmt(r.race_date)} ${whereOf(r)}에서 열리는 ${kindText(r)}입니다.`;
   const dist = distText(r) ? ` 종목 ${distText(r)}.` : '';
   const entry = ` ${entryText(r)}.`;
@@ -280,8 +281,8 @@ function entryTextEn(r: RaceMeta): string {
   return `${reg} dates TBA`;
 }
 
-/** 검색 결과 설명 (영어, 160자 안쪽 — 넘치면 꼬리부터 뺀다) */
-function describeEn(r: RaceMeta): string {
+/** 검색 결과 설명 (영어, 160자 안쪽 — 넘치면 꼬리부터 뺀다). scripts/og-desc-test.mjs 가 시험용으로 import */
+export function describeEn(r: RaceMeta): string {
   const head = `${isCancelled(r) ? '[Cancelled] ' : ''}${nameEn(r)} is a ${r.discipline === 'trail' ? 'trail race' : r.discipline === 'event' ? 'running event' : 'marathon'} on ${fmtEn(r.race_date)} in ${whereEn(r)}.`;
   const dist = distTextEn(r) ? ` Distances: ${distTextEn(r)}.` : '';
   const entry = ` ${entryTextEn(r)}.`;
@@ -491,26 +492,17 @@ async function withRaceMeta(req: Request, env: Env, id: string, lang: Lang = 'ko
     ? `${nameEn(race)} ${race.race_date.slice(0, 4)} — Date & Registration | ${SITE_NAME_EN}`
     : `${race.name_ko} ${race.race_date.slice(0, 4)} 일정·접수 기간 | 마라톤 캘린더`;
   const desc = en ? describeEn(race) : describe(race);
-  // 공유 미리보기(og·twitter)만: 제목 '대회명 · 날짜 · 장소', 설명 '접수 M/D~M/D (상태)' + 위 요약 (160자 안쪽, 넘치면 요약을 자른다).
-  // <title>·meta description·canonical·구조화 데이터는 검색 결과가 바뀌지 않게 그대로 둔다
+  // 공유 미리보기(og·twitter)만: 제목 '대회명 · 날짜 · 장소', 설명 '접수 M/D~M/D (상태)' + 위 요약 (160자 안쪽,
+  // 넘치면 요약 문장을 뒤에서부터 뺀다. 취소 대회는 요약만 — src/lib/ogMeta.ts).
+  // <title>·meta description·canonical·구조화 데이터는 검색 결과가 바뀌지 않게 그대로 둔다.
   const shareTitle = ogTitle(race, lang);
-  const entryLine = shareEntryLine(race, lang);
-  const shareDesc = ((): string => {
-    // 취소된 대회는 요약 첫머리에 이미 '[대회 취소]' 가 있어 접수 줄을 겹쳐 쓰지 않는다
-    if (isCancelled(race)) return desc;
-    // 넘치면 요약 문장을 뒤에서부터 통째로 뺀다 (문장 중간에서 자르지 않게). 첫 문장도 안 들어가면 그때만 자른다
-    // 문장 끝 = 마침표 뒤 공백 ('8.2km' 처럼 숫자 속 점은 나누지 않는다)
-    const sentences = desc.split(/(?<=\.)\s+/);
-    for (let n = sentences.length; n > 0; n--) {
-      const s = `${entryLine} ${sentences.slice(0, n).join(' ')}`;
-      if (s.length <= 160) return s;
-    }
-    return `${entryLine} ${desc}`.slice(0, 159) + '…';
-  })();
+  const shareDesc = ogDescription(race, lang, desc);
   const koUrl = `${SITE}/r/${encodeURIComponent(race.id)}`;
   const enUrl = `${SITE}/en/r/${encodeURIComponent(race.id)}`;
   const canonical = en ? enUrl : koUrl;
-  const set = (content: string) => ({ element: (el: Element) => el.setAttribute('content', content) });
+  // HTMLRewriter 의 setAttribute 는 '"' 만 &quot; 로 바꾸고 '&' 는 그대로 둔다 (로컬 응답으로 확인) → '&' 만 여기서 &amp; 로.
+  // '"' 까지 여기서 바꾸면 &amp;quot; 로 이중 이스케이프된다. scripts/og-check.mjs 가 이중 이스케이프를 잡는다
+  const set = (content: string) => ({ element: (el: Element) => el.setAttribute('content', content.replaceAll('&', '&amp;')) });
   const today = todayKst();
   const related = en ? relatedHtmlEn(race, cache?.list ?? [], today) : relatedHtml(race, cache?.list ?? [], today);
   const faq = en ? faqLdEn(race, today) : faqLd(race, today);
