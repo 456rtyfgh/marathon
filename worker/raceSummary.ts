@@ -40,6 +40,15 @@ const listView = (r: SummaryRace): SummaryRace => {
 };
 const statusOf = (r: SummaryRace, today: string) => entryStatus(listView(r) as unknown as Race, new Date(today + 'T00:00:00Z'));
 const confirmedEntry = (r: SummaryRace) => isEntryConfirmed({ entry_confidence: r.entry_confidence as Race['entry_confidence'] });
+/**
+ * 문장 끝에 적을 접수 상태. 지난 대회는 '접수 마감'·'조기 마감' 만 적는다 —
+ * 마감일이 없는 대회는 대회가 끝난 뒤에도 entryStatus 가 '접수 중' 이라, 그대로 쓰면 '…에 열린 대회로 … (접수 중)' 이 된다.
+ * '접수 예정'·'일정 미공개' 도 끝난 대회에는 맞지 않아 뺀다(값 없는 조각은 생략).
+ */
+const shownStatus = (r: SummaryRace, today: string) => {
+  const st = statusOf(r, today);
+  return r.race_date < today && st !== 'closed' && st !== 'soldout' ? null : st;
+};
 
 /** 받침 있으면 '은', 없으면 '는' (한글이 아니면 '은') */
 const eun = (w: string) => {
@@ -92,12 +101,13 @@ export function raceSummaryKo(r: SummaryRace, today: string): string {
   // 대회 날이 지났으면 '열린' (지난 대회 페이지도 /r/<id> 로 열린다)
   const held = r.race_date < today ? '열린' : '열리는';
   const head = `${name}${eun(name)} ${fmtDate(r.race_date, 'ko')}${dateExpectedKo(r)}에 ${where ? `${where}에서 ` : ''}${held} ${dists ? `${dists} 종목이 있는 ` : ''}${kind}`;
-  const st = STATUS_TEXT.ko[statusOf(r, today)];
+  const stKey = shownStatus(r, today);
+  const st = stKey ? `(${STATUS_TEXT.ko[stKey]})` : '';
   const how = ENTRY_KO[r.entry_type];
   const win = windowKo(r);
-  if (!win) return `${head}로, ${how ? `접수 방식은 ${how}, ` : ''}접수 기간은 아직 공개되지 않았습니다(${st}).`;
+  if (!win) return `${head}로, ${how ? `접수 방식은 ${how}, ` : ''}접수 기간은 ${r.race_date < today ? '' : '아직 '}공개되지 않았습니다${st}.`;
   const pre = confirmedEntry(r) ? '' : '예상 ';
-  return `${head}로, 접수는 ${how ? `${how} ` : ''}${pre}${win}(${st})입니다.`;
+  return `${head}로, 접수는 ${how ? `${how} ` : ''}${pre}${win}${st}입니다.`;
 }
 
 /**
@@ -113,14 +123,15 @@ export function raceSummaryEn(r: SummaryRace, today: string): string {
   const where = whereText({ country_code: r.country_code ?? '', city_ko: r.city_ko, country_ko: r.country_ko }, 'en').trim();
   const dists = (r.distances ?? []).map(DIST_TEXT.en).join(', ');
   const kind = r.discipline === 'trail' ? 'trail race' : r.discipline === 'event' ? 'running event' : 'race';
-  const head = `${name} ${r.race_date < today ? 'was' : 'is'} a ${kind}${dists ? ` (${dists})` : ''} held on ${dateEn}${dateExpectedEn(r)}${where ? ` in ${where}` : ''}`;
-  const st = STATUS_TEXT.en[statusOf(r, today)];
+  const past = r.race_date < today;
+  const head = `${name} ${past ? 'was' : 'is'} a ${kind}${dists ? ` (${dists})` : ''} held on ${dateEn}${dateExpectedEn(r)}${where ? ` in ${where}` : ''}`;
+  const stKey = shownStatus(r, today);
+  const st = stKey ? ` (${STATUS_TEXT.en[stKey]})` : '';
   const how = ENTRY_EN[r.entry_type];
   const win = windowEn(r);
   const via = how ? ` (${how.toLowerCase()})` : '';
-  if (!win) return `${head}; the registration${via} window has not been announced (${st}).`;
+  if (!win) return `${head}; the registration${via} window ${past ? 'was not' : 'has not been'} announced${st}.`;
   const sure = confirmedEntry(r);
-  const past = r.race_date < today;
   const verb = sure ? (past ? 'ran' : 'runs') : past ? 'was expected to run' : 'is expected to run';
-  return `${head}; registration${via} ${verb} ${win} (${st}).`;
+  return `${head}; registration${via} ${verb} ${win}${st}.`;
 }

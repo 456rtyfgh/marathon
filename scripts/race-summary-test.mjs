@@ -3,7 +3,7 @@
  *   node scripts/race-summary-test.mjs
  * 본다: 확정/예상/접수 전/접수 중/마감/취소/값 없음 케이스(한·영) · 실제 data.json 전체 대회에 대해
  *       비어 있지 않음 · 한 문장 · 이모지 0 · 'undefined'·'null'·'NaN' 없음 · 대회 이름이 들어 있음 ·
- *       상세 값(참가비·정원·메모·공식 주소) 미포함 · 상태 글자 = 홈 목록의 entryStatus.
+ *       상세 값(참가비·정원·메모·공식 주소) 미포함 · 상태 글자 = 홈 목록의 entryStatus (지난 대회는 접수 마감·조기 마감만).
  */
 import { readFileSync } from 'node:fs';
 import { raceSummaryEn, raceSummaryKo } from '../worker/raceSummary.ts';
@@ -89,6 +89,17 @@ check(en({ race_date: '2026-05-03' }).startsWith('Test Marathon was a race'), '�
 check(en({ race_date: '2026-05-03', entry_opens: '2026-03-01', entry_closes: '2026-04-01' }).includes('registration (lottery) ran from'), '지난 대회 접수(en)');
 check(en({ race_date: '2026-05-03', entry_opens: '2026-03-01', entry_closes: '2026-04-01', entry_confidence: 'expected' }).includes('was expected to run'), '지난 대회 접수 예상(en)');
 check(has(ko({ race_date: TODAY }), '열리는 '), '오늘 대회는 열리는');
+// 지난 대회의 접수 상태: '접수 마감'·'조기 마감' 만 적는다 (마감일 없는 대회가 끝난 뒤에도 '접수 중' 으로 나오지 않게)
+k = ko({ race_date: '2026-05-03', entry_opens: '2026-03-01', entry_closes: null });
+check(k.endsWith('2026년 3월 1일부터입니다.') && not(k, '접수 중'), `지난 대회·마감일 없음(ko): ${k}`);
+e = en({ race_date: '2026-05-03', entry_opens: '2026-03-01', entry_closes: null });
+check(e.endsWith('ran from Mar 1, 2026.') && not(e, 'Open'), `지난 대회·마감일 없음(en): ${e}`);
+check(ko({ race_date: '2026-05-03', entry_opens: '2026-03-01', entry_closes: '2026-04-01' }).endsWith('(접수 마감)입니다.'), '지난 대회·마감(ko)');
+check(en({ race_date: '2026-05-03', entry_opens: '2026-03-01', entry_closes: '2026-04-01' }).endsWith('(Closed).'), '지난 대회·마감(en)');
+k = ko({ race_date: '2026-05-03', entry_opens: null, entry_closes: null, entry_confidence: 'tbc' });
+check(k.endsWith('접수 기간은 공개되지 않았습니다.') && not(k, '아직', '일정 미공개'), `지난 대회·접수 날짜 없음(ko): ${k}`);
+e = en({ race_date: '2026-05-03', entry_opens: null, entry_closes: null, entry_confidence: 'tbc' });
+check(e.endsWith('window was not announced.') && not(e, 'TBA'), `지난 대회·접수 날짜 없음(en): ${e}`);
 // 도시 = 나라 ('홍콩 홍콩') 는 한 번만
 k = ko({ city_ko: '홍콩', country_ko: '홍콩', country_code: 'HK' });
 check(has(k, '에 홍콩에서 ') && not(k, '홍콩 홍콩'), `도시=나라(ko): ${k}`);
@@ -114,7 +125,7 @@ for (const r of snap.races) {
     check(hay.every((h) => !s.includes(h)), `${tag}: 값 오류 글자 "${s}"`);
     check(!/\s{2,}/.test(s) && !/[,;]\s*[,;.]/.test(s), `${tag}: 공백·문장부호 이상 "${s}"`);
     // 한 문장: 끝맺음이 한 번뿐 ('St.'·'U.S.' 같은 이름 속 점은 세지 않는다)
-    check(lang === 'ko' ? (s.match(/(?:[입습]니다|\))\.$/g) ?? []).length === 1 && !/[입습]니다\.\s/.test(s) : (s.match(/\)\.|organizer\./g) ?? []).length === 1, `${tag}: 한 문장이 아님 "${s}"`);
+    check(lang === 'ko' ? (s.match(/(?:[입습]니다|\))\.$/g) ?? []).length === 1 && !/[입습]니다\.\s/.test(s) : (s.match(/\)\.|organizer\.|(?:announced|only|\d{4})\.$/g) ?? []).length === 1, `${tag}: 한 문장이 아님 "${s}"`);
     // 상세 값 미포함: 참가비 숫자·공식 주소·메모 앞머리
     if (r.entry_fee != null && r.entry_fee >= 1000) check(!s.includes(String(r.entry_fee)) && !s.includes(r.entry_fee.toLocaleString()), `${tag}: 참가비가 들어 있음`);
     if (r.official_url) check(!s.includes('http'), `${tag}: 주소가 들어 있음`);
@@ -127,7 +138,12 @@ for (const r of snap.races) {
   const tag = r.notes_ko?.match(/^\s*\[(취소|중단)\]/);
   const list = { ...r, notes_ko: tag ? `[${tag[1]}]` : null };
   const st = entryStatus(list, new Date(TODAY + 'T00:00:00Z'));
-  if (st !== 'cancelled') {
+  // 지난 대회는 '접수 마감'·'조기 마감' 만 적는다 (그 밖의 상태는 끝난 대회에 맞지 않아 뺀다)
+  const hidden = r.race_date < TODAY && st !== 'closed' && st !== 'soldout';
+  if (st !== 'cancelled' && hidden) {
+    check(!sk.includes(`(${STATUS_TEXT.ko[st]})`), `${r.id}: 지난 대회에 상태 글자 ${STATUS_TEXT.ko[st]} "${sk}"`);
+    check(!se.endsWith(`(${STATUS_TEXT.en[st]}).`), `${r.id}: 지난 대회에 영어 상태 글자 ${STATUS_TEXT.en[st]} "${se}"`);
+  } else if (st !== 'cancelled') {
     check(sk.includes(`(${STATUS_TEXT.ko[st]}`) || sk.includes(`${STATUS_TEXT.ko[st]})`), `${r.id}: 상태 글자 ${STATUS_TEXT.ko[st]} 가 없음 "${sk}"`);
     check(se.includes(STATUS_TEXT.en[st]), `${r.id}: 영어 상태 글자 ${STATUS_TEXT.en[st]} 가 없음 "${se}"`);
   }

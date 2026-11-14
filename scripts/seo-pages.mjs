@@ -177,6 +177,9 @@ const busiestMonth = (rs) => {
 /** 거리 묶음 b 가 있는 대회 수 */
 const withBucket = (rs, b) => rs.filter((r) => (r.distances ?? []).some((x) => distanceBucket(x) === b)).length;
 const nameOfProvince = new Map(PROVINCES.map((p) => [p.id, p.name]));
+/** 요약 문장에 대회 하나의 날짜를 적을 때: 확정이 아니면 '(예상)'·'(미정)' 을 붙인다 (대회 상세 요약 worker/raceSummary.ts 와 같은 표기) */
+const dateKo = (r) => `${fmt(r.race_date)}${r.date_confidence === 'confirmed' ? '' : r.date_confidence === 'tbc' ? '(미정)' : '(예상)'}`;
+const dateEn = (r) => `${fmtEn(r.race_date)}${r.date_confidence === 'confirmed' ? '' : r.date_confidence === 'tbc' ? ', TBC' : ', expected'}`;
 
 const out = (path, html) => {
   const dir = new URL(`../dist${path}`, import.meta.url);
@@ -233,14 +236,14 @@ for (const c of countries) {
   const busy = up.length >= 3 ? busiestMonth(up) : null;
   const places = up.length >= 3 ? topBy(up, isKr ? (r) => nameOfProvince.get(provinceOf(r)) : (r) => r.city_ko?.trim()) : [];
   const facts = [
-    first && `가장 가까운 대회는 ${fmt(first.race_date)}에 열리는 ${first.name_ko}입니다.`,
+    first && `가장 가까운 대회는 ${dateKo(first)}에 열리는 ${first.name_ko}입니다.`,
     busy && `대회가 가장 많은 달은 ${monthLabel(busy[0])}(${busy[1]}개)입니다.`,
     places.length >= 2 && `대회가 많은 ${isKr ? '시·도' : '도시'}는 ${places.join(', ')}입니다.`,
   ].filter(Boolean);
   const scopeKo = isKr ? '국내' : c.name;
   const lead =
     c.races.length === 1
-      ? `${scopeKo}에서 열리는 대회는 ${fmt(c.races[0].race_date)}에 열리는 ${c.races[0].name_ko} 1개입니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`
+      ? `${scopeKo}에서 ${up.length ? '열리는' : '열린'} 대회는 ${dateKo(c.races[0])}에 ${up.length ? '열리는' : '열린'} ${c.races[0].name_ko} 1개입니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`
       : up.length
         ? `${scopeKo}에서 열리는 마라톤${trail ? '·트레일러닝' : ''} 대회는 모두 ${c.races.length}개${trail ? `(트레일러닝 ${trail}개 포함)` : ''}이고, 그중 앞으로 열리는 대회가 ${up.length}개입니다. ${facts.join(' ')} 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`
         : `${scopeKo}에서 열린 대회 ${c.races.length}개를 모았습니다. 앞으로 열리는 대회는 아직 없습니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`;
@@ -387,7 +390,7 @@ for (const y of years) {
       title: `트레일러닝 대회 일정 ${ys} — 국내 ${kr}개·해외 ${rs.length - kr}개 대회 접수 기간 | 마라톤 캘린더`,
       description: `다가오는 트레일러닝 대회 ${rs.length}개(국내 ${kr}, 해외 ${rs.length - kr}${ultra ? `, 울트라 거리 ${ultra}` : ''})의 날짜, 장소, 거리, 접수 시작·마감일.${etc(rs)}`.slice(0, 160),
       h1: '트레일러닝 대회 일정',
-      lead: `앞으로 열리는 트레일러닝 대회는 국내 ${kr}개, 해외 ${rs.length - kr}개입니다.${ultra ? ` 42.195km보다 긴 울트라 거리가 있는 대회가 ${ultra}개 있습니다.` : ''}${firstTrail ? ` 가장 가까운 대회는 ${fmt(firstTrail.race_date)}에 열리는 ${firstTrail.name_ko}입니다.` : ''} 날짜순으로 모았고, 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
+      lead: `앞으로 열리는 트레일러닝 대회는 국내 ${kr}개, 해외 ${rs.length - kr}개입니다.${ultra ? ` 42.195km보다 긴 울트라 거리가 있는 대회가 ${ultra}개 있습니다.` : ''}${firstTrail ? ` 가장 가까운 대회는 ${dateKo(firstTrail)}에 열리는 ${firstTrail.name_ko}입니다.` : ''} 날짜순으로 모았고, 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
       crumbs: crumbsOf(path, '트레일러닝 대회 일정'),
       body: [
         trailRegions.length
@@ -618,13 +621,13 @@ for (const c of countries) {
   const busy = up.length >= 3 ? busiestMonth(up) : null;
   const places = up.length >= 3 ? topBy(up, isKrC ? (r) => provinceName(provinceOf(r) ?? '', 'en') : (r) => cityName({ country_code: r.country_code ?? '', city_ko: r.city_ko }, 'en')) : [];
   const facts = [
-    first && `The next race is ${raceNameEn(first)} (${fmtEn(first.race_date)}).`,
+    first && `The next race is ${raceNameEn(first)} (${dateEn(first)}).`,
     busy && `The busiest month is ${monthLabelEn(busy[0])} (${num(busy[1])} races).`,
     places.length >= 2 && `Most races are in ${places.length === 2 ? places.join(' and ') : `${places.slice(0, -1).join(', ')} and ${places.at(-1)}`}.`,
   ].filter(Boolean);
   const leadEn =
     c.races.length === 1
-      ? `The only race we list in ${inName} is ${raceNameEn(c.races[0])} (${fmtEn(c.races[0].race_date)}). Select it to see its entry type, fee and official website.`
+      ? `The only race we list in ${inName} is ${raceNameEn(c.races[0])} (${dateEn(c.races[0])}). Select it to see its entry type, fee and official website.`
       : up.length
         ? `We list ${num(c.races.length)} ${trail ? 'marathon and trail' : 'marathon'} races in ${inName}${trail ? ` (${num(trail)} of them trail races)` : ''}, and ${num(up.length)} of them are still to come. ${facts.join(' ')} Select a race to see its entry type, fee and official website.`
         : `We list ${num(c.races.length)} races held in ${inName}; none are upcoming right now. Select a race to see its entry type, fee and official website.`;
@@ -646,7 +649,7 @@ for (const c of countries) {
         ? `All Marathons in South Korea, Including Past Races (${num(c.races.length)}) | ${SITE_NAME_EN}`
         : up.length
           ? `Marathons in ${inName}${ys ? ` ${ys}` : ''} — ${num(up.length)} Upcoming ${up.length === 1 ? 'Race' : 'Races'}, Dates & Registration | ${SITE_NAME_EN}`
-          : `Marathons in ${inName} — ${num(c.races.length)} Past Races | ${SITE_NAME_EN}`,
+          : `Marathons in ${inName} — ${num(c.races.length)} Past ${c.races.length === 1 ? 'Race' : 'Races'} | ${SITE_NAME_EN}`,
       description: `Dates, cities, distances, registration open and close dates, and official websites for ${num(c.races.length)} ${trail ? 'marathon and trail' : 'marathon'} ${c.races.length === 1 ? 'race' : 'races'} in ${inName} (${num(up.length)} upcoming).${etcEn(up)}`.slice(0, 160),
       h1: isKrC ? 'All Marathons in South Korea (Including Past Races)' : `Marathons in ${inName}${ys ? ` ${ys}` : ''}`,
       lead: leadEn,
@@ -744,7 +747,7 @@ for (const y of years) {
       title: `Trail Races ${ys} — ${num(kr)} in Korea, ${num(rs.length - kr)} Abroad, Registration | ${SITE_NAME_EN}`,
       description: `Dates, locations, distances and registration open and close dates for ${num(rs.length)} upcoming trail races (${num(kr)} in Korea, ${num(rs.length - kr)} abroad${ultra ? `, ${num(ultra)} ultra distance` : ''}).${etcEn(rs)}`.slice(0, 160),
       h1: 'Trail Races',
-      lead: `There are ${num(kr)} upcoming trail races in Korea and ${num(rs.length - kr)} abroad.${ultra ? ` ${num(ultra)} of them have a course longer than 42.195 km (ultra distance).` : ''}${firstTrail ? ` The next one is ${raceNameEn(firstTrail)} (${fmtEn(firstTrail.race_date)}).` : ''} They are sorted by date; select a race to see its entry type, fee and official website.`,
+      lead: `There are ${num(kr)} upcoming trail races in Korea and ${num(rs.length - kr)} abroad.${ultra ? ` ${num(ultra)} of them have a course longer than 42.195 km (ultra distance).` : ''}${firstTrail ? ` The next one is ${raceNameEn(firstTrail)} (${dateEn(firstTrail)}).` : ''} They are sorted by date; select a race to see its entry type, fee and official website.`,
       crumbs: crumbsEn(enPath(koPath), 'Trail Races'),
       body: [
         trailRegions.length
