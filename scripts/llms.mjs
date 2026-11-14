@@ -17,7 +17,8 @@ const isKr = (r) => r.country_code === 'KR';
 const kr = races.filter(isKr).length;
 const abroad = races.length - kr;
 const trail = races.filter((r) => r.discipline === 'trail').length;
-const nCountries = countries.length;
+// '해외 …개 나라' 라서 한국(/c/kr/)은 빼고 센다 (소개 페이지 /about/ 의 수와 같은 기준)
+const nCountries = countries.filter((c) => c.code !== 'kr').length;
 const upKr = upcoming.filter(isKr).length;
 const upAbroad = upcoming.length - upKr;
 const upTrail = upcoming.filter((r) => r.discipline === 'trail').length;

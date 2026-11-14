@@ -83,6 +83,15 @@ k = ko({ notes_ko: '[취소] 주최 측 공지 — 상세 메모' });
 check(has(k, '취소', '2027년 3월 14일에 열릴 예정이었으나'), `취소(ko): ${k}`);
 check(not(k, '접수는', '상세 메모'), `취소 문장에 접수·메모 없음: ${k}`);
 check(en({ notes_ko: '[중단] x' }).includes('cancelled'), '취소(en)');
+// 지난 대회: 과거형 ('열린' / 'was')
+check(has(ko({ race_date: '2026-05-03' }), '2026년 5월 3일에 서울 송파에서 열린 '), `지난 대회(ko): ${ko({ race_date: '2026-05-03' })}`);
+check(en({ race_date: '2026-05-03' }).startsWith('Test Marathon was a race'), '지난 대회(en)');
+check(en({ race_date: '2026-05-03', entry_opens: '2026-03-01', entry_closes: '2026-04-01' }).includes('registration (lottery) ran from'), '지난 대회 접수(en)');
+check(en({ race_date: '2026-05-03', entry_opens: '2026-03-01', entry_closes: '2026-04-01', entry_confidence: 'expected' }).includes('was expected to run'), '지난 대회 접수 예상(en)');
+check(has(ko({ race_date: TODAY }), '열리는 '), '오늘 대회는 열리는');
+// 도시 = 나라 ('홍콩 홍콩') 는 한 번만
+k = ko({ city_ko: '홍콩', country_ko: '홍콩', country_code: 'HK' });
+check(has(k, '에 홍콩에서 ') && not(k, '홍콩 홍콩'), `도시=나라(ko): ${k}`);
 // 영어 이름 없으면 한국어 이름
 check(en({ name_en: '' }).startsWith('테스트마라톤 is'), '영어 이름 없음');
 // 상세 메모가 있어도 상태는 목록과 같다: '공식: 접수 중(마감일 미공지…)' 메모는 목록에서 보이지 않으므로 상태에 영향 없음

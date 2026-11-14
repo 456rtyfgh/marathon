@@ -381,7 +381,8 @@ function availability(r: RaceMeta, today: string): string | undefined {
 }
 
 // '@id' 는 홈·소개 페이지의 Organization(scripts/info-lib.mjs ORG_ID)과 같은 문자열 — 같은 사이트 운영 주체로 이어진다
-const ORG = { '@type': 'Organization', '@id': `${SITE}/#organization`, name: '마라톤 캘린더', url: SITE, logo: `${SITE}/brand/logo-512.png` };
+// url 도 orgLd 와 같은 꼴(끝 '/') — 같은 @id 노드에 서로 다른 url 값이 붙지 않게
+const ORG = { '@type': 'Organization', '@id': `${SITE}/#organization`, name: '마라톤 캘린더', url: `${SITE}/`, logo: `${SITE}/brand/logo-512.png` };
 const ORG_EN = { ...ORG, name: SITE_NAME_EN };
 
 function eventLd(r: RaceMeta, url: string, desc: string, lang: Lang = 'ko') {

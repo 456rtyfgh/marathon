@@ -47,6 +47,12 @@ const eun = (w: string) => {
   return c >= 0 && c <= 11171 && c % 28 === 0 ? '는' : '은';
 };
 
+/** '홍콩 홍콩'·'싱가포르 싱가포르' (도시 = 나라)처럼 앞 두 낱말이 같으면 하나로 (요약 문장 안에서만) */
+const dedupeWhere = (w: string) => {
+  const p = w.split(/\s+/);
+  return p.length >= 2 && p[0] === p[1] ? [p[0], ...p.slice(2)].join(' ') : w;
+};
+
 const ENTRY_KO = ENTRY_TEXT.ko as Record<string, string>;
 const ENTRY_EN = ENTRY_TEXT.en as Record<string, string>;
 const dateExpectedKo = (r: SummaryRace) => (r.date_confidence === 'confirmed' ? '' : r.date_confidence === 'tbc' ? '(미정)' : '(예상)');
@@ -80,10 +86,12 @@ export function raceSummaryKo(r: SummaryRace, today: string): string {
   if (isCancelled(r as unknown as Race)) {
     return `${name}${eun(name)} ${fmtDate(r.race_date, 'ko')}${dateExpectedKo(r)}에 열릴 예정이었으나 주최 측이 취소(중단)했다고 알린 대회입니다.`;
   }
-  const where = whereText({ country_code: r.country_code ?? '', city_ko: r.city_ko, country_ko: r.country_ko }, 'ko').trim();
+  const where = dedupeWhere(whereText({ country_code: r.country_code ?? '', city_ko: r.city_ko, country_ko: r.country_ko }, 'ko').trim());
   const dists = (r.distances ?? []).map(DIST_TEXT.ko).join('·');
   const kind = r.discipline === 'trail' ? '트레일러닝 대회' : r.discipline === 'event' ? '러닝 이벤트' : '마라톤 대회';
-  const head = `${name}${eun(name)} ${fmtDate(r.race_date, 'ko')}${dateExpectedKo(r)}에 ${where ? `${where}에서 ` : ''}열리는 ${dists ? `${dists} 종목이 있는 ` : ''}${kind}`;
+  // 대회 날이 지났으면 '열린' (지난 대회 페이지도 /r/<id> 로 열린다)
+  const held = r.race_date < today ? '열린' : '열리는';
+  const head = `${name}${eun(name)} ${fmtDate(r.race_date, 'ko')}${dateExpectedKo(r)}에 ${where ? `${where}에서 ` : ''}${held} ${dists ? `${dists} 종목이 있는 ` : ''}${kind}`;
   const st = STATUS_TEXT.ko[statusOf(r, today)];
   const how = ENTRY_KO[r.entry_type];
   const win = windowKo(r);
@@ -105,12 +113,14 @@ export function raceSummaryEn(r: SummaryRace, today: string): string {
   const where = whereText({ country_code: r.country_code ?? '', city_ko: r.city_ko, country_ko: r.country_ko }, 'en').trim();
   const dists = (r.distances ?? []).map(DIST_TEXT.en).join(', ');
   const kind = r.discipline === 'trail' ? 'trail race' : r.discipline === 'event' ? 'running event' : 'race';
-  const head = `${name} is a ${kind}${dists ? ` (${dists})` : ''} held on ${dateEn}${dateExpectedEn(r)}${where ? ` in ${where}` : ''}`;
+  const head = `${name} ${r.race_date < today ? 'was' : 'is'} a ${kind}${dists ? ` (${dists})` : ''} held on ${dateEn}${dateExpectedEn(r)}${where ? ` in ${where}` : ''}`;
   const st = STATUS_TEXT.en[statusOf(r, today)];
   const how = ENTRY_EN[r.entry_type];
   const win = windowEn(r);
   const via = how ? ` (${how.toLowerCase()})` : '';
   if (!win) return `${head}; the registration${via} window has not been announced (${st}).`;
   const sure = confirmedEntry(r);
-  return `${head}; registration${via} ${sure ? 'runs' : 'is expected to run'} ${win} (${st}).`;
+  const past = r.race_date < today;
+  const verb = sure ? (past ? 'ran' : 'runs') : past ? 'was expected to run' : 'is expected to run';
+  return `${head}; registration${via} ${verb} ${win} (${st}).`;
 }
