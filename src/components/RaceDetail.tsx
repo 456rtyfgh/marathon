@@ -454,8 +454,8 @@ function RaceDetailView({
           />
         )}
 
-        {/* 저장(위쪽 버튼·휴대폰 아래 줄) 뒤 알림 제안 — 어느 탭에서든 보이게 머리 끝에 */}
-        {nudge('save', 'mt-4')}
+        {/* 저장(위쪽 '관심' 버튼) 뒤 알림 제안 — 어느 탭에서든 보이게 머리 끝에. 휴대폰은 아래 고정 줄 위에 띄운다 */}
+        {nudge('save', 'mt-4 max-sm:hidden')}
       </header>
 
       <div className="sticky top-16 z-10 bg-bg sm:top-14">
@@ -652,32 +652,36 @@ function RaceDetailView({
       </p>
 
       {/* 휴대폰: 자주 쓰는 동작(공식 홈페이지·관심·알림)을 스크롤해도 엄지가 닿는 아래 줄에 고정. 위·본문의 같은 버튼은 640px 부터 보인다 */}
-      <div className="sticky bottom-0 z-10 mt-auto flex shrink-0 items-stretch gap-2 border-t border-line bg-bg px-5 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:hidden">
-        <a
-          href={safeUrl(race.official_url)}
-          onClick={() => track('official_click', { race_id: race.id, search: isSearchLink(race.official_url) })}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-ctl bg-ink px-3 text-[15px] font-semibold text-bg transition hover:opacity-85"
-        >
-          <span className="truncate">{officialLabel}</span>
-          <ArrowUpRight size={14} weight="bold" className="shrink-0" />
-        </a>
-        <button
-          onClick={toggleFavorite}
-          aria-pressed={favorite}
-          className={`${barBtn} ${favorite ? 'bg-surface text-ink shadow-[inset_0_0_0_2px_var(--ink)]' : 'bg-surface text-ink-2'}`}
-        >
-          <BookmarkSimple size={18} weight={favorite ? 'fill' : 'bold'} />
-          <span>{favorite ? t('detail.saved') : t('detail.save')}</span>
-        </button>
-        {!cancelled && (
-          <button onClick={() => goTab('alert', true)} className={`${barBtn} bg-surface ${view === 'alert' ? 'text-ink' : 'text-ink-2'}`}>
-            <Bell size={18} weight={view === 'alert' ? 'fill' : 'bold'} />
-            <span>{t('tab.alert')}</span>
+      <div className="sticky bottom-0 z-10 mt-auto shrink-0 border-t border-line bg-bg px-5 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:hidden">
+        {/* 휴대폰은 '관심' 을 이 줄에서 누르므로, 본문을 내려 읽던 중이어도 보이게 제안을 버튼 바로 위에 띄운다 (머리 끝 제안은 640px 부터) */}
+        {nudge('save', 'mb-2')}
+        <div className="flex items-stretch gap-2">
+          <a
+            href={safeUrl(race.official_url)}
+            onClick={() => track('official_click', { race_id: race.id, search: isSearchLink(race.official_url) })}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-ctl bg-ink px-3 text-[15px] font-semibold text-bg transition hover:opacity-85"
+          >
+            <span className="truncate">{officialLabel}</span>
+            <ArrowUpRight size={14} weight="bold" className="shrink-0" />
+          </a>
+          <button
+            onClick={toggleFavorite}
+            aria-pressed={favorite}
+            className={`${barBtn} ${favorite ? 'bg-surface text-ink shadow-[inset_0_0_0_2px_var(--ink)]' : 'bg-surface text-ink-2'}`}
+          >
+            <BookmarkSimple size={18} weight={favorite ? 'fill' : 'bold'} />
+            <span>{favorite ? t('detail.saved') : t('detail.save')}</span>
           </button>
-        )}
-        {/* 공유는 여기 넣지 않는다: 375px 에서 네 번째 버튼이 들어가면 '공식 홈페이지' 글자가 잘린다(스크린샷 확인). 공유는 본문 동작 버튼 줄 */}
+          {!cancelled && (
+            <button onClick={() => goTab('alert', true)} className={`${barBtn} bg-surface ${view === 'alert' ? 'text-ink' : 'text-ink-2'}`}>
+              <Bell size={18} weight={view === 'alert' ? 'fill' : 'bold'} />
+              <span>{t('tab.alert')}</span>
+            </button>
+          )}
+          {/* 공유는 여기 넣지 않는다: 375px 에서 네 번째 버튼이 들어가면 '공식 홈페이지' 글자가 잘린다(스크린샷 확인). 공유는 본문 동작 버튼 줄 */}
+        </div>
       </div>
     </div>
   );

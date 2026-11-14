@@ -23,7 +23,7 @@
 
 ### 계획과 다르게 한 점
 - **휴대폰 아래 고정 줄에는 공유 버튼을 넣지 않았다.** 넣어 보니 375px 에서 '공식 홈페이지' 버튼 폭이 191px 에서 119px 로 줄어 글자가 "공식 홈페..."로 잘렸다(`a-375-ko-bottom-bar-4btn-rejected.png`). PLAN 의 대안대로 위쪽(본문 동작 버튼 줄) 공유 버튼만 보강했다.
-- **저장 뒤 제안은 머리 끝(요약·'접수했어요' 아래)에 띄운다.** 동작 버튼 줄 아래가 아니다. 휴대폰 아래 줄에서 저장하면 다른 탭에서도 바로 보여야 해서다. 캘린더 추가 뒤 제안은 계획대로 캘린더 고르기 아래에 띄운다.
+- **저장 뒤 제안 자리:** 640px 이상은 머리 끝(요약·'접수했어요' 아래, 위쪽 '관심' 버튼 가까이)에 띄운다. 휴대폰은 아래 고정 줄('관심' 버튼) 바로 위에 띄운다. 본문을 내려 읽다가 저장해도 보여야 해서다(검수 때 고침: 머리 끝에만 두면 스크롤한 상태에서는 화면 밖에 떴다 — `a-375-ko-save-nudge-scrolled.png`). 캘린더 추가 뒤 제안은 계획대로 캘린더 고르기 아래에 띄운다.
 
 ### 확인
 - `npm run build` EXIT 0, `npx tsc -b` 오류 0, `share-test`·`distance-test`·`status-tone-test` 통과, `git diff public/robots.txt` 비어 있음.
@@ -43,8 +43,9 @@
 
 ### 스크린샷 (`evidence/growth/`)
 - `a-1280-ko-save-nudge.png`, `a-1280-ko-nudge-to-alert.png`, `a-1280-ko-share-copied.png`, `a-1280-en-save-nudge.png`
-- `a-375-ko-save-nudge.png`, `a-375-ko-share-copied.png`, `a-375-en-save-nudge.png`, `a-375-en-share-copied.png`
+- `a-375-ko-save-nudge.png`, `a-375-ko-share-copied.png`, `a-375-en-save-nudge.png`, `a-375-en-share-copied.png` (두 save-nudge 는 고치기 전 자리: 휴대폰에서도 머리 끝)
 - `a-375-ko-bottom-bar-4btn-rejected.png` (넣지 않기로 한 4버튼 아래 줄)
+- `a-375-ko-save-nudge-scrolled.png` (본문을 900px 내린 뒤 아래 줄에서 저장 → 제안이 버튼 바로 위에 보임), `a-1280-ko-save-nudge-after-fix.png` (640px 이상은 그대로 머리 끝)
 
 ### 남은 점
 - 캘린더 추가 뒤 제안과 saved_races 판단은 회원 전용이다. dev 서버의 로그인 흉내(`?amock=member`)가 이 환경에서 켜지지 않아 브라우저로는 눌러 보지 못했다. 저장 쪽과 같은 `offerNudge()` 를 부르는 것은 코드로 확인했다.
