@@ -233,11 +233,12 @@ export const ko = {
   'detail.official': '공식 홈페이지',
   'detail.calRaceOnly': '대회 날 캘린더에 저장',
   'detail.cal': '캘린더에 저장',
-  'detail.copied': '주소 복사됨',
+  'detail.copied': '복사됨',
   'detail.share': '공유하기',
   'detail.copyPrompt': '이 주소를 복사하세요',
   // 공유 문구 (src/lib/shareText.ts) — '접수 9/1~9/30'
   'share.entry': '접수 {r}',
+  'share.entryExpected': '접수 예상 {r}',
   // 저장·캘린더 추가 뒤 알림 제안 (AlertNudge)
   'nudge.text': '접수 시작·마감 알림을 받을까요?',
   'nudge.cta': '알림 받기',
