@@ -11,8 +11,9 @@ import {
   ORIGIN, ENTRY, LANDINGS, countries, countryPath, esc, fmt, headLinks, isCancelled, isEntryOpen, ldJson, monthLabel, monthPath, months, races, svgSize, today,
   upcoming, whereOf, yearPath, years,
   LANDINGS_EN, SITE_NAME_EN, countryNameEn, distEn, enPath, entryEn, fmtEn, inCountryEn, monthLabelEn, raceNameEn, whereEn, yearsEn,
-  STATUS_EN, STATUS_LABEL, distancePages, entryStatusOf, regionPages, weekend,
+  STATUS_EN, STATUS_LABEL, distancePages, entryStatusOf, regionPages, weekend, ENTRY_EN,
 } from './seo-lib.mjs';
+import { isEntryConfirmed } from '../src/lib/util.ts';
 import { KO_WEEKDAY } from '../src/lib/dateFormat.ts';
 import { noticeHtml } from '../src/lib/notice.ts';
 
@@ -43,12 +44,18 @@ ul.races li{position:relative;background:var(--card);border:1px solid var(--line
 ul.races a{display:inline-flex;align-items:center;min-width:44px;min-height:44px;font-weight:700}ul.races a::after{content:"";position:absolute;inset:0;border-radius:.6rem}.meta{display:block;font-size:.9rem}ul.races .meta{margin-top:-.4rem}.x{color:#c5221f;font-weight:700}
 nav.links{display:flex;flex-wrap:wrap;gap:0 .1rem;margin:0 -.4rem;font-size:.95rem}nav.links a,nav.links strong{display:inline-flex;align-items:center;min-height:44px;padding:0 .4rem}footer{max-width:56rem;margin:0 auto;padding:2rem 1rem;color:var(--mute);font-size:.9rem}footer a,h2 a,main p a{padding:.85rem 0}`;
 
-/** status: 접수 상태 글자를 넣는다 (새 목록 페이지·/entry-open/ 만). 취소 대회는 앞에 [대회 취소] 가 있어 넣지 않는다 */
+/**
+ * status: 접수 상태 글자를 넣는다 (새 목록 페이지·/entry-open/ 만). 취소 대회는 앞에 [대회 취소] 가 있어 넣지 않는다.
+ * status 줄은 접수 일정이 공식 확정(isEntryConfirmed)일 때만 접수 기간을 적는다 — 미확정이면 상태가 '일정 미공개'라 날짜와 어긋난다.
+ * status 가 아닌 기존 월별·나라별·연도별 줄은 그대로.
+ */
 const item = (r, { showWhere = true, status = false } = {}) => {
+  const showDates = !status || isEntryConfirmed(r);
   const entry = [
     ENTRY[r.entry_type],
-    r.entry_opens && `접수 ${fmt(r.entry_opens)}부터`,
-    r.entry_closes && `${fmt(r.entry_closes)}까지`,
+    // status 줄: '상시 접수 접수 …부터' 처럼 '접수' 가 겹치면 뒤의 것을 뺀다
+    showDates && r.entry_opens && `${status && ENTRY[r.entry_type]?.endsWith('접수') ? '' : '접수 '}${fmt(r.entry_opens)}부터`,
+    showDates && r.entry_closes && `${fmt(r.entry_closes)}까지`,
   ].filter(Boolean).join(' ');
   const dist = (r.distances ?? []).map((d) => DIST_LABEL[d] ?? d).join('·');
   const st = status && !isCancelled(r) ? STATUS_LABEL[entryStatusOf(r)] : '';
@@ -274,6 +281,7 @@ for (const y of years) {
         footNav(path),
       ].join('\n'),
       list: rs,
+      noindex: !rs.length, // 다가오는 대회가 0개인 날(데이터가 다 지난 경우)에는 검색 결과에 넣지 않는다
     }),
   );
 }
@@ -295,6 +303,7 @@ for (const y of years) {
       crumbs: crumbsOf(path, '해외 마라톤 일정'),
       body: [byMonthBody(rs, { split: false }), footNav(path)].join('\n'),
       list: rs,
+      noindex: !rs.length, // 다가오는 대회가 0개인 날(데이터가 다 지난 경우)에는 검색 결과에 넣지 않는다
     }),
   );
 }
@@ -316,6 +325,7 @@ for (const y of years) {
       crumbs: crumbsOf(path, '트레일러닝 대회 일정'),
       body: [byMonthBody(rs), footNav(path)].join('\n'),
       list: rs,
+      noindex: !rs.length, // 다가오는 대회가 0개인 날(데이터가 다 지난 경우)에는 검색 결과에 넣지 않는다
     }),
   );
 }
@@ -336,7 +346,9 @@ for (const y of years) {
       title: `지금 접수 중인 마라톤 대회 ${rs.length}개 — ${day} 기준 | 마라톤 캘린더`,
       description: `${day} 기준 접수 중인 국내 ${kr.length}개·해외 ${ab.length}개 마라톤·트레일러닝 대회를 접수 마감이 가까운 순서로.${etc(rs)}`.slice(0, 160),
       h1: '지금 접수 중인 마라톤 대회',
-      lead: `${fmt(today)} 기준 접수 중인 대회 ${rs.length}개(국내 ${kr.length}, 해외 ${ab.length})를 마감이 가까운 순서로 모았습니다. 목록은 매일 새로 만들어집니다(만든 날 기준). 선착순 대회는 마감일 전에 일찍 끝날 수 있습니다.`,
+      lead: rs.length
+        ? `${fmt(today)} 기준 접수 중인 대회 ${rs.length}개(국내 ${kr.length}, 해외 ${ab.length})를 마감이 가까운 순서로 모았습니다. 목록은 매일 새로 만들어집니다(만든 날 기준). 선착순 대회는 마감일 전에 일찍 끝날 수 있습니다.`
+        : `${fmt(today)} 기준 접수 중인 대회가 없습니다. 목록은 매일 새로 만들어집니다(만든 날 기준). 접수 예정인 대회는 전체 일정에서 볼 수 있습니다.`,
       crumbs: crumbsOf(path, '지금 접수 중인 대회'),
       body: [
         rs.length ? '' : '<p>지금 접수 중인 대회가 없습니다.</p>',
@@ -344,7 +356,7 @@ for (const y of years) {
         ab.length ? `<h2>해외 접수 중 (${ab.length}개)</h2><ul class="races">${ab.map((r) => item(r, { status: true })).join('')}</ul>` : '',
         footNav(path),
       ].join('\n'),
-      list: rs,
+      list: [...kr, ...ab], // 화면 순서(국내 → 해외)와 같게
       noindex: !rs.length,
     }),
   );
@@ -363,7 +375,9 @@ const logoEn = () => {
 
 const itemEn = (r, { status = false } = {}) => {
   const st = status && !isCancelled(r) ? STATUS_EN[entryStatusOf(r)] : '';
-  const meta = [fmtEn(r.race_date), whereEn(r), distEn(r), st, entryEn(r)].filter(Boolean).join(' · ');
+  // status 줄은 접수 일정이 확정일 때만 접수 기간을 적는다 (한국어 item 과 같은 규칙)
+  const entry = !status || isEntryConfirmed(r) ? entryEn(r) : ENTRY_EN[r.entry_type] ?? '';
+  const meta = [fmtEn(r.race_date), whereEn(r), distEn(r), st, entry].filter(Boolean).join(' · ');
   return `<li>${isCancelled(r) ? '<span class="x">[Cancelled]</span> ' : ''}<a href="${enPath(`/r/${esc(r.id)}`)}">${esc(raceNameEn(r))}</a><span class="meta">${esc(meta)}</span></li>`;
 };
 
@@ -582,6 +596,7 @@ for (const y of years) {
         footNavEn(enPath(koPath)),
       ].join('\n'),
       list: rs,
+      noindex: !rs.length, // 다가오는 대회가 0개인 날(데이터가 다 지난 경우)에는 검색 결과에 넣지 않는다
     }),
   );
 }
@@ -603,6 +618,7 @@ for (const y of years) {
       crumbs: crumbsEn(enPath(koPath), 'Marathons Outside Korea'),
       body: [byMonthBodyEn(rs, { split: false }), footNavEn(enPath(koPath))].join('\n'),
       list: rs,
+      noindex: !rs.length, // 다가오는 대회가 0개인 날(데이터가 다 지난 경우)에는 검색 결과에 넣지 않는다
     }),
   );
 }
@@ -624,6 +640,7 @@ for (const y of years) {
       crumbs: crumbsEn(enPath(koPath), 'Trail Races'),
       body: [byMonthBodyEn(rs), footNavEn(enPath(koPath))].join('\n'),
       list: rs,
+      noindex: !rs.length, // 다가오는 대회가 0개인 날(데이터가 다 지난 경우)에는 검색 결과에 넣지 않는다
     }),
   );
 }
@@ -644,7 +661,9 @@ for (const y of years) {
       title: `${num(rs.length)} Races Open for Registration — as of ${day} | ${SITE_NAME_EN}`,
       description: `Marathons and trail races open for registration as of ${day}: ${num(kr.length)} in Korea and ${num(ab.length)} abroad, sorted by closing date.${etcEn(rs)}`.slice(0, 160),
       h1: 'Races Open for Registration',
-      lead: `${num(rs.length)} races open for registration as of ${fmtEn(today)} (${num(kr.length)} in Korea, ${num(ab.length)} abroad), sorted by closing date. This list is rebuilt daily (as of the build date). First-come races can sell out before the closing date.`,
+      lead: rs.length
+        ? `${num(rs.length)} races open for registration as of ${fmtEn(today)} (${num(kr.length)} in Korea, ${num(ab.length)} abroad), sorted by closing date. This list is rebuilt daily (as of the build date). First-come races can sell out before the closing date.`
+        : `No races are open for registration as of ${fmtEn(today)}. This list is rebuilt daily (as of the build date). Upcoming races are in the full calendar.`,
       crumbs: crumbsEn(enPath(koPath), 'Races Open for Registration'),
       body: [
         rs.length ? '' : '<p>No races are open for registration right now.</p>',
@@ -652,7 +671,7 @@ for (const y of years) {
         ab.length ? `<h2>Open Abroad (${num(ab.length)})</h2><ul class="races">${ab.map((r) => itemEn(r, { status: true })).join('')}</ul>` : '',
         footNavEn(enPath(koPath)),
       ].join('\n'),
-      list: rs,
+      list: [...kr, ...ab], // 화면 순서(Korea → Abroad)와 같게
       noindex: !rs.length,
     }),
   );
@@ -750,7 +769,9 @@ for (const d of distancePages) {
       title: `이번 주말 마라톤 대회 ${range} — 마라톤 캘린더`,
       description: `이번 주말(${rangeY}) 열리는 마라톤·러닝 대회 국내 ${kr.length}개·해외 ${ab.length}개의 날짜, 장소, 종목, 접수 상태.${etc(rs)}`.slice(0, 160),
       h1: `이번 주말 마라톤 대회 (${range})`,
-      lead: `${rangeY}에 열리는 국내 ${kr.length}개, 해외 ${ab.length}개 대회입니다. 목록은 매일 새로 만들어집니다(만든 날 ${fmt(today)} 기준). 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
+      lead: rs.length
+        ? `${rangeY}에 열리는 국내 ${kr.length}개, 해외 ${ab.length}개 대회입니다. 목록은 매일 새로 만들어집니다(만든 날 ${fmt(today)} 기준). 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`
+        : `${rangeY}에 열리는 대회가 없습니다. 목록은 매일 새로 만들어집니다(만든 날 ${fmt(today)} 기준). 다가오는 대회는 전체 일정에서 볼 수 있습니다.`,
       crumbs: crumbsOf(path, '이번 주말 마라톤'),
       body: [
         rs.length ? '' : '<p>이번 주말에 열리는 대회가 없습니다.</p>',
@@ -781,7 +802,9 @@ for (const d of distancePages) {
       title: `Marathons This Weekend, ${rangeEn} | ${SITE_NAME_EN}`,
       description: `Marathons and running races this weekend (${rangeEn}): ${num(kr.length)} in Korea and ${num(ab.length)} abroad, with dates, locations, distances and registration status.${etcEn(rs)}`.slice(0, 160),
       h1: `Marathons This Weekend (${rangeEn})`,
-      lead: `${num(kr.length)} races in Korea and ${num(ab.length)} abroad on ${rangeEn}. This list is rebuilt daily (as of ${fmtEn(today)}). ${SELECT}`,
+      lead: rs.length
+        ? `${num(kr.length)} races in Korea and ${num(ab.length)} abroad on ${rangeEn}. This list is rebuilt daily (as of ${fmtEn(today)}). ${SELECT}`
+        : `No races are taking place on ${rangeEn}. This list is rebuilt daily (as of ${fmtEn(today)}). Upcoming races are in the full calendar.`,
       crumbs: crumbsEn(en, 'Marathons This Weekend'),
       body: [
         rs.length ? '' : '<p>No races are taking place this weekend.</p>',
