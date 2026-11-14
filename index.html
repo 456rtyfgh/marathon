@@ -25,6 +25,7 @@
     <meta name="twitter:description" content="국내·해외 마라톤의 접수 방식과 접수 기간 모음" />
     <meta name="twitter:image" content="https://marathon82.com/og.png" />
     <meta name="naver-site-verification" content="22f8884b2e4b7c2d44e4108fa6a0b23dd01da7d8" />
+    <!-- 빙 웹마스터 도구 소유 확인 meta 는 여기 적지 않는다: scripts/info-lib.mjs 의 BING_SITE_VERIFICATION(또는 환경변수 BING_SITE_VERIFICATION)에 값을 넣으면 빌드가 홈에 넣고, 빈 값이면 출력하지 않는다. -->
     <link rel="canonical" href="https://marathon82.com/" />
     <link rel="alternate" hreflang="ko" href="https://marathon82.com/" />
     <link rel="alternate" hreflang="en" href="https://marathon82.com/en/" />
@@ -35,30 +36,36 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
     <link rel="manifest" href="/site.webmanifest" />
+    <!-- 구조화 데이터(Organization·WebSite): 빌드 때 scripts/prerender.mjs 가 scripts/info-lib.mjs 의 값으로 다시 쓴다(홈 한국어·영어). 개발 서버용으로 같은 값을 적어 둔다. -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "Organization",
+        "@id": "https://marathon82.com/#organization",
         "name": "마라톤 캘린더",
-        "url": "https://marathon82.com",
+        "alternateName": ["마라톤82", "Marathon Calendar"],
+        "url": "https://marathon82.com/",
         "logo": "https://marathon82.com/brand/logo-512.png",
         "email": "marathon82@kakao.com",
         "contactPoint": {
           "@type": "ContactPoint",
           "contactType": "고객 문의",
           "email": "marathon82@kakao.com"
-        }
+        },
+        "sameAs": ["https://www.instagram.com/marathon.82/"]
       }
     </script>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
+        "@id": "https://marathon82.com/#website",
         "name": "마라톤 캘린더",
-        "alternateName": ["마라톤캘린더", "Marathon Calendar", "marathon82"],
+        "alternateName": ["마라톤캘린더", "마라톤82", "Marathon Calendar", "marathon82"],
         "url": "https://marathon82.com/",
         "inLanguage": "ko",
         "description": "국내·해외 마라톤 대회 일정과 접수 기간, 참가비, 여행사 패키지를 모은 사이트",
+        "publisher": { "@id": "https://marathon82.com/#organization" },
         "potentialAction": {
           "@type": "SearchAction",
           "target": "https://marathon82.com/?q={search_term_string}",

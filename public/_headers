@@ -24,3 +24,7 @@
 /rss.xml
   Content-Type: application/rss+xml; charset=utf-8
   Cache-Control: public, max-age=3600
+# 사이트 소개 텍스트(scripts/llms.mjs). 글자 깨짐 없이 읽히게 UTF-8 로 명시
+/llms.txt
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=3600
