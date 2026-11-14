@@ -10,6 +10,7 @@ import { langPath, useLang } from '../i18n';
 import { COLLECT_ALERT, PRIVACY_PATH } from '../lib/policy';
 import MemberGate, { type OnLogin } from './MemberGate';
 import PushToggle from './PushToggle';
+import { markAlerted } from '../lib/alertNudge';
 
 const OPTIONS = [30, 14, 7, 3, 1];
 
@@ -59,6 +60,7 @@ export default function AlertForm({ race, onLogin }: { race: Race; onLogin: OnLo
     try {
       await subscribeAlert(email.trim(), race.id, days, lang);
       track('alert_subscribe', { race_id: race.id });
+      markAlerted(race.id); // 같은 대회에 '알림 받기' 제안이 다시 뜨지 않게
       setState('ok');
       setMsg(t('alert.ok', { email: email.trim() }));
     } catch (err) {

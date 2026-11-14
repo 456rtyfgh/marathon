@@ -234,8 +234,14 @@ export const ko = {
   'detail.calRaceOnly': '대회 날 캘린더에 저장',
   'detail.cal': '캘린더에 저장',
   'detail.copied': '주소 복사됨',
-  'detail.share': '공유',
+  'detail.share': '공유하기',
   'detail.copyPrompt': '이 주소를 복사하세요',
+  // 공유 문구 (src/lib/shareText.ts) — '접수 9/1~9/30'
+  'share.entry': '접수 {r}',
+  // 저장·캘린더 추가 뒤 알림 제안 (AlertNudge)
+  'nudge.text': '접수 시작·마감 알림을 받을까요?',
+  'nudge.cta': '알림 받기',
+  'nudge.close': '알림 제안 닫기',
   'detail.source': '정보 출처',
   'detail.disclaimer': '대회 일정과 접수 기간은 매년 바뀌고 예고 없이 달라지기도 합니다. 신청 전에는 공식 홈페이지에서 한 번 더 확인하세요.',
   'cal.google': '구글 캘린더',

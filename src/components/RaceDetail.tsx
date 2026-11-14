@@ -1,6 +1,6 @@
 import { brandText, isRunEvent, kindsText, runEventMeta, RUN_EVENT_TEXT, stripRunEventHead } from '../lib/runEvent';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Bell, CalendarPlus, LinkSimple, Check, BookmarkSimple, CheckSquare, Square } from '@phosphor-icons/react';
+import { ArrowUpRight, Bell, CalendarPlus, ShareNetwork, Check, BookmarkSimple, CheckSquare, Square } from '@phosphor-icons/react';
 import { calDates, calLabel, googleCalUrl, openOutside, type CalKind } from '../lib/ics';
 import { track } from '../lib/analytics';
 import type { Race, Agency, Package, CostBaseline, RaceRating } from '../lib/types';
@@ -45,7 +45,10 @@ import MemberGate, { type OnLogin } from './MemberGate';
 import { useAuth } from '../lib/auth';
 import { fetchRaceDetail, submitSoldOutReport, type RaceDetailData } from '../lib/data';
 import { spamReason, friendlyError } from '../lib/spam';
-import { distanceKm, downloadIcs, fmtFinish, parseFinish, type RaceRecord } from '../lib/member';
+import { distanceKm, downloadIcs, fmtFinish, getAlertPrefs, parseFinish, type RaceRecord } from '../lib/member';
+import { shareText } from '../lib/shareText';
+import { dismissNudge, hasLocalAlert, isNudgeDismissed, nudgeEligible } from '../lib/alertNudge';
+import AlertNudge from './AlertNudge';
 import type { GateAction } from '../lib/memberGate';
 import type { RecordInput } from '../lib/registered';
 
@@ -159,6 +162,16 @@ function RaceDetailView({
   const [tab, setTab] = useState<Tab>('overview');
   const [copied, setCopied] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
+  // 저장·캘린더 추가 뒤 '알림 받기' 제안: 어디서 눌렀는지에 따라 그 자리 가까이에 띄운다 (save = 머리 끝, cal = 캘린더 고르기 아래)
+  const [nudgeFrom, setNudgeFrom] = useState<'save' | 'cal' | null>(null);
+  const [nudgeRace, setNudgeRace] = useState(race.id);
+  if (nudgeRace !== race.id) {
+    // 같은 패널에서 다른 대회(비슷한 대회)를 열면 제안을 닫는다
+    setNudgeRace(race.id);
+    setNudgeFrom(null);
+  }
+  /** 회원의 '저장한 대회 알림'(saved_races) — 제안을 띄우기 직전에 한 번만 읽는다. 못 읽으면 알림 없음으로 본다 */
+  const savedAlertsRef = useRef<boolean | null>(null);
   // 로그인 뒤 이어 하기 — 파일 받기 자체는 자동으로 하지 않고 고르는 화면까지만 연다 (prop 이 바뀔 때 렌더 중 상태 맞추기)
   const [seenAction, setSeenAction] = useState<GateAction | undefined>(undefined);
   if (initialAction !== seenAction) {
@@ -176,22 +189,40 @@ function RaceDetailView({
   async function share() {
     track('share', { race_id: race.id });
     const url = `${location.origin}${langPath(`/r/${encodeURIComponent(race.id)}`, lang)}`;
+    // '대회명 · 날짜 · 접수 M/D~M/D (상태)' + 주소 (src/lib/shareText.ts)
+    const msg = shareText(race, lang, url);
     const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
     if (nav.share && matchMedia('(pointer: coarse)').matches) {
       try {
-        await nav.share({ title: raceName(race, lang), url });
+        await nav.share({ title: msg.title, text: msg.text, url });
         return;
       } catch {
         /* 사용자가 취소 */
       }
     }
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(msg.full);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      prompt(t('detail.copyPrompt'), url);
+      prompt(t('detail.copyPrompt'), msg.full);
     }
+  }
+  /** 알림 제안 띄우기: 접수 전·접수 중인 대회이고, 닫은 적 없고, 이미 알림을 걸어 두지 않았을 때만 */
+  async function offerNudge(from: 'save' | 'cal') {
+    const id = race.id;
+    if (!nudgeEligible(race) || isNudgeDismissed(id) || hasLocalAlert(id)) return;
+    if (session) {
+      if (savedAlertsRef.current == null) {
+        try {
+          savedAlertsRef.current = (await getAlertPrefs())?.saved_races ?? false;
+        } catch {
+          savedAlertsRef.current = false;
+        }
+      }
+      if (savedAlertsRef.current) return;
+    }
+    setNudgeFrom(from);
   }
   const today = TODAY();
   const raceDay = raceDayLine(race, today, lang);
@@ -221,9 +252,27 @@ function RaceDetailView({
 
   // 위쪽 '관심' 버튼(PC)과 휴대폰 아래 고정 줄이 같이 쓴다
   const toggleFavorite = () => {
-    if (!favorite) track('favorite', { race_id: race.id });
+    if (!favorite) {
+      track('favorite', { race_id: race.id });
+      void offerNudge('save');
+    } else if (nudgeFrom === 'save') setNudgeFrom(null); // 저장을 풀면 저장 쪽 제안도 닫는다
     onToggleFavorite();
   };
+  const nudge = (from: 'save' | 'cal', className: string) =>
+    nudgeFrom === from &&
+    !cancelled && (
+      <AlertNudge
+        className={className}
+        onAccept={() => {
+          setNudgeFrom(null);
+          goTab('alert', true);
+        }}
+        onDismiss={() => {
+          dismissNudge(race.id);
+          setNudgeFrom(null);
+        }}
+      />
+    );
   /** 탭 바꾸기. toTabs = 탭 줄이 맨 위에 오게 내린다(휴대폰 아래 줄의 '알림' — 위쪽 요약에 가려 내용이 안 보이지 않게) */
   const goTab = (next: Tab, toTabs = false) => {
     setTab(next);
@@ -404,6 +453,9 @@ function RaceDetailView({
             onLogin={onLogin}
           />
         )}
+
+        {/* 저장(위쪽 버튼·휴대폰 아래 줄) 뒤 알림 제안 — 어느 탭에서든 보이게 머리 끝에 */}
+        {nudge('save', 'mt-4')}
       </header>
 
       <div className="sticky top-16 z-10 bg-bg sm:top-14">
@@ -532,7 +584,7 @@ function RaceDetailView({
                 </button>
               )}
               <button onClick={share} className={`${actBtn} bg-surface text-ink hover:bg-sunken active:translate-y-px`}>
-                {copied ? <Check size={14} weight="bold" /> : <LinkSimple size={14} weight="bold" />}
+                {copied ? <Check size={14} weight="bold" /> : <ShareNetwork size={14} weight="bold" />}
                 {copied ? t('detail.copied') : t('detail.share')}
               </button>
               {race.source_url && (
@@ -549,10 +601,11 @@ function RaceDetailView({
             {calOpen &&
               !cancelled &&
               (session ? (
-                <CalendarPicker race={race} onLogin={onLogin} />
+                <CalendarPicker race={race} onLogin={onLogin} onAdded={() => void offerNudge('cal')} />
               ) : (
                 <MemberGate raceId={race.id} action="cal" onLogin={onLogin} className="-mt-5" />
               ))}
+            {nudge('cal', '-mt-5')}
             {/* 비회원에게 회원 혜택 한 줄 (안내 상자가 열려 있으면 거기 이미 있다) */}
             {!session && !(calOpen && !cancelled) && (
               <p className="-mt-5 max-w-[60ch] text-[15px] sm:text-[13px] leading-relaxed text-ink-3">
@@ -624,6 +677,7 @@ function RaceDetailView({
             <span>{t('tab.alert')}</span>
           </button>
         )}
+        {/* 공유는 여기 넣지 않는다: 375px 에서 네 번째 버튼이 들어가면 '공식 홈페이지' 글자가 잘린다(스크린샷 확인). 공유는 본문 동작 버튼 줄 */}
       </div>
     </div>
   );
@@ -668,20 +722,25 @@ function Fact({ label, value, sub, num }: { label: string; value: string; sub?: 
  * 대회 날·접수 시작·접수 마감을 각각 골라 구글 캘린더 또는 휴대폰 기본 캘린더에 넣는다 (회원만).
  * .ics 는 서버가 로그인 토큰을 확인하고 내주므로 fetch 로 받아 파일로 저장한다.
  */
-function CalendarPicker({ race, onLogin }: { race: Race; onLogin: OnLogin }) {
+function CalendarPicker({ race, onLogin, onAdded }: { race: Race; onLogin: OnLogin; onAdded?: () => void }) {
   const { lang, t } = useLang();
   const dates = calDates(race);
   const [busy, setBusy] = useState<CalKind | 'all' | null>(null);
   const [fail, setFail] = useState<'unauthorized' | 'kakao' | 'error' | null>(null);
   const save = async (kind: CalKind | 'all', target: 'google' | 'ics') => {
     track('calendar_add', { race_id: race.id, kind, target });
-    if (target === 'google') return openOutside(googleCalUrl(race, kind as CalKind, lang));
+    if (target === 'google') {
+      openOutside(googleCalUrl(race, kind as CalKind, lang));
+      // 구글 캘린더는 새 창에서 저장해 성공 여부를 알 수 없다 → 연 것을 추가로 본다
+      onAdded?.();
+      return;
+    }
     if (busy) return;
     setBusy(kind);
     setFail(null);
     const r = await downloadIcs(race, kind === 'all' ? dates.map((d) => d.kind) : [kind], lang);
     setBusy(null);
-    if (r === 'ok') return;
+    if (r === 'ok') return onAdded?.();
     setFail(r);
     // 카카오톡 안 브라우저: 파일도 로그인도 안 되니 휴대폰 기본 브라우저로 이 대회 페이지를 연다
     if (r === 'kakao') openOutside(`${location.origin}${langPath(`/r/${encodeURIComponent(race.id)}`, lang)}`);
