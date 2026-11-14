@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/seo-pages.mjs && node scripts/prerender.mjs && node scripts/sitemap.mjs && node scripts/rss.mjs && node scripts/pages.mjs && node scripts/terms.mjs && node scripts/evidence.mjs",
+    "build": "tsc -b && vite build && node scripts/seo-pages.mjs && node scripts/info-pages.mjs && node scripts/prerender.mjs && node scripts/sitemap.mjs && node scripts/llms.mjs && node scripts/rss.mjs && node scripts/pages.mjs && node scripts/terms.mjs && node scripts/evidence.mjs",
     "lint": "oxlint",
     "test:push": "node --test worker/alerts/",
     "preview": "vite preview",

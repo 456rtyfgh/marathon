@@ -8,6 +8,7 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { ENTRY, LANDINGS, ORIGIN, countries, countryPath, esc, fmt, isCancelled, ldJson, monthLabel, monthPath, months, today, upcoming, whereOf } from './seo-lib.mjs';
 import { LANDINGS_EN, SITE_NAME_EN, countryNameEn, enPath, entryEn, fmtEn, monthLabelEn, raceNameEn, whereEn } from './seo-lib.mjs';
 import { distancePages, regionPages } from './seo-lib.mjs';
+import { INFO_PATHS, bingVerification, orgLd, websiteLd } from './info-lib.mjs';
 import { readSplit } from './data-split.mjs';
 import { noticeHtml } from '../src/lib/notice.ts';
 import { entryStatus } from '../src/lib/util.ts';
@@ -47,9 +48,14 @@ const nav = `<nav aria-label="월별 마라톤 일정"><h2>월별 마라톤 일�
   .map((c) => `<a href="${countryPath(c.code)}">${esc(c.code === 'kr' ? '국내' : c.name)}</a>`)
   .join(' · ')}</p></nav>
 <nav aria-label="주제별 마라톤 일정"><h2>주제별 마라톤 일정</h2><p>${LANDINGS.map((l) => `<a href="${l.path}">${esc(l.name)}</a>`).join(' · ')}</p></nav>
-<nav aria-label="시·도별·거리별 국내 마라톤 일정"><h2>시·도별·거리별 국내 마라톤 일정</h2><p>${regionPages
-  .map((p) => `<a href="${p.path}">${esc(p.name)}</a>`)
-  .join(' · ')}</p><p>${distancePages.map((d) => `<a href="${d.path}">${esc(d.name)}</a>`).join(' · ')}</p></nav>`;
+${
+  regionPages.length || distancePages.length
+    ? `<nav aria-label="시·도별·거리별 국내 마라톤 일정"><h2>시·도별·거리별 국내 마라톤 일정</h2>${
+        regionPages.length ? `<p>${regionPages.map((p) => `<a href="${p.path}">${esc(p.name)}</a>`).join(' · ')}</p>` : ''
+      }${distancePages.length ? `<p>${distancePages.map((d) => `<a href="${d.path}">${esc(d.name)}</a>`).join(' · ')}</p>` : ''}</nav>`
+    : ''
+}
+<nav aria-label="사이트 소개"><h2>사이트 소개</h2><p><a href="${INFO_PATHS.about}">마라톤 캘린더란</a> · <a href="${INFO_PATHS.faq}">자주 묻는 질문</a></p></nav>`;
 const html = `<main class="seo-pre" style="max-width:72rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
 <h1>마라톤 캘린더</h1>
 <p>국내·해외 마라톤 대회 일정과 접수 기간을 대회 날짜순으로 모았습니다. 국내 ${kr}개, 해외 ${upcoming.length - kr}개.</p>
@@ -83,10 +89,29 @@ const preloads = [
 ];
 
 const built = readFileSync(dist, 'utf8');
-let page = built;
+/**
+ * index.html 의 구조화 데이터 두 블록(Organization·WebSite)을 info-lib 의 값(orgLd·websiteLd)으로 바꾼다 (lang 'ko'|'en').
+ * index.html 에 손으로 적은 값과 같아도 여기가 원본이다 — 홈(ko·en)과 /about/ 에만 같은 Organization @id 로 둔다.
+ */
+const replaceSiteLd = (html, lang) => {
+  const seen = new Set();
+  const next = html.replace(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g, (_, json) => {
+    const type = JSON.parse(json)['@type'];
+    seen.add(type);
+    if (type === 'Organization') return ldJson(orgLd(lang));
+    if (type === 'WebSite') return ldJson(websiteLd(lang));
+    throw new Error(`prerender: index.html 에 예상 밖 구조화 데이터(${type})`);
+  });
+  if (!seen.has('Organization') || !seen.has('WebSite')) throw new Error('prerender: index.html 에 Organization·WebSite 구조화 데이터가 없음');
+  return next;
+};
+/** 빙 웹마스터 도구 소유 확인 meta — 값(info-lib.mjs BING_SITE_VERIFICATION 또는 환경변수)이 비어 있으면 아무것도 출력하지 않는다 */
+const bing = bingVerification();
+const bingMeta = bing ? `<meta name="msvalidate.01" content="${esc(bing)}">\n` : '';
+let page = replaceSiteLd(built, 'ko');
 page = page.replace('<div id="root"></div>', `<div id="root">${html}</div>`);
 // id 로 표시: 대회 페이지(worker/site.ts)는 이 홈 목록 구조화 데이터를 지운다
-page = page.replace('</head>', `${preloads.join('\n')}\n${ldJson(ld).replace('<script ', '<script id="ld-itemlist" ')}\n</head>`);
+page = page.replace('</head>', `${bingMeta}${preloads.join('\n')}\n${ldJson(ld).replace('<script ', '<script id="ld-itemlist" ')}\n</head>`);
 writeFileSync(dist, page);
 console.log(`prerender: 대회 ${upcoming.length}개 링크(접수 정보 ${Math.min(FULL, upcoming.length)}개), 미리 받기·연결 ${preloads.length}개`);
 console.log(`prerender: 첫 화면 기본 목록(국내·접수 중·대회 날짜순) ${defaults.length}개`);
@@ -113,9 +138,14 @@ const navEn = `<nav aria-label="Marathons by month"><h2>Marathons by Month</h2><
   .map((c) => `<a href="${enPath(countryPath(c.code))}">${esc(countryNameEn(c.code.toUpperCase()))}</a>`)
   .join(' · ')}</p></nav>
 <nav aria-label="Marathons by topic"><h2>Marathons by Topic</h2><p>${LANDINGS_EN.map((l) => `<a href="${l.path}">${esc(l.name)}</a>`).join(' · ')}</p></nav>
-<nav aria-label="Races in Korea by region and distance"><h2>Races in Korea by Region and Distance</h2><p>${regionPages
-  .map((p) => `<a href="${enPath(p.path)}">${esc(p.nameEn)}</a>`)
-  .join(' · ')}</p><p>${distancePages.map((d) => `<a href="${enPath(d.path)}">${esc(d.nameEn)}</a>`).join(' · ')}</p></nav>`;
+${
+  regionPages.length || distancePages.length
+    ? `<nav aria-label="Races in Korea by region and distance"><h2>Races in Korea by Region and Distance</h2>${
+        regionPages.length ? `<p>${regionPages.map((p) => `<a href="${enPath(p.path)}">${esc(p.nameEn)}</a>`).join(' · ')}</p>` : ''
+      }${distancePages.length ? `<p>${distancePages.map((d) => `<a href="${enPath(d.path)}">${esc(d.nameEn)}</a>`).join(' · ')}</p>` : ''}</nav>`
+    : ''
+}
+<nav aria-label="About this site"><h2>About This Site</h2><p><a href="${enPath(INFO_PATHS.about)}">About Marathon Calendar</a> · <a href="${enPath(INFO_PATHS.faq)}">FAQ</a></p></nav>`;
 const htmlEn = `<main class="seo-pre" style="max-width:72rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
 <h1>${SITE_NAME_EN}</h1>
 <p>Marathon dates and registration windows in Korea and worldwide, in race-date order. ${kr.toLocaleString('en-US')} in Korea, ${(upcoming.length - kr).toLocaleString('en-US')} abroad.</p>
@@ -132,22 +162,6 @@ const ldEn = {
   itemListElement: ldOrder.map((r, i) => ({ '@type': 'ListItem', position: i + 1, url: `${ORIGIN}${enPath(`/r/${r.id}`)}`, name: raceNameEn(r) })),
 };
 
-/** index.html 의 구조화 데이터(Organization·WebSite)를 영어로 */
-const ldToEn = (v) => {
-  if (v['@type'] === 'WebSite')
-    return {
-      ...v,
-      name: SITE_NAME_EN,
-      alternateName: ['마라톤 캘린더', '마라톤캘린더', 'marathon82'],
-      url: `${ORIGIN}/en/`,
-      inLanguage: 'en',
-      description: 'Marathon race dates, registration windows, entry fees and tour packages for races in Korea and worldwide',
-      potentialAction: { ...v.potentialAction, target: `${ORIGIN}/en/?q={search_term_string}` },
-    };
-  if (v['@type'] === 'Organization')
-    return { ...v, name: SITE_NAME_EN, ...(v.contactPoint ? { contactPoint: { ...v.contactPoint, contactType: 'customer support' } } : {}) };
-  return v;
-};
 const setMeta = (html, attr, key, value) => {
   const re = new RegExp(`(<meta\\s+${attr}="${key}"\\s+content=")[^"]*(")`);
   if (!re.test(html)) throw new Error(`prerender: ${key} 태그를 못 찾음`);
@@ -169,9 +183,9 @@ en = setMeta(en, 'name', 'twitter:title', SITE_NAME_EN);
 en = setMeta(en, 'name', 'twitter:description', OG_DESC_EN);
 en = en.replace(/(<link\s+rel="canonical"\s+href=")[^"]*(")/, `$1${ORIGIN}/en/$2`);
 en = en.replace(/(<link\s+rel="alternate"\s+type="application\/rss\+xml"\s+title=")[^"]*(")/, `$1${SITE_NAME_EN}$2`);
-en = en.replace(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g, (_, json) => ldJson(ldToEn(JSON.parse(json))));
+en = replaceSiteLd(en, 'en');
 en = en.replace('<div id="root"></div>', `<div id="root">${htmlEn}</div>`);
-en = en.replace('</head>', `${preloads.join('\n')}\n${ldJson(ldEn).replace('<script ', '<script id="ld-itemlist" ')}\n</head>`);
+en = en.replace('</head>', `${bingMeta}${preloads.join('\n')}\n${ldJson(ldEn).replace('<script ', '<script id="ld-itemlist" ')}\n</head>`);
 if (!en.includes(`hreflang="en" href="${ORIGIN}/en/"`)) throw new Error('prerender: index.html 에 hreflang en 줄이 없음');
 mkdirSync(new URL('../dist/en/', import.meta.url), { recursive: true });
 writeFileSync(new URL('../dist/en/index.html', import.meta.url), en);

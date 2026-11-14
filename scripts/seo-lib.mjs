@@ -6,13 +6,19 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { DIST_TEXT, ENTRY_TEXT, fmtDate, fmtMonth } from '../src/i18n/format.ts';
 import { countryName, provinceName, whereText } from '../src/i18n/names.ts';
-import { STATUS_LABEL, entryStatus } from '../src/lib/util.ts';
+import { STATUS_LABEL, entryStatus, isEntryConfirmed } from '../src/lib/util.ts';
 import { distanceBucket } from '../src/lib/distanceFilter.ts';
 
 export const ORIGIN = process.env.SITE_ORIGIN || 'https://marathon82.com';
 export const snap = JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'));
-/** 한국 시간 오늘 */
-export const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+/**
+ * 한국 시간 오늘. 환경변수 SEO_TODAY=YYYY-MM-DD 가 있으면 그 날(날짜 시뮬레이션·테스트 전용. 형식·달력이 틀리면 무시).
+ * 빌드는 환경변수 없이 돌려 실제 오늘을 쓴다. 한 번만 계산하므로 날짜를 바꾸려면 새 프로세스로 돌린다.
+ */
+const realToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+const forced = process.env.SEO_TODAY;
+const forcedOk = !!forced && /^\d{4}-\d{2}-\d{2}$/.test(forced) && !Number.isNaN(Date.parse(forced + 'T00:00:00Z')) && new Date(forced + 'T00:00:00Z').toISOString().slice(0, 10) === forced;
+export const today = forcedOk ? forced : realToday();
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 export const ldJson = (v) =>
@@ -49,20 +55,30 @@ export const countryPath = (code) => `/c/${code.toLowerCase()}/`;
 export const years = [...new Set(races.map((r) => r.race_date.slice(0, 4)))].sort();
 export const yearPath = (y) => `/${y}/`;
 
-/** src/lib/util.ts 의 entryStatus(r) === 'open' 과 같은 규칙 (접수 일정 확정, 오늘이 접수 시작~마감 안, 조기 마감 아님) */
-export const isEntryOpen = (r, day = today) => {
-  if (isCancelled(r)) return false;
-  if (r.entry_confidence === 'expected' || r.entry_confidence === 'tbc') return false;
-  if (!r.entry_opens && !r.entry_closes) return false;
-  if (r.entry_opens && r.entry_opens > day) return false;
-  if (r.sold_out_on && r.sold_out_on <= day) return false;
-  if (r.entry_closes && r.entry_closes < day) return false;
-  return true;
+/**
+ * 목록 화면이 보는 대회 값: 홈 목록 데이터(/d/<hash>.json, scripts/data-split.mjs 의 listRace)에는 notes_ko 가 취소 태그만 남는다.
+ * 접수 상태는 이 값으로 계산한다 — 정적 페이지가 상세 값('공식: 접수 중(마감일 미공지…)' 같은 notes_ko 메모)에 기대 상태를 만들면
+ * 홈 목록과 숫자·상태가 엇갈리고, 상세 값을 목록 페이지로 새게 한다(데이터 무단 수집 방지 원칙).
+ */
+const CANCEL_TAG = /^\s*\[(취소|중단)\]/;
+const listViews = new WeakMap();
+const listView = (r) => {
+  let v = listViews.get(r);
+  if (!v) {
+    const tag = r.notes_ko?.match(CANCEL_TAG);
+    v = { ...r, notes_ko: tag ? `[${tag[1]}]` : null };
+    listViews.set(r, v);
+  }
+  return v;
 };
-
-/** 화면과 같은 접수 상태 (src/lib/util.ts 의 entryStatus 는 Date 를 받는다) */
-export const entryStatusOf = (r, day = today) => entryStatus(r, new Date(day + 'T00:00:00Z'));
-export { STATUS_LABEL };
+/** 홈 목록과 같은 접수 상태 (src/lib/util.ts 의 entryStatus 는 Date 를 받는다) */
+export const entryStatusOf = (r, day = today) => entryStatus(listView(r), new Date(day + 'T00:00:00Z'));
+/**
+ * 접수 중 = 홈 목록의 entryStatus(r) === 'open' 과 같다(홈 '지금 접수 중' 현황판·접수 상태 필터와 같은 수).
+ * 취소·조기 마감·접수 예정·마감·일정 미공개(접수 일정 미확정 포함)는 제외. 규칙은 util.ts 한 곳에서만 정한다(여기서 따로 계산하지 않는다)
+ */
+export const isEntryOpen = (r, day = today) => entryStatusOf(r, day) === 'open';
+export { STATUS_LABEL, isEntryConfirmed };
 export const STATUS_EN = { open: 'Open', upcoming: 'Opens soon', soldout: 'Sold out', closed: 'Closed', unknown: 'Dates TBA', cancelled: 'Cancelled' };
 
 const isKr = (r) => r.country_code === 'KR';
@@ -111,6 +127,7 @@ const DISTANCES = [
   { bucket: 'full', name: '풀코스', nameEn: 'Full Marathons' },
   { bucket: 'half', name: '하프', nameEn: 'Half Marathons' },
   { bucket: '10k', name: '10km', nameEn: '10K Races' },
+  { bucket: '5k', name: '5km', nameEn: '5K Races' },
 ];
 /** distanceBucket 이 그 묶음인 거리가 하나라도 있는 다가오는 국내 대회 (0개 묶음은 뺀다) */
 export const distancePages = DISTANCES.map((d) => ({
@@ -118,6 +135,33 @@ export const distancePages = DISTANCES.map((d) => ({
   path: distancePath(d.bucket),
   races: upcoming.filter((r) => isKr(r) && (r.distances ?? []).some((x) => distanceBucket(x) === d.bucket)),
 })).filter((d) => d.races.length > 0);
+
+// ── 월별 + 시·도 (/m/<ym>/<id>/): 국내 다가오는 대회(취소 제외)가 그 달·그 시·도에 3개 이상인 조합만 ──
+export const MIN_MONTH_REGION = 3;
+export const monthRegionPath = (ym, id) => `/m/${ym}/${id}/`;
+/** 정렬: 달 오름차순, 같은 달은 PROVINCES 순. races 는 센 그대로(취소 제외, 날짜·이름순) */
+export const monthRegionPages = (() => {
+  const by = new Map();
+  for (const r of upcoming) {
+    if (!isKr(r) || isCancelled(r)) continue;
+    const id = provinceOf(r);
+    if (!id) continue;
+    const k = `${r.race_date.slice(0, 7)}|${id}`;
+    by.set(k, [...(by.get(k) ?? []), r]);
+  }
+  const out = [];
+  for (const [k, rs] of by) {
+    if (rs.length < MIN_MONTH_REGION) continue;
+    const [ym, id] = k.split('|');
+    const p = PROVINCES.find((x) => x.id === id);
+    out.push({ ym, id, name: p.name, nameEn: provinceName(id, 'en'), path: monthRegionPath(ym, id), races: rs });
+  }
+  const order = (id) => PROVINCES.findIndex((x) => x.id === id);
+  return out.sort((a, b) => a.ym.localeCompare(b.ym) || order(a.id) - order(b.id));
+})();
+
+/** about·faq 페이지(scripts 파트 B 가 만든다). 영어는 enPath(...) */
+export const INFO_PATHS = { about: '/about/', faq: '/faq/' };
 
 // ── 이번 주말 (/weekend/): 한국 시간 이번 주 토·일. 오늘이 토·일이면 오늘~일요일 ──
 const addDays = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
@@ -135,24 +179,28 @@ export const weekend = {
   races: [...races.filter((r) => r.race_date >= wk.from && r.race_date <= wk.to)].sort((a, b) => Number(isKr(b)) - Number(isKr(a))),
 };
 
-/** 검색어 랜딩 페이지 (scripts/seo-pages.mjs 가 만든다). 링크 글자는 name */
+const entryOpenRaces = upcoming.filter((r) => isEntryOpen(r));
+/**
+ * 검색어 랜딩 페이지 (scripts/seo-pages.mjs 가 만든다). 링크 글자는 name.
+ * 이번 주말·접수 중은 대회가 0개인 날에도 파일은 만들지만(noindex, 앱 푸터·/open/ 넘김이 가리킴) 여기서는 뺀다 —
+ * 목록 nav 에 noindex 페이지로 가는 링크를 깔지 않는다 (2-1-1 빈 페이지 규칙)
+ */
 export const LANDINGS = [
   ...years.map((y) => ({ path: yearPath(y), name: `${y} 마라톤 일정` })),
   { path: '/kr/', name: '국내 마라톤 일정' },
   { path: '/abroad/', name: '해외 마라톤 일정' },
   { path: '/trail/', name: '트레일러닝 대회 일정' },
-  { path: '/entry-open/', name: '지금 접수 중인 대회' },
+  ...(entryOpenRaces.length ? [{ path: '/entry-open/', name: '지금 접수 중인 대회' }] : []),
   ...(weekend.races.length ? [{ path: weekend.path, name: '이번 주말 마라톤' }] : []),
 ];
-const entryOpenRaces = upcoming.filter((r) => isEntryOpen(r));
 export const landingPages = [
   ...years.map((y) => ({ path: yearPath(y), races: races.filter((r) => r.race_date.startsWith(y)) })),
   { path: '/kr/', races: upcoming.filter(isKr) },
   { path: '/abroad/', races: upcoming.filter((r) => !isKr(r)) },
   { path: '/trail/', races: upcoming.filter((r) => r.discipline === 'trail') },
-  // 0개면 noindex 페이지라 sitemap 에서 뺀다
-  ...(entryOpenRaces.length ? [{ path: '/entry-open/', races: entryOpenRaces, lastmod: today }] : []),
-];
+  { path: '/entry-open/', races: entryOpenRaces, lastmod: today },
+  // 0개면 noindex 페이지(seo-pages.mjs 의 /kr/·/abroad/·/trail/·/entry-open/)라 sitemap 에서 뺀다
+].filter((p) => p.races.length > 0);
 
 /** 정적 목록 페이지 전부 (sitemap 용) */
 export const listPages = [
@@ -161,6 +209,7 @@ export const listPages = [
   ...landingPages,
   ...regionPages.map((p) => ({ path: p.path, races: p.races })),
   ...distancePages.map((d) => ({ path: d.path, races: d.races })),
+  ...monthRegionPages.map((p) => ({ path: p.path, races: p.races })),
   // 0개면 noindex 페이지라 sitemap 에서 뺀다
   ...(weekend.races.length ? [{ path: weekend.path, races: weekend.races, lastmod: today }] : []),
 ];
@@ -204,7 +253,7 @@ export const LANDINGS_EN = [
   { path: '/en/kr/', name: 'Marathons in South Korea' },
   { path: '/en/abroad/', name: 'Marathons Outside Korea' },
   { path: '/en/trail/', name: 'Trail Races' },
-  { path: '/en/entry-open/', name: 'Races Open for Registration' },
+  ...(entryOpenRaces.length ? [{ path: '/en/entry-open/', name: 'Races Open for Registration' }] : []),
   ...(weekend.races.length ? [{ path: enPath(weekend.path), name: 'Marathons This Weekend' }] : []),
 ];
 /** 영어 정적 목록 페이지 전부 (sitemap 용) — 한국어 listPages 와 짝 */

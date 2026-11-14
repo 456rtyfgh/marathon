@@ -31,11 +31,18 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run snapshot
 
+      # 이번 배포 전에 공개돼 있는 sitemap — IndexNow 가 새로 생기거나 lastmod 가 바뀐 주소만 고르는 데 쓴다.
+      # 저장소 루트에 저장하므로 dist 밖이라 배포되지 않는다. 못 받아도(첫 배포 등) 넘어간다.
+      - name: Save previous sitemap
+        run: curl -fsS --max-time 20 https://marathon82.com/sitemap.xml -o prev-sitemap.xml || true
+
       - name: Build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_GA_ID: ${{ vars.VITE_GA_ID }}
+          # 빙 웹마스터 도구 소유 확인 값 (저장소 변수, 비워 두면 meta 를 출력하지 않는다)
+          BING_SITE_VERIFICATION: ${{ vars.BING_SITE_VERIFICATION }}
         run: npm run build
 
       - name: Deploy site (Cloudflare Pages)
@@ -44,6 +51,11 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name marathoncalendar --branch main --commit-dirty=true
+
+      # 새로 생기거나 lastmod 가 바뀐 주소를 빙·네이버에 알린다(IndexNow). 실패해도 배포는 실패시키지 않는다(경고만).
+      - name: IndexNow
+        continue-on-error: true
+        run: node scripts/indexnow.mjs --prev prev-sitemap.xml
 
       - name: Deploy DB keepalive cron (no public URL)
         uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3.15.0
