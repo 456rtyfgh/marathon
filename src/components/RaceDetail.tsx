@@ -172,6 +172,11 @@ function RaceDetailView({
   }
   /** 회원의 '저장한 대회 알림'(saved_races) — 제안을 띄우기 직전에 한 번만 읽는다. 못 읽으면 알림 없음으로 본다 */
   const savedAlertsRef = useRef<boolean | null>(null);
+  /** 저장을 누르거나 다른 대회로 바뀔 때마다 올린다 — 위 값을 읽는 사이 저장을 풀었거나 대회가 바뀌었으면 제안을 띄우지 않는다 */
+  const nudgeSeq = useRef(0);
+  useEffect(() => {
+    nudgeSeq.current++;
+  }, [race.id]);
   // 로그인 뒤 이어 하기 — 파일 받기 자체는 자동으로 하지 않고 고르는 화면까지만 연다 (prop 이 바뀔 때 렌더 중 상태 맞추기)
   const [seenAction, setSeenAction] = useState<GateAction | undefined>(undefined);
   if (initialAction !== seenAction) {
@@ -214,11 +219,13 @@ function RaceDetailView({
     if (!nudgeEligible(race) || isNudgeDismissed(id) || hasLocalAlert(id)) return;
     if (session) {
       if (savedAlertsRef.current == null) {
+        const seq = nudgeSeq.current;
         try {
           savedAlertsRef.current = (await getAlertPrefs())?.saved_races ?? false;
         } catch {
           savedAlertsRef.current = false;
         }
+        if (seq !== nudgeSeq.current) return;
       }
       if (savedAlertsRef.current) return;
     }
@@ -252,6 +259,7 @@ function RaceDetailView({
 
   // 위쪽 '관심' 버튼(PC)과 휴대폰 아래 고정 줄이 같이 쓴다
   const toggleFavorite = () => {
+    nudgeSeq.current++;
     if (!favorite) {
       track('favorite', { race_id: race.id });
       void offerNudge('save');
