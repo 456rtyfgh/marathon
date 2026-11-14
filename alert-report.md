@@ -75,7 +75,7 @@
 5. `App.tsx:193-200` 대회 목록에서 찾아 `setSelected(r)` + `setPendingAction({raceId, action})`, `App.tsx:1174` `initialAction`
 6. `RaceDetail.tsx` `initialAction==='alert'` → `setTab('alert')` (로그인 상태가 되면 훅이 `resetMember()` 로 이전 판정·캐시를 버림)
 - 30분 지난 의도·모양이 틀린 값은 `peekIntent` 가 버리고, 한 번 쓰면 `clearIntent`(`App.tsx:189-191`).
-- 브라우저 확인은 못 했다: `npm run dev` 의 `/?amock=member` 로 열어도 이 환경의 agent-browser 에선 머리말이 계속 "로그인" 으로 보여(흉내 세션이 안 켜짐, 원인 미확인) 이어 하기를 재현하지 못했다. 위 판단은 코드 추적과 `memberGate` 로직 읽기에 의존한다. dev 서버는 종료했다.
+- 브라우저로는 이 왕복을 재현할 수 없다. 흉내 로그인이 안 켜지던 원인은 이 셸의 `NODE_ENV=production` 이다(`NODE_ENV=development npx vite` 로 띄우면 켜진다, 파트 A 확인). 그런데 흉내(`src/lib/auth.tsx` `devAuthMock`)는 페이지가 처음부터 로그인된 상태로 시작한다. 이어 하기는 `App.tsx:183-188` 의 "uid 가 바뀔 때"에만 시작되므로 흉내로는 비로그인→로그인 전환이 생기지 않는다. 실제 로그인은 세션이 비어 있다가 채워지므로 전환이 일어난다. 위 판단은 코드 추적에 의존한다. dev 서버는 종료했다.
 
 ### 남은 점
 - 알림 신청 목록(alert_subscriptions)을 브라우저에서 못 읽어 "이미 알림 있음"은 이 브라우저의 신청 성공 기록 + 회원 saved_races 로만 안다.
@@ -84,4 +84,4 @@
 - `cancelSave()` 는 진행 중인 판정 전체를 무효로 하므로, 'cal' 제안을 읽는 중에 저장을 풀면 그 'cal' 제안도 안 뜬다(플랜 2-0 의 "저장 해제 시 진행 중 판정 무효" 를 그대로 따른 것).
 
 ### 다른 파트 메모
-- 파트 A: `RaceDetail.tsx` 의 인라인 코드(`nudgeFrom`·`nudgeRace`·`savedAlertsRef`·`nudgeSeq`·`offerNudge` 와 `getAlertPrefs`/`alertNudge` import)를 `useAlertNudge(race, !!session)` 로 교체해야 한다(`src/lib/useAlertNudge.ts` 가 이제 있음, 인터페이스는 PLAN 2-3·2-5 그대로). 훅은 `from`/`offer`/`cancelSave`/`dismiss`/`accept` 를 돌려준다. `accept()` 는 상태만 닫으므로 알림 탭 이동(`goTab('alert', true)`)은 RaceDetail 이 한다.
+- (해결됨, b1eda5e) 파트 A 가 `RaceDetail.tsx` 의 인라인 제안 코드를 `useAlertNudge(race, !!session)` 로 교체했다. `offer`·`cancelSave`·`accept`·`dismiss`·`from` 을 PLAN 2-5 대로 쓴다. 알림 탭 이동은 RaceDetail 이 한다.
