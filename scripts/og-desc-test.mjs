@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
 import { OG_DESC_MAX, ogDescription } from '../src/lib/ogMeta.ts';
+import { fmtDate } from '../src/i18n/format.ts';
 import { shareEntryLine } from '../src/lib/shareText.ts';
 import { isCancelled, isEntryConfirmed } from '../src/lib/util.ts';
 
@@ -64,11 +65,17 @@ for (const r of races) {
     }
     check('접수 줄로 시작', () => assert.ok(og.startsWith(`${line} `), `${tag}: ${og}`));
     const rest = og.slice(line.length + 1);
+    // 접수가 확정이 아니면 요약의 접수 문장(같은 날짜를 확정처럼 다시 씀)은 뺀다 — 첫 문장 빼고, 접수 날짜 글자가 든 문장
+    const entryDates = [r.entry_opens, r.entry_closes].filter(Boolean).map((d) => fmtDate(d, lang));
+    const unconfirmed = !isEntryConfirmed(r) && entryDates.length > 0;
+    const exp = unconfirmed ? sum.split(/(?<=\.)\s+/).filter((x, i) => i === 0 || !entryDates.some((d) => x.includes(d))).join(' ') : sum;
+    // (첫 문장은 대회 소개라 대회일이 접수 마감일과 같으면 그 날짜가 들어 있을 수 있다 — 그 뒤 글만 본다)
+    if (unconfirmed) check('예상 대회: 요약에 접수 날짜 다시 안 씀', () => assert.ok(!entryDates.some((d) => rest.slice(exp.split(/(?<=\.)\s+/)[0].length).includes(d)), `${tag}: ${og}`));
     if (!rest.endsWith('…')) {
-      // 요약을 문장 단위로만 뺐다: 남은 글은 요약의 앞부분이고, 그 바로 뒤가 문장 사이 공백(또는 끝)
+      // 요약을 문장 단위로만 뺐다: 남은 글은 요약(예상 대회는 접수 문장을 뺀 요약)의 앞부분이고, 그 바로 뒤가 문장 사이 공백(또는 끝)
       check('문장 중간에서 안 자름', () => {
-        assert.ok(sum.startsWith(rest), `${tag}: ${rest}`);
-        assert.ok(rest.length === sum.length || sum[rest.length] === ' ', `${tag}: '${rest}' / '${sum}'`);
+        assert.ok(exp.startsWith(rest), `${tag}: ${rest}`);
+        assert.ok(rest.length === exp.length || exp[rest.length] === ' ', `${tag}: '${rest}' / '${exp}'`);
         assert.ok(rest.endsWith('.'), `${tag}: ${rest}`);
       });
     }

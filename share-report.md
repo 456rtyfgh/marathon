@@ -52,7 +52,7 @@
 ### 확인 (직접 한 것)
 - `npm run build` EXIT 0, `npx tsc -b` EXIT 0, `npx oxlint`(바꾼 4개 파일) 경고 0.
 - `node scripts/share-test.mjs` 통과(파트 A 커밋 a14cb10 반영 상태).
-- `node scripts/og-desc-test.mjs`: 검사 34602건, 실패 0.
+- `node scripts/og-desc-test.mjs`: 검사 36660건, 실패 0 (예상 대회: 요약에 접수 날짜 다시 안 씀 검사 포함).
 - `node scripts/og-check.mjs http://localhost:8791`: 대표 12개 × ko·en, 실패 0. `--all`: 5322개 응답 실패 0.
   - 메모 1건: `en stanley-marathon` 의 장소가 응답(workerd)에서는 `Falkland Islands (Islas Malvinas)`, node 에서는 `Falkland Islands` 다. 나라 이름이 Intl(ICU) 데이터라 런타임마다 다르다. 결함은 아니어서 og-check 는 장소 칸이 비었는지만 본다.
 - 스크린샷(agent-browser — Playwright MCP 는 이 세션에서 권한이 없었다). `wrangler pages dev` 의 함수 응답 페이지로 찍었고, 모두 화면이 정상으로 뜨고 `scrollWidth` 가 창 폭과 같다(가로 넘침 없음).
@@ -61,7 +61,7 @@
 - 포트: 8788 과 8790 은 다른 세션의 wrangler 가 쓰고 있어 건드리지 않고 8791 을 썼다. 끝낸 뒤 8791 에 연결이 거부되는 것(꺼짐)을 확인했다.
 
 ### 남은 것
-- 예상 대회의 미리보기 설명은 `접수 예상 8/31~11/25 (일정 미공개)` 로 시작하지만, 뒤에 붙는 요약(검색용 meta description 과 같은 글)이 `선착순 접수 2026년 8월 31일부터 2026년 11월 25일까지.` 처럼 날짜를 확정처럼 다시 말한다. meta description 은 검색 결과가 바뀌지 않게 그대로 두기로 해서 손대지 않았다. 고치려면 `describe`/`describeEn` 의 접수 문장에 예상 표시를 넣어야 하고, 그러면 검색 설명도 함께 바뀐다(따로 정할 일).
+- (검수에서 해결) 예상 대회 미리보기 설명이 `접수 예상 …` 으로 시작한 뒤 요약의 접수 문장이 같은 날짜를 확정처럼 다시 말하던 문제는 `ogDescription` 에서 그 문장을 빼서 고쳤다(meta description·검색 설명은 그대로). 예: `접수 예상 8/31~11/25 (일정 미공개) 전마협 금산 골드런 레이스는 2026년 12월 5일 충남 금산에서 열리는 마라톤 대회입니다. 종목 하프·10km·5km. 일정, 비용, 후기를 확인하세요.`
 - 원래 있던 문구 문제: 상시 접수 대회의 한국어 요약이 `상시 접수 접수 기간 미공개` 처럼 '접수' 를 두 번 쓴다(`worker/site.ts` `entryText`, 이번 변경 전부터 있었다). 검색 설명에도 나오는 글이라 이번 범위에서는 고치지 않았다.
 
 ## 미리보기 확인(실제 응답)

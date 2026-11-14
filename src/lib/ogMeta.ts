@@ -4,8 +4,10 @@
  * → 저장소 안의 순수 모듈만 import 하고, 경로에 .ts 확장자를 붙인다.
  */
 import type { Lang } from '../i18n/lang.ts';
+import type { Race } from './types.ts';
 import { ogTitle, shareEntryLine, type ShareRace } from './shareText.ts';
-import { TODAY, isCancelled } from './util.ts';
+import { fmtDate } from '../i18n/format.ts';
+import { TODAY, isCancelled, isEntryConfirmed } from './util.ts';
 
 /** 미리보기 설명 최대 길이 (검색 결과 설명과 같은 기준) */
 export const OG_DESC_MAX = 160;
@@ -23,7 +25,12 @@ export function ogDescription(race: ShareRace, lang: Lang, summary: string, toda
   if (isCancelled({ notes_ko: race.notes_ko ?? null })) return clip(sum);
   const entryLine = shareEntryLine(race, lang, today);
   if (!sum) return clip(entryLine);
-  const sentences = splitSentences(sum, [...ogTitle(race, lang).split(' · '), race.name_ko, race.name_en ?? '']);
+  let sentences = splitSentences(sum, [...ogTitle(race, lang).split(' · '), race.name_ko, race.name_en ?? '']);
+  // 접수 일정이 확정이 아니면 앞의 '접수 예상 …' 줄만 날짜를 말하게 한다 — 요약의 접수 문장(같은 날짜를 확정처럼 다시 씀)은 뺀다. 첫 문장(대회 소개)은 그대로
+  if (!isEntryConfirmed({ entry_confidence: race.entry_confidence as Race['entry_confidence'] })) {
+    const dates = [race.entry_opens, race.entry_closes].filter((d): d is string => !!d).map((d) => fmtDate(d, lang));
+    if (dates.length) sentences = sentences.filter((x, i) => i === 0 || !dates.some((d) => x.includes(d)));
+  }
   for (let n = sentences.length; n > 0; n--) {
     const s = `${entryLine} ${sentences.slice(0, n).join(' ')}`;
     if (s.length <= OG_DESC_MAX) return s;
