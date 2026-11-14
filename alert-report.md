@@ -2,7 +2,42 @@
 
 ## 파트 A
 
-(파트 A 가 채운다)
+제안 UI·자리·접근성·훅 연결.
+
+### 바꾼 파일
+- `src/components/AlertNudge.tsx` — `onAccept(box)`·`onDismiss(box)` 가 제안 상자(box)를 넘긴다(부모가 "포커스가 제안 안에 있었는지" 보려고). 모양·문구는 그대로.
+- `src/components/RaceDetail.tsx`
+  - 인라인 제안 코드(`nudgeFrom`·`nudgeRace`·`savedAlertsRef`·`nudgeSeq`·`offerNudge`, `getAlertPrefs`/`alertNudge` import)를 `useAlertNudge(race, !!session)` 로 교체(PLAN 2-5). `grep offerNudge|nudgeSeq|savedAlertsRef` → 없음.
+  - 포커스: [닫기] 로 사라지면 포커스가 제안 안(또는 body)에 있었을 때만 제안을 띄운 버튼으로 보낸다(save = 화면에 보이는 관심 버튼(PC 위쪽 / 휴대폰 아래 줄), cal = 캘린더 저장 버튼). [알림 받기] 는 알림 탭 내용 상자(`tabIndex=-1`, 링 없음)로 보낸다. 뜰 때는 포커스를 옮기지 않는다.
+  - 렌더 조건: 취소 대회·알림 탭(`view==='alert'`)에서는 그리지 않는다. 알림 탭을 보는 중 저장해서 `from` 이 채워지면 effect 가 바로 닫아, 다른 탭으로 나올 때 갑자기 뜨지 않게 했다(브라우저에서 이 현상을 발견해 고침).
+- `ui.tsx`·`ko.ts`·`en.ts`: 바꾸지 않았다(휴대폰 닫기 버튼은 이미 44×44, 문구 키 추가 불필요).
+
+### 확인 결과
+- `npm run build` 성공, `npx tsc -b` 오류 0, `share-test`·`distance-test`·`status-tone-test`·`alert-nudge-test`(27/27) 통과. 범위 밖 파일 diff 없음.
+- 브라우저(agent-browser, `wrangler pages dev dist` 로컬 8788, 모두 localStorage 비움 상태에서 시작. 375×812 / 1280×800):
+  - 저장 → 제안 뜸(ko·en), 가로 스크롤 없음(`scrollWidth==innerWidth` 375·1280).
+  - 닫기 → `marathon-cal:alert-nudge-dismissed=["nuaille-semi"]`, 새로고침 뒤 저장 해제→재저장해도 안 뜸. 기록 지우면 다시 뜸.
+  - 저장 해제 → save 제안 닫힘. 접수 마감(`chuncheon-sunset-island-give-run`)·취소(`bagan`) 대회는 저장해도 안 뜸.
+  - 비슷한 대회(몽생미셸)로 전환 → 제안 사라짐. 알림 탭에서 저장 → 안 뜸, 정보 탭으로 돌아와도 안 뜸.
+  - [알림 받기] → 알림 탭 + 비회원 MemberGate. 포커스는 내용 상자로.
+  - 휴대폰 닫기 버튼 getBoundingClientRect = 44×44, [알림 받기] 버튼 95×44. Tab 으로 아래 줄 '공식 홈페이지' 에서 Shift+Tab → 닫기 → [알림 받기] 순으로 도달. 닫기를 Enter 로 누르면 포커스가 '관심 대회' 버튼으로 간다. 포커스 링 보임(`a-375-ko-focus-close.png`).
+  - 휴대폰 본문을 900px 내린 상태(`scrollTop=900`)에서 아래 줄 저장 → 제안이 버튼 바로 위에 보임.
+  - 캘린더 추가 뒤 제안(회원): `NODE_ENV=development npx vite --port 5173` + `/r/nuaille-semi?amock=member&nick=tester`. 구글 캘린더를 누르면 캘린더 고르기 아래에 제안이 뜨고, 닫기 → 포커스가 '캘린더에 저장' 버튼으로, 기록 저장됨.
+- 목록 행: 코드 변경 없음(저장 표시 아이콘만 있고 저장 동작 없음).
+- 색·이모지: 새 색·이모지 없음(기존 `bg-surface`·`text-ink*`·`Button quiet`).
+
+### 스크린샷 (`evidence/alert/`)
+`a-1280-ko-save-nudge.png`, `a-1280-en-save-nudge.png`, `a-1280-ko-cal-nudge.png`, `a-1280-ko-nudge-to-alert.png`,
+`a-375-en-save-nudge.png`, `a-375-ko-save-nudge-scrolled.png`, `a-375-ko-cal-nudge.png`, `a-375-ko-nudge-to-alert.png`, `a-375-ko-focus-close.png`, `a-375-en-focus-close.png`
+
+### 남은 점
+- 알림 신청 목록은 브라우저에서 못 읽어, 다른 기기에서 신청한 대회에는 제안이 한 번 뜰 수 있다. 흉내 회원은 saved_races 를 늘 null 로 줘서 "saved_races 켠 회원"은 단위 테스트로만 확인했다.
+- 캘린더 쪽 제안은 구글 캘린더 경로로만 눌러 봤다(.ics 내려받기는 서버가 필요한 회원 기능이라 흉내 DB 로는 `downloadIcs` 성공을 만들지 않음). 두 경로 모두 같은 `onAdded` 를 부른다.
+- 제안은 `role="status"` 로 뜬다. 스크린리더 실제 낭독은 확인하지 못했다.
+
+### 다른 파트 메모
+- 파트 B 보고서의 "흉내 로그인(`?amock=member`)이 안 켜짐, 원인 미확인" 의 원인: 이 셸에는 `NODE_ENV=production` 이 걸려 있어 `npx vite` 가 `import.meta.env.DEV=false` 로 뜬다. `NODE_ENV=development npx vite --port 5173` 로 띄우면 흉내 로그인이 켜진다(위 캘린더 확인에 사용). 이어 하기 왕복을 브라우저로 확인하려면 이 방법을 쓸 수 있다.
+- 확인 중 `agent-browser close --all` 로 다른 세션의 브라우저(og-b, g2)도 닫았다.
 
 ## 파트 B
 

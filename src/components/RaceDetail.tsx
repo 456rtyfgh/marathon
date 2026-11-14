@@ -45,9 +45,9 @@ import MemberGate, { type OnLogin } from './MemberGate';
 import { useAuth } from '../lib/auth';
 import { fetchRaceDetail, submitSoldOutReport, type RaceDetailData } from '../lib/data';
 import { spamReason, friendlyError } from '../lib/spam';
-import { distanceKm, downloadIcs, fmtFinish, getAlertPrefs, parseFinish, type RaceRecord } from '../lib/member';
+import { distanceKm, downloadIcs, fmtFinish, parseFinish, type RaceRecord } from '../lib/member';
 import { shareText } from '../lib/shareText';
-import { dismissNudge, hasLocalAlert, isNudgeDismissed, nudgeEligible } from '../lib/alertNudge';
+import { useAlertNudge } from '../lib/useAlertNudge';
 import AlertNudge from './AlertNudge';
 import type { GateAction } from '../lib/memberGate';
 import type { RecordInput } from '../lib/registered';
@@ -162,21 +162,9 @@ function RaceDetailView({
   const [tab, setTab] = useState<Tab>('overview');
   const [copied, setCopied] = useState(false);
   const [calOpen, setCalOpen] = useState(false);
-  // 저장·캘린더 추가 뒤 '알림 받기' 제안: 어디서 눌렀는지에 따라 그 자리 가까이에 띄운다 (save = 머리 끝, cal = 캘린더 고르기 아래)
-  const [nudgeFrom, setNudgeFrom] = useState<'save' | 'cal' | null>(null);
-  const [nudgeRace, setNudgeRace] = useState(race.id);
-  if (nudgeRace !== race.id) {
-    // 같은 패널에서 다른 대회(비슷한 대회)를 열면 제안을 닫는다
-    setNudgeRace(race.id);
-    setNudgeFrom(null);
-  }
-  /** 회원의 '저장한 대회 알림'(saved_races) — 제안을 띄우기 직전에 한 번만 읽는다. 못 읽으면 알림 없음으로 본다 */
-  const savedAlertsRef = useRef<boolean | null>(null);
-  /** 저장을 누르거나 다른 대회로 바뀔 때마다 올린다 — 위 값을 읽는 사이 저장을 풀었거나 대회가 바뀌었으면 제안을 띄우지 않는다 */
-  const nudgeSeq = useRef(0);
-  useEffect(() => {
-    nudgeSeq.current++;
-  }, [race.id]);
+  // 저장·캘린더 추가 뒤 '알림 받기' 제안: 어디서 눌렀는지에 따라 그 자리 가까이에 띄운다 (save = 머리 끝·휴대폰은 아래 줄 위, cal = 캘린더 고르기 아래).
+  // 판정(접수 상태·닫음·이미 알림 있음)과 경쟁 상태 처리는 useAlertNudge 가 한다
+  const nudgeState = useAlertNudge(race, !!session);
   // 로그인 뒤 이어 하기 — 파일 받기 자체는 자동으로 하지 않고 고르는 화면까지만 연다 (prop 이 바뀔 때 렌더 중 상태 맞추기)
   const [seenAction, setSeenAction] = useState<GateAction | undefined>(undefined);
   if (initialAction !== seenAction) {
@@ -190,6 +178,11 @@ function RaceDetailView({
   // 패널 전체가 하나의 스크롤 상자: 위쪽 요약은 같이 올라가고 맨 윗줄(지역·관심·닫기)과 탭 줄만 붙어 있다
   const scrollRef = useRef<HTMLDivElement>(null);
   const headRef = useRef<HTMLElement>(null);
+  // 알림 제안을 닫은 뒤 포커스가 body 로 날아가지 않게, 제안을 띄운 버튼·알림 탭 내용을 가리킨다
+  const favTopRef = useRef<HTMLButtonElement>(null);
+  const favBarRef = useRef<HTMLButtonElement>(null);
+  const calBtnRef = useRef<HTMLButtonElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   async function share() {
     track('share', { race_id: race.id });
@@ -212,24 +205,6 @@ function RaceDetailView({
     } catch {
       prompt(t('detail.copyPrompt'), msg.full);
     }
-  }
-  /** 알림 제안 띄우기: 접수 전·접수 중인 대회이고, 닫은 적 없고, 이미 알림을 걸어 두지 않았을 때만 */
-  async function offerNudge(from: 'save' | 'cal') {
-    const id = race.id;
-    if (!nudgeEligible(race) || isNudgeDismissed(id) || hasLocalAlert(id)) return;
-    if (session) {
-      if (savedAlertsRef.current == null) {
-        const seq = nudgeSeq.current;
-        try {
-          savedAlertsRef.current = (await getAlertPrefs())?.saved_races ?? false;
-        } catch {
-          savedAlertsRef.current = false;
-        }
-        if (seq !== nudgeSeq.current) return;
-      }
-      if (savedAlertsRef.current) return;
-    }
-    setNudgeFrom(from);
   }
   const today = TODAY();
   const raceDay = raceDayLine(race, today, lang);
@@ -256,28 +231,44 @@ function RaceDetailView({
   const entryLabel = ENTRY_TEXT[lang][race.entry_type];
   const isAdmin = !!profile?.is_admin;
   const view: Tab = (cancelled && tab === 'alert') || (!isAdmin && tab === 'edit') ? 'overview' : tab;
+  // 알림 탭을 보는 중에는 제안이 필요 없다. 탭에 들어갈 때(이미 떠 있던 제안)와 이 탭에서 저장·판정이 끝날 때 모두 닫아,
+  // 다른 탭으로 나올 때 갑자기 뜨지 않게 한다
+  const { from: nudgeFrom, accept: closeNudge } = nudgeState;
+  useEffect(() => {
+    if (view === 'alert' && nudgeFrom) closeNudge();
+  }, [view, nudgeFrom, closeNudge]);
 
   // 위쪽 '관심' 버튼(PC)과 휴대폰 아래 고정 줄이 같이 쓴다
   const toggleFavorite = () => {
-    nudgeSeq.current++;
     if (!favorite) {
       track('favorite', { race_id: race.id });
-      void offerNudge('save');
-    } else if (nudgeFrom === 'save') setNudgeFrom(null); // 저장을 풀면 저장 쪽 제안도 닫는다
+      void nudgeState.offer('save');
+    } else nudgeState.cancelSave(); // 저장을 풀면 저장 쪽 제안도 닫는다
     onToggleFavorite();
   };
+  /** 제안이 사라질 때 포커스가 제안 안(또는 이미 body)에 있었으면 갈 곳으로 옮긴다. 다른 곳에 있던 포커스는 건드리지 않는다 */
+  const moveFocusFromNudge = (box: HTMLElement | null, targets: (HTMLElement | null)[]) => {
+    const a = document.activeElement;
+    if (a && a !== document.body && !(box && box.contains(a))) return;
+    // 화면에 실제로 보이는 것(PC 는 위쪽 관심 버튼, 휴대폰은 아래 줄 버튼)만 받는다
+    const el = targets.find((x) => x && x.getClientRects().length > 0);
+    el?.focus({ preventScroll: true });
+  };
   const nudge = (from: 'save' | 'cal', className: string) =>
-    nudgeFrom === from &&
-    !cancelled && (
+    nudgeState.from === from &&
+    !cancelled &&
+    view !== 'alert' && (
       <AlertNudge
         className={className}
-        onAccept={() => {
-          setNudgeFrom(null);
+        onAccept={(box) => {
+          nudgeState.accept();
           goTab('alert', true);
+          // 알림 탭 내용이 그려진 다음에 그 위로 포커스를 옮긴다 (스크롤은 goTab 이 맞춘다)
+          requestAnimationFrame(() => moveFocusFromNudge(box, [bodyRef.current]));
         }}
-        onDismiss={() => {
-          dismissNudge(race.id);
-          setNudgeFrom(null);
+        onDismiss={(box) => {
+          nudgeState.dismiss();
+          moveFocusFromNudge(box, from === 'save' ? [favTopRef.current, favBarRef.current] : [calBtnRef.current]);
         }}
       />
     );
@@ -309,6 +300,7 @@ function RaceDetailView({
         <div className="flex shrink-0 items-center gap-1">
           {/* 휴대폰에서는 아래 고정 줄에 있다(엄지 닿는 곳) — 여기는 640px 부터 */}
           <button
+            ref={favTopRef}
             onClick={toggleFavorite}
             aria-pressed={favorite}
             className={`hidden h-9 items-center gap-2 rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap transition active:translate-y-px sm:inline-flex ${
@@ -482,7 +474,7 @@ function RaceDetailView({
         />
       </div>
 
-      <div className="px-5 pt-6 pb-10 sm:px-7">
+      <div ref={bodyRef} tabIndex={-1} className="px-5 pt-6 pb-10 outline-none sm:px-7">
         {view === 'overview' && (
           <div className="space-y-8">
             <section>
@@ -582,6 +574,7 @@ function RaceDetailView({
               </a>
               {!cancelled && (
                 <button
+                  ref={calBtnRef}
                   onClick={() => setCalOpen((v) => !v)}
                   aria-expanded={calOpen}
                   className={`${actBtn} active:translate-y-px ${
@@ -609,7 +602,7 @@ function RaceDetailView({
             {calOpen &&
               !cancelled &&
               (session ? (
-                <CalendarPicker race={race} onLogin={onLogin} onAdded={() => void offerNudge('cal')} />
+                <CalendarPicker race={race} onLogin={onLogin} onAdded={() => void nudgeState.offer('cal')} />
               ) : (
                 <MemberGate raceId={race.id} action="cal" onLogin={onLogin} className="-mt-5" />
               ))}
@@ -675,6 +668,7 @@ function RaceDetailView({
             <ArrowUpRight size={14} weight="bold" className="shrink-0" />
           </a>
           <button
+            ref={favBarRef}
             onClick={toggleFavorite}
             aria-pressed={favorite}
             className={`${barBtn} ${favorite ? 'bg-surface text-ink shadow-[inset_0_0_0_2px_var(--ink)]' : 'bg-surface text-ink-2'}`}
