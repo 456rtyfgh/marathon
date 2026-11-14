@@ -105,7 +105,8 @@ git diff public/robots.txt       비어 있음
 ### 빈 페이지 시뮬레이션 (`SEO_TODAY=2030-01-01`)
 
 - `seo-pages.mjs`: 시·도별 0개, 거리별 0개, `/weekend/`·`/entry-open/` 한·영 4개 파일 생성(대회 0개, noindex,follow, "대회가 없습니다" 문장), `/kr/`·`/abroad/`·`/trail/` 한·영 noindex.
-- `seo-pages-check.mjs`: **통과**(시·도·거리 파일 없음, 주말·접수 중 noindex, noindex 페이지가 sitemap 에 없음) — 단, 이 검사의 sitemap 은 `sitemap.mjs` 대신 "빈 목록 페이지를 뺀" 임시 스크립트로 만들었다. 이유: 파트 A 의 현재 `scripts/sitemap.mjs` 는 대회 0개 목록 페이지가 있으면 `throw` 하는데, 2030-01-01 에는 `seo-lib.mjs` 의 `landingPages` 가 `/kr/`·`/abroad/`·`/trail/` 을 무조건 넣어(대회 0개) 빌드가 멈춘다. → 파트 A 에 메모(아래 6).
+- `seo-pages-check.mjs`: **통과**(시·도·거리 파일 없음, 주말·접수 중 noindex, noindex 페이지가 sitemap 에 없음). sitemap 은 실제 `sitemap.mjs` 로 만들었다(목록 페이지 171개 — 0개가 된 `/kr/`·`/abroad/`·`/trail/` 은 파트 A 검수에서 `landingPages` 에서 빠지게 고쳐졌다).
+- 순서: `npx vite build`(dist 비움) → `SEO_TODAY=2030-01-01` 로 `seo-pages` → `prerender` → `sitemap` → `terms` → `seo-pages-check`. `vite build` 로 dist 를 먼저 비워야 한다 — `seo-pages.mjs` 는 지난 빌드의 시·도·거리 폴더를 지우지 않아서, 실제 날짜 dist 위에 덮어 돌리면 "0개인데 페이지가 있음" 으로 실패한다(실제 빌드는 늘 `vite build` 가 먼저 비우므로 문제없음). `terms` 를 빼면 푸터의 `/terms` 링크가 깨진 것으로 나온다.
 - 시뮬레이션 직후 `npm run build` 로 dist 를 실제 날짜로 되돌리고 재검사 통과.
 
 ## 4. 스크린샷 (agent-browser, 로컬 `vite preview --port 4174`, 끝난 뒤 종료)
@@ -132,7 +133,7 @@ Playwright MCP 는 이 환경에서 권한이 없어 agent-browser CLI 로 찍�
 
 ## 6. 다른 파트 메모 (파트 A 에게)
 
-- `scripts/sitemap.mjs` 의 "빈 목록 페이지 throw" 와 `seo-lib.mjs` 의 `landingPages`(`/kr/`·`/abroad/`·`/trail/` 무조건 포함): 다가오는 대회가 하나도 없는 날 빌드가 멈춘다. `landingPages` 에서 `races.length` 가 0 인 것을 빼거나(파트 B 는 이미 해당 페이지를 noindex 로 만든다) throw 대신 건너뛰어야 한다. 실제 데이터(2028-04 까지 있음)로는 당분간 발생하지 않는다.
+- (해결됨) `scripts/sitemap.mjs` 의 "빈 목록 페이지 throw" 와 `landingPages` 의 0개 `/kr/`·`/abroad/`·`/trail/` 때문에 대회가 다 지난 날 빌드가 멈추던 문제 — 파트 A 검수에서 `landingPages` 가 0개 페이지를 빼도록 고쳐졌고, 위 시뮬레이션을 실제 `sitemap.mjs` 로 다시 돌려 통과했다.
 
 ## 7. 데이터 기준 (파트 A, `seo-report-a.md` 합침)
 
