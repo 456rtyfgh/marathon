@@ -34,7 +34,7 @@ jobs:
       # 이번 배포 전에 공개돼 있는 sitemap — IndexNow 가 새로 생기거나 lastmod 가 바뀐 주소만 고르는 데 쓴다.
       # 저장소 루트에 저장하므로 dist 밖이라 배포되지 않는다. 못 받아도(첫 배포 등) 넘어간다.
       - name: Save previous sitemap
-        run: curl -fsS --max-time 20 https://marathon82.com/sitemap.xml -o prev-sitemap.xml || true
+        run: curl -fsS --max-time 20 https://marathoncalendar.pages.dev/sitemap.xml -o prev-sitemap.xml || true
 
       - name: Build
         env:
