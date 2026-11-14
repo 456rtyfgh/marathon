@@ -7,6 +7,7 @@
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { ENTRY, LANDINGS, ORIGIN, countries, countryPath, esc, fmt, isCancelled, ldJson, monthLabel, monthPath, months, today, upcoming, whereOf } from './seo-lib.mjs';
 import { LANDINGS_EN, SITE_NAME_EN, countryNameEn, enPath, entryEn, fmtEn, monthLabelEn, raceNameEn, whereEn } from './seo-lib.mjs';
+import { distancePages, regionPages } from './seo-lib.mjs';
 import { readSplit } from './data-split.mjs';
 import { noticeHtml } from '../src/lib/notice.ts';
 import { entryStatus } from '../src/lib/util.ts';
@@ -45,7 +46,10 @@ const nav = `<nav aria-label="월별 마라톤 일정"><h2>월별 마라톤 일�
 <nav aria-label="나라별 마라톤 일정"><h2>나라별 마라톤 일정</h2><p>${countries
   .map((c) => `<a href="${countryPath(c.code)}">${esc(c.code === 'kr' ? '국내' : c.name)}</a>`)
   .join(' · ')}</p></nav>
-<nav aria-label="주제별 마라톤 일정"><h2>주제별 마라톤 일정</h2><p>${LANDINGS.map((l) => `<a href="${l.path}">${esc(l.name)}</a>`).join(' · ')}</p></nav>`;
+<nav aria-label="주제별 마라톤 일정"><h2>주제별 마라톤 일정</h2><p>${LANDINGS.map((l) => `<a href="${l.path}">${esc(l.name)}</a>`).join(' · ')}</p></nav>
+<nav aria-label="시·도별·거리별 국내 마라톤 일정"><h2>시·도별·거리별 국내 마라톤 일정</h2><p>${regionPages
+  .map((p) => `<a href="${p.path}">${esc(p.name)}</a>`)
+  .join(' · ')}</p><p>${distancePages.map((d) => `<a href="${d.path}">${esc(d.name)}</a>`).join(' · ')}</p></nav>`;
 const html = `<main class="seo-pre" style="max-width:72rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
 <h1>마라톤 캘린더</h1>
 <p>국내·해외 마라톤 대회 일정과 접수 기간을 대회 날짜순으로 모았습니다. 국내 ${kr}개, 해외 ${upcoming.length - kr}개.</p>
@@ -108,7 +112,10 @@ const navEn = `<nav aria-label="Marathons by month"><h2>Marathons by Month</h2><
 <nav aria-label="Marathons by country"><h2>Marathons by Country</h2><p>${countries
   .map((c) => `<a href="${enPath(countryPath(c.code))}">${esc(countryNameEn(c.code.toUpperCase()))}</a>`)
   .join(' · ')}</p></nav>
-<nav aria-label="Marathons by topic"><h2>Marathons by Topic</h2><p>${LANDINGS_EN.map((l) => `<a href="${l.path}">${esc(l.name)}</a>`).join(' · ')}</p></nav>`;
+<nav aria-label="Marathons by topic"><h2>Marathons by Topic</h2><p>${LANDINGS_EN.map((l) => `<a href="${l.path}">${esc(l.name)}</a>`).join(' · ')}</p></nav>
+<nav aria-label="Races in Korea by region and distance"><h2>Races in Korea by Region and Distance</h2><p>${regionPages
+  .map((p) => `<a href="${enPath(p.path)}">${esc(p.nameEn)}</a>`)
+  .join(' · ')}</p><p>${distancePages.map((d) => `<a href="${enPath(d.path)}">${esc(d.nameEn)}</a>`).join(' · ')}</p></nav>`;
 const htmlEn = `<main class="seo-pre" style="max-width:72rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
 <h1>${SITE_NAME_EN}</h1>
 <p>Marathon dates and registration windows in Korea and worldwide, in race-date order. ${kr.toLocaleString('en-US')} in Korea, ${(upcoming.length - kr).toLocaleString('en-US')} abroad.</p>

@@ -5,7 +5,9 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { DIST_TEXT, ENTRY_TEXT, fmtDate, fmtMonth } from '../src/i18n/format.ts';
-import { countryName, whereText } from '../src/i18n/names.ts';
+import { countryName, provinceName, whereText } from '../src/i18n/names.ts';
+import { STATUS_LABEL, entryStatus } from '../src/lib/util.ts';
+import { distanceBucket } from '../src/lib/distanceFilter.ts';
 
 export const ORIGIN = process.env.SITE_ORIGIN || 'https://marathon82.com';
 export const snap = JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'));
@@ -58,6 +60,81 @@ export const isEntryOpen = (r, day = today) => {
   return true;
 };
 
+/** 화면과 같은 접수 상태 (src/lib/util.ts 의 entryStatus 는 Date 를 받는다) */
+export const entryStatusOf = (r, day = today) => entryStatus(r, new Date(day + 'T00:00:00Z'));
+export { STATUS_LABEL };
+export const STATUS_EN = { open: 'Open', upcoming: 'Opens soon', soldout: 'Sold out', closed: 'Closed', unknown: 'Dates TBA', cancelled: 'Cancelled' };
+
+const isKr = (r) => r.country_code === 'KR';
+
+// ── 시·도별 (/kr/<id>/) ──
+// src/lib/places.ts 와 같게 유지 (places.ts 는 ./subregions 를 확장자 없이 import 해서 node 에서 바로 못 불러 옮겨 적었다.
+// scripts/seo-pages-check.mjs 가 id 가 같은지 확인한다)
+export const PROVINCES = [
+  { id: 'seoul', name: '서울', keys: ['서울'] },
+  { id: 'gyeonggi', name: '경기', keys: ['경기'] },
+  { id: 'incheon', name: '인천', keys: ['인천'] },
+  { id: 'gangwon', name: '강원', keys: ['강원'] },
+  { id: 'north-chungcheong', name: '충북', keys: ['충북', '충청북'] },
+  { id: 'south-chungcheong', name: '충남', keys: ['충남', '충청남'] },
+  { id: 'daejeon', name: '대전', keys: ['대전'] },
+  { id: 'sejong', name: '세종', keys: ['세종'] },
+  { id: 'north-jeolla', name: '전북', keys: ['전북', '전라북'] },
+  { id: 'south-jeolla', name: '전남', keys: ['전남', '전라남'] },
+  { id: 'gwangju', name: '광주', keys: ['광주'] },
+  { id: 'north-gyeongsang', name: '경북', keys: ['경북', '경상북'] },
+  { id: 'south-gyeongsang', name: '경남', keys: ['경남', '경상남'] },
+  { id: 'daegu', name: '대구', keys: ['대구'] },
+  { id: 'ulsan', name: '울산', keys: ['울산'] },
+  { id: 'busan', name: '부산', keys: ['부산'] },
+  { id: 'jeju', name: '제주', keys: ['제주', '서귀포'] },
+];
+/** src/lib/places.ts 의 provinceOf 와 같은 규칙 */
+export const provinceOf = (r) => {
+  const head = (r.city_ko || '').trim().split(/[\s·]/)[0];
+  for (const p of PROVINCES) if (p.keys.some((k) => head.startsWith(k))) return p.id;
+  return null;
+};
+export const regionPath = (id) => `/kr/${id}/`;
+/** 다가오는 국내 대회가 1개 이상 있는 시·도만 */
+export const regionPages = PROVINCES.map((p) => ({
+  id: p.id,
+  name: p.name,
+  nameEn: provinceName(p.id, 'en'),
+  path: regionPath(p.id),
+  races: upcoming.filter((r) => isKr(r) && provinceOf(r) === p.id),
+})).filter((p) => p.races.length > 0);
+
+// ── 거리별 (/distance/<bucket>/). /d/* 는 워커가 데이터 파일 주소로 막아 두어(그 밖은 404) /distance/ 를 쓴다 ──
+export const distancePath = (bucket) => `/distance/${bucket}/`;
+const DISTANCES = [
+  { bucket: 'full', name: '풀코스', nameEn: 'Full Marathons' },
+  { bucket: 'half', name: '하프', nameEn: 'Half Marathons' },
+  { bucket: '10k', name: '10km', nameEn: '10K Races' },
+];
+/** distanceBucket 이 그 묶음인 거리가 하나라도 있는 다가오는 국내 대회 (0개 묶음은 뺀다) */
+export const distancePages = DISTANCES.map((d) => ({
+  ...d,
+  path: distancePath(d.bucket),
+  races: upcoming.filter((r) => isKr(r) && (r.distances ?? []).some((x) => distanceBucket(x) === d.bucket)),
+})).filter((d) => d.races.length > 0);
+
+// ── 이번 주말 (/weekend/): 한국 시간 이번 주 토·일. 오늘이 토·일이면 오늘~일요일 ──
+const addDays = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+const weekendRange = (day) => {
+  const wd = new Date(day + 'T00:00:00Z').getUTCDay(); // 0 일 … 6 토
+  if (wd === 0) return { from: day, to: day };
+  if (wd === 6) return { from: day, to: addDays(day, 1) };
+  return { from: addDays(day, 6 - wd), to: addDays(day, 7 - wd) };
+};
+const wk = weekendRange(today);
+export const weekend = {
+  ...wk,
+  path: '/weekend/',
+  // 국내 먼저, 그 안은 날짜·이름순 (races 가 이미 날짜·이름순)
+  races: [...races.filter((r) => r.race_date >= wk.from && r.race_date <= wk.to)].sort((a, b) => Number(isKr(b)) - Number(isKr(a))),
+};
+
 /** 검색어 랜딩 페이지 (scripts/seo-pages.mjs 가 만든다). 링크 글자는 name */
 export const LANDINGS = [
   ...years.map((y) => ({ path: yearPath(y), name: `${y} 마라톤 일정` })),
@@ -65,14 +142,16 @@ export const LANDINGS = [
   { path: '/abroad/', name: '해외 마라톤 일정' },
   { path: '/trail/', name: '트레일러닝 대회 일정' },
   { path: '/entry-open/', name: '지금 접수 중인 대회' },
+  ...(weekend.races.length ? [{ path: weekend.path, name: '이번 주말 마라톤' }] : []),
 ];
-const isKr = (r) => r.country_code === 'KR';
+const entryOpenRaces = upcoming.filter((r) => isEntryOpen(r));
 export const landingPages = [
   ...years.map((y) => ({ path: yearPath(y), races: races.filter((r) => r.race_date.startsWith(y)) })),
   { path: '/kr/', races: upcoming.filter(isKr) },
   { path: '/abroad/', races: upcoming.filter((r) => !isKr(r)) },
   { path: '/trail/', races: upcoming.filter((r) => r.discipline === 'trail') },
-  { path: '/entry-open/', races: upcoming.filter((r) => isEntryOpen(r)), lastmod: today },
+  // 0개면 noindex 페이지라 sitemap 에서 뺀다
+  ...(entryOpenRaces.length ? [{ path: '/entry-open/', races: entryOpenRaces, lastmod: today }] : []),
 ];
 
 /** 정적 목록 페이지 전부 (sitemap 용) */
@@ -80,6 +159,10 @@ export const listPages = [
   ...months.map((ym) => ({ path: monthPath(ym), races: races.filter((r) => r.race_date.startsWith(ym)) })),
   ...countries.map((c) => ({ path: countryPath(c.code), races: c.races })),
   ...landingPages,
+  ...regionPages.map((p) => ({ path: p.path, races: p.races })),
+  ...distancePages.map((d) => ({ path: d.path, races: d.races })),
+  // 0개면 noindex 페이지라 sitemap 에서 뺀다
+  ...(weekend.races.length ? [{ path: weekend.path, races: weekend.races, lastmod: today }] : []),
 ];
 
 export const RSS_PATH = '/rss.xml';
@@ -122,6 +205,7 @@ export const LANDINGS_EN = [
   { path: '/en/abroad/', name: 'Marathons Outside Korea' },
   { path: '/en/trail/', name: 'Trail Races' },
   { path: '/en/entry-open/', name: 'Races Open for Registration' },
+  ...(weekend.races.length ? [{ path: enPath(weekend.path), name: 'Marathons This Weekend' }] : []),
 ];
 /** 영어 정적 목록 페이지 전부 (sitemap 용) — 한국어 listPages 와 짝 */
 export const listPagesEn = listPages.map((p) => ({ ...p, path: enPath(p.path) }));

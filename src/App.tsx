@@ -41,6 +41,7 @@ import { DISCIPLINE_TEXT, ENTRY_TEXT, fmtCount, fmtMonth } from './i18n/format';
 import { countryName, raceName, whereText } from './i18n/names';
 import { PRIVACY_PATH, TERMS_PATH } from './lib/policy';
 import { LEGAL } from './legal/strings';
+import { SEO_LINKS, SEO_LINKS_LABEL } from './lib/seoLinks';
 import { COMMUNITY_NAV, COMMUNITY_PATH, isCommunityPath, stripCommunityQuery } from './community/route';
 
 // 상세·요청·관리 패널은 열 때만 필요하므로 첫 화면 번들에서 뺀다 (목록이 뜬 뒤 미리 받아 둔다 —
@@ -1130,6 +1131,13 @@ function Main() {
               </a>
             </p>
             <p className="mt-2 max-w-[70ch]">{t('footer.notice')}</p>
+            <nav aria-label={SEO_LINKS_LABEL[lang]} className="mt-2 flex flex-wrap gap-x-6">
+              {SEO_LINKS.map((l) => (
+                <a key={l.path} href={langPath(l.path, lang)} className="inline-flex min-h-11 items-center underline underline-offset-2 hover:no-underline sm:min-h-9">
+                  {l[lang]}
+                </a>
+              ))}
+            </nav>
             <p className="mt-2 flex flex-wrap gap-x-6">
               <a
                 href={langPath(PRIVACY_PATH, lang)}
