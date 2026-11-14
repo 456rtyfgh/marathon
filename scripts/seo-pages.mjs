@@ -12,7 +12,10 @@ import {
   upcoming, whereOf, yearPath, years,
   LANDINGS_EN, SITE_NAME_EN, countryNameEn, distEn, enPath, entryEn, fmtEn, inCountryEn, monthLabelEn, raceNameEn, whereEn, yearsEn,
   STATUS_EN, STATUS_LABEL, distancePages, entryStatusOf, regionPages, weekend, ENTRY_EN,
+  INFO_PATHS, MIN_MONTH_REGION, monthRegionPages, provinceOf, PROVINCES, regionPath,
 } from './seo-lib.mjs';
+import { distanceBucket } from '../src/lib/distanceFilter.ts';
+import { cityName, provinceName } from '../src/i18n/names.ts';
 import { isEntryConfirmed } from '../src/lib/util.ts';
 import { KO_WEEKDAY } from '../src/lib/dateFormat.ts';
 import { noticeHtml } from '../src/lib/notice.ts';
@@ -111,7 +114,7 @@ ${ldJson(itemList)}
 <p class="lead">${esc(lead)}</p>
 ${body}
 </main>
-<footer><a href="/">마라톤 캘린더</a> — 국내·해외 마라톤·트레일러닝 대회 일정과 접수 기간. 날짜·접수 기간은 바뀔 수 있으니 공식 홈페이지에서 한 번 더 확인하세요.<br>문의 <a href="mailto:marathon82@kakao.com">marathon82@kakao.com</a>${noticeHtml('ko')}</footer>
+<footer><nav class="links" aria-label="사이트 안내"><a href="${INFO_PATHS.about}">마라톤 캘린더 소개</a><a href="${INFO_PATHS.faq}">자주 묻는 질문</a></nav><a href="/">마라톤 캘린더</a> — 국내·해외 마라톤·트레일러닝 대회 일정과 접수 기간. 날짜·접수 기간은 바뀔 수 있으니 공식 홈페이지에서 한 번 더 확인하세요.<br>문의 <a href="mailto:marathon82@kakao.com">marathon82@kakao.com</a>${noticeHtml('ko')}</footer>
 </body>
 </html>
 `;
@@ -138,6 +141,43 @@ const placeNav = (current) =>
     .join('')}</nav>`;
 const names = (rs, n = 3) => rs.filter((r) => !isCancelled(r)).slice(0, n).map((r) => r.name_ko).join(', ');
 
+// ── 월×시·도 링크 (seo-lib.mjs 의 monthRegionPages: 3개 이상인 조합만. 그 페이지가 있는 곳으로만 링크한다) ──
+const mrOfMonth = (ym) => monthRegionPages.filter((p) => p.ym === ym);
+const mrOfRegion = (id) => monthRegionPages.filter((p) => p.id === id);
+const monthRegionNav = (ym) => {
+  const l = mrOfMonth(ym);
+  return l.length
+    ? `<h2>${monthLabel(ym)} 시·도별 마라톤</h2><nav class="links" aria-label="이 달 시·도별">${l.map((p) => `<a href="${p.path}">${esc(p.name)} (${p.races.length})</a>`).join('')}</nav>`
+    : '';
+};
+const regionMonthNav = (id, name) => {
+  const l = mrOfRegion(id);
+  return l.length
+    ? `<h2>${esc(name)} 월별 마라톤</h2><nav class="links" aria-label="${esc(name)} 월별">${l.map((p) => `<a href="${p.path}">${monthLabel(p.ym)} (${p.races.length})</a>`).join('')}</nav>`
+    : '';
+};
+/** 개수 많은 순 상위 n개 이름 (같으면 먼저 나온 순). 키 없는 항목은 센 데서 뺀다 */
+const topBy = (rs, keyOf, n = 3) => {
+  const m = new Map();
+  for (const r of rs) {
+    const k = keyOf(r);
+    if (k) m.set(k, (m.get(k) ?? 0) + 1);
+  }
+  // 2개 이상 있는 곳만 ('많은' 이라고 쓸 수 있는 곳)
+  return [...m.entries()].filter(([, c]) => c >= 2).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k]) => k);
+};
+/** 달별로 묶었을 때 대회가 가장 많은 달 [ym, 개수] (같으면 이른 달). 달이 2개 미만이면 null */
+const busiestMonth = (rs) => {
+  const m = new Map();
+  for (const r of rs) m.set(r.race_date.slice(0, 7), (m.get(r.race_date.slice(0, 7)) ?? 0) + 1);
+  if (m.size < 2) return null;
+  const top = [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+  return top[1] >= 2 ? top : null;
+};
+/** 거리 묶음 b 가 있는 대회 수 */
+const withBucket = (rs, b) => rs.filter((r) => (r.distances ?? []).some((x) => distanceBucket(x) === b)).length;
+const nameOfProvince = new Map(PROVINCES.map((p) => [p.id, p.name]));
+
 const out = (path, html) => {
   const dir = new URL(`../dist${path}`, import.meta.url);
   mkdirSync(dir, { recursive: true });
@@ -157,6 +197,7 @@ for (const [i, ym] of months.entries()) {
     `<nav class="links" aria-label="이전·다음 달">${prev ? `<a href="${monthPath(prev)}">← ${monthLabel(prev)}</a>` : ''}${next ? `<a href="${monthPath(next)}">${monthLabel(next)} →</a>` : ''}</nav>`,
     kr.length ? `<h2>${label} 국내 마라톤 (${kr.length}개)</h2><ul class="races">${kr.map((r) => item(r)).join('')}</ul>` : '',
     abroad.length ? `<h2>${label} 해외 마라톤 (${abroad.length}개)</h2><ul class="races">${abroad.map((r) => item(r)).join('')}</ul>` : '',
+    monthRegionNav(ym),
     monthNav(ym),
     countryNav(null),
     topicNav(null),
@@ -187,6 +228,22 @@ for (const c of countries) {
   const isKr = c.code === 'kr';
   const name = isKr ? '국내' : c.name;
   const trail = c.races.filter((r) => r.discipline === 'trail').length;
+  // 요약 문장 재료 (전부 데이터에서 센 값, 없으면 그 조각을 뺀다)
+  const first = up.find((r) => !isCancelled(r));
+  const busy = up.length >= 3 ? busiestMonth(up) : null;
+  const places = up.length >= 3 ? topBy(up, isKr ? (r) => nameOfProvince.get(provinceOf(r)) : (r) => r.city_ko?.trim()) : [];
+  const facts = [
+    first && `가장 가까운 대회는 ${fmt(first.race_date)}에 열리는 ${first.name_ko}입니다.`,
+    busy && `대회가 가장 많은 달은 ${monthLabel(busy[0])}(${busy[1]}개)입니다.`,
+    places.length >= 2 && `대회가 많은 ${isKr ? '시·도' : '도시'}는 ${places.join(', ')}입니다.`,
+  ].filter(Boolean);
+  const scopeKo = isKr ? '국내' : c.name;
+  const lead =
+    c.races.length === 1
+      ? `${scopeKo}에서 열리는 대회는 ${fmt(c.races[0].race_date)}에 열리는 ${c.races[0].name_ko} 1개입니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`
+      : up.length
+        ? `${scopeKo}에서 열리는 마라톤${trail ? '·트레일러닝' : ''} 대회는 모두 ${c.races.length}개${trail ? `(트레일러닝 ${trail}개 포함)` : ''}이고, 그중 앞으로 열리는 대회가 ${up.length}개입니다. ${facts.join(' ')} 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`
+        : `${scopeKo}에서 열린 대회 ${c.races.length}개를 모았습니다. 앞으로 열리는 대회는 아직 없습니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`;
   const body = [
     ...[...byM.entries()].map(
       ([ym, rs]) => `<h2><a href="${monthPath(ym)}">${monthLabel(ym)}</a> ${esc(name)} 마라톤 (${rs.length}개)</h2><ul class="races">${rs.map((r) => item(r, { showWhere: true })).join('')}</ul>`,
@@ -200,10 +257,15 @@ for (const c of countries) {
     countryPath(c.code),
     page({
       path: countryPath(c.code),
-      title: `${name} 마라톤 대회 일정${years ? ` ${years}` : ''} — 접수 기간 | 마라톤 캘린더`,
-      description: `${isKr ? '국내' : `${c.name}`} 마라톤${trail ? '·트레일러닝' : ''} 대회 ${c.races.length}개의 날짜, 도시, 종목, 접수 시작·마감일과 공식 홈페이지. ${names(up)} 등.`.slice(0, 160),
-      h1: `${name} 마라톤 대회 일정${years ? ` ${years}` : ''}`,
-      lead: `${isKr ? '국내' : `${c.name}에서 열리는`} 대회 ${up.length}개를 날짜순으로 모았습니다${trail ? ` (트레일러닝 ${trail}개 포함)` : ''}. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
+      // /c/kr/ 는 /kr/(다가오는 국내 대회)과 제목이 겹치지 않게 '전체 목록(지난 대회 포함)' 으로
+      title: isKr
+        ? `국내 마라톤 대회 전체 목록 — 지난 대회 포함 ${c.races.length}개 | 마라톤 캘린더`
+        : up.length
+          ? `${name} 마라톤 일정${years ? ` ${years}` : ''} — 대회 ${up.length}개 날짜·접수 | 마라톤 캘린더`
+          : `${name} 마라톤 대회 ${c.races.length}개 — 지난 일정 | 마라톤 캘린더`,
+      description: `${isKr ? '국내' : `${c.name}`} 마라톤${trail ? '·트레일러닝' : ''} 대회 ${c.races.length}개(앞으로 열리는 ${up.length}개)의 날짜, 도시, 종목, 접수 시작·마감일과 공식 홈페이지.${names(up) ? ` ${names(up)} 등.` : ''}`.slice(0, 160),
+      h1: isKr ? '국내 마라톤 대회 전체 목록 (지난 대회 포함)' : `${name} 마라톤 대회 일정${years ? ` ${years}` : ''}`,
+      lead,
       crumbs: [{ name: '마라톤 캘린더', path: '/' }, { name: `${name} 마라톤 일정`, path: countryPath(c.code) }],
       body,
       list: c.races,
@@ -314,16 +376,26 @@ for (const y of years) {
   const rs = upcoming.filter((r) => r.discipline === 'trail');
   const kr = rs.filter(isKr).length;
   const ys = yearsText(rs);
+  const ultra = withBucket(rs, 'ultra');
+  const firstTrail = rs.find((r) => !isCancelled(r));
+  // 국내 트레일러닝이 있는 시·도 (그 시·도 페이지로 — 거기에는 마라톤·러닝 대회도 함께 나온다)
+  const trailRegions = regionPages.map((p) => ({ ...p, n: p.races.filter((r) => r.discipline === 'trail').length })).filter((p) => p.n > 0);
   out(
     path,
     page({
       path,
-      title: `트레일러닝 대회 일정 ${ys} — 국내·해외 접수 | 마라톤 캘린더`,
-      description: `다가오는 트레일러닝 대회 ${rs.length}개(국내 ${kr}, 해외 ${rs.length - kr})의 날짜, 장소, 거리, 접수 시작·마감일.${etc(rs)}`.slice(0, 160),
+      title: `트레일러닝 대회 일정 ${ys} — 국내 ${kr}개·해외 ${rs.length - kr}개 접수 | 마라톤 캘린더`,
+      description: `다가오는 트레일러닝 대회 ${rs.length}개(국내 ${kr}, 해외 ${rs.length - kr}${ultra ? `, 울트라 거리 ${ultra}` : ''})의 날짜, 장소, 거리, 접수 시작·마감일.${etc(rs)}`.slice(0, 160),
       h1: '트레일러닝 대회 일정',
-      lead: `앞으로 열리는 트레일러닝 대회 국내 ${kr}개, 해외 ${rs.length - kr}개를 날짜순으로 모았습니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
+      lead: `앞으로 열리는 트레일러닝 대회는 국내 ${kr}개, 해외 ${rs.length - kr}개입니다.${ultra ? ` 42.195km보다 긴 울트라 거리가 있는 대회가 ${ultra}개 있습니다.` : ''}${firstTrail ? ` 가장 가까운 대회는 ${fmt(firstTrail.race_date)}에 열리는 ${firstTrail.name_ko}입니다.` : ''} 날짜순으로 모았고, 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
       crumbs: crumbsOf(path, '트레일러닝 대회 일정'),
-      body: [byMonthBody(rs), footNav(path)].join('\n'),
+      body: [
+        trailRegions.length
+          ? `<h2>국내 트레일러닝 대회가 있는 시·도</h2><nav class="links" aria-label="트레일러닝 시·도별">${trailRegions.map((p) => `<a href="${p.path}">${esc(p.name)} (${p.n})</a>`).join('')}</nav><p class="meta">시·도 페이지에는 마라톤·러닝 대회도 함께 나옵니다.</p>`
+          : '',
+        byMonthBody(rs),
+        footNav(path),
+      ].join('\n'),
       list: rs,
       noindex: !rs.length, // 다가오는 대회가 0개인 날(데이터가 다 지난 경우)에는 검색 결과에 넣지 않는다
     }),
@@ -431,7 +503,7 @@ ${ldJson(itemList)}
 <p class="lead">${esc(lead)}</p>
 ${body}
 </main>
-<footer><a href="/en/">${SITE_NAME_EN}</a> — Marathon and trail race dates and registration windows in Korea and worldwide. Dates and registration windows can change, so double-check on the official website.<br>Contact <a href="mailto:marathon82@kakao.com">marathon82@kakao.com</a>${noticeHtml('en')}</footer>
+<footer><nav class="links" aria-label="About this site"><a href="${enPath(INFO_PATHS.about)}">About</a><a href="${enPath(INFO_PATHS.faq)}">FAQ</a></nav><a href="/en/">${SITE_NAME_EN}</a> — Marathon and trail race dates and registration windows in Korea and worldwide. Dates and registration windows can change, so double-check on the official website.<br>Contact <a href="mailto:marathon82@kakao.com">marathon82@kakao.com</a>${noticeHtml('en')}</footer>
 </body>
 </html>
 `;
@@ -460,6 +532,18 @@ const placeNavEn = (current) =>
     .join('')}</nav>`;
 const footNavEn = (path) => [monthNavEn(null), countryNavEn(null), topicNavEn(path), placeNavEn(path)].join('\n');
 const namesEn = (rs, n = 3) => rs.filter((r) => !isCancelled(r)).slice(0, n).map(raceNameEn).join(', ');
+const monthRegionNavEn = (ym) => {
+  const l = mrOfMonth(ym);
+  return l.length
+    ? `<h2>${monthLabelEn(ym)} Marathons by Region</h2><nav class="links" aria-label="Regions this month">${l.map((p) => `<a href="${enPath(p.path)}">${esc(p.nameEn)} (${num(p.races.length)})</a>`).join('')}</nav>`
+    : '';
+};
+const regionMonthNavEn = (id, nameEn) => {
+  const l = mrOfRegion(id);
+  return l.length
+    ? `<h2>${esc(nameEn)} Marathons by Month</h2><nav class="links" aria-label="${esc(nameEn)} by month">${l.map((p) => `<a href="${enPath(p.path)}">${monthLabelEn(p.ym)} (${num(p.races.length)})</a>`).join('')}</nav>`
+    : '';
+};
 /** 설명 끝 'Including A, B, C.' — 이름이 없으면 뺀다 */
 const etcEn = (rs) => (namesEn(rs) ? ` Including ${namesEn(rs)}.` : '');
 const crumbsEn = (path, name) => [{ name: SITE_NAME_EN, path: '/en/' }, { name, path }];
@@ -497,6 +581,7 @@ for (const [i, ym] of months.entries()) {
     `<nav class="links" aria-label="Previous and next month">${prev ? `<a href="${enPath(monthPath(prev))}">← ${monthLabelEn(prev)}</a>` : ''}${next ? `<a href="${enPath(monthPath(next))}">${monthLabelEn(next)} →</a>` : ''}</nav>`,
     kr.length ? `<h2>${label} Races in Korea (${num(kr.length)})</h2><ul class="races">${kr.map(itemEn).join('')}</ul>` : '',
     abroad.length ? `<h2>${label} Races Abroad (${num(abroad.length)})</h2><ul class="races">${abroad.map(itemEn).join('')}</ul>` : '',
+    monthRegionNavEn(ym),
     monthNavEn(ym),
     countryNavEn(null),
     topicNavEn(null),
@@ -528,6 +613,21 @@ for (const c of countries) {
   const inName = inCountryEn(name);
   const trail = c.races.filter((r) => r.discipline === 'trail').length;
   const koPath = countryPath(c.code);
+  const isKrC = c.code === 'kr';
+  const first = up.find((r) => !isCancelled(r));
+  const busy = up.length >= 3 ? busiestMonth(up) : null;
+  const places = up.length >= 3 ? topBy(up, isKrC ? (r) => provinceName(provinceOf(r) ?? '', 'en') : (r) => cityName({ country_code: r.country_code ?? '', city_ko: r.city_ko }, 'en')) : [];
+  const facts = [
+    first && `The next race is ${raceNameEn(first)} (${fmtEn(first.race_date)}).`,
+    busy && `The busiest month is ${monthLabelEn(busy[0])} (${num(busy[1])} races).`,
+    places.length >= 2 && `Most races are in ${places.length === 2 ? places.join(' and ') : `${places.slice(0, -1).join(', ')} and ${places.at(-1)}`}.`,
+  ].filter(Boolean);
+  const leadEn =
+    c.races.length === 1
+      ? `The only race we list in ${inName} is ${raceNameEn(c.races[0])} (${fmtEn(c.races[0].race_date)}). Select it to see its entry type, fee and official website.`
+      : up.length
+        ? `We list ${num(c.races.length)} ${trail ? 'marathon and trail' : 'marathon'} races in ${inName}${trail ? ` (${num(trail)} of them trail races)` : ''}, and ${num(up.length)} of them are still to come. ${facts.join(' ')} Select a race to see its entry type, fee and official website.`
+        : `We list ${num(c.races.length)} races held in ${inName}; none are upcoming right now. Select a race to see its entry type, fee and official website.`;
   const body = [
     ...[...byM.entries()].map(
       ([ym, rs]) => `<h2><a href="${enPath(monthPath(ym))}">${monthLabelEn(ym)}</a> — ${esc(name)} (${num(rs.length)})</h2><ul class="races">${rs.map(itemEn).join('')}</ul>`,
@@ -541,10 +641,15 @@ for (const c of countries) {
     enPath(koPath),
     pageEn({
       koPath,
-      title: `Marathons in ${inName}${ys ? ` ${ys}` : ''} — Race Dates & Registration | ${SITE_NAME_EN}`,
-      description: `Dates, cities, distances, registration open and close dates, and official websites for ${num(c.races.length)} marathon${trail ? ' and trail' : ''} races in ${inName}.${etcEn(up)}`.slice(0, 160),
-      h1: `Marathons in ${inName}${ys ? ` ${ys}` : ''}`,
-      lead: `${num(up.length)} upcoming races in ${inName}, sorted by date${trail ? ` (including ${num(trail)} trail races)` : ''}. Select a race to see its entry type, fee and official website.`,
+      // /en/c/kr/ 는 /en/kr/(다가오는 국내 대회)과 제목이 겹치지 않게 '전체 목록(지난 대회 포함)' 으로
+      title: isKrC
+        ? `All Marathons in South Korea, Including Past Races (${num(c.races.length)}) | ${SITE_NAME_EN}`
+        : up.length
+          ? `Marathons in ${inName}${ys ? ` ${ys}` : ''} — ${num(up.length)} Upcoming ${up.length === 1 ? 'Race' : 'Races'}, Dates & Registration | ${SITE_NAME_EN}`
+          : `Marathons in ${inName} — ${num(c.races.length)} Past Races | ${SITE_NAME_EN}`,
+      description: `Dates, cities, distances, registration open and close dates, and official websites for ${num(c.races.length)} ${trail ? 'marathon and trail' : 'marathon'} ${c.races.length === 1 ? 'race' : 'races'} in ${inName} (${num(up.length)} upcoming).${etcEn(up)}`.slice(0, 160),
+      h1: isKrC ? 'All Marathons in South Korea (Including Past Races)' : `Marathons in ${inName}${ys ? ` ${ys}` : ''}`,
+      lead: leadEn,
       crumbs: crumbsEn(enPath(koPath), `Marathons in ${inName}`),
       body,
       list: c.races,
@@ -629,16 +734,25 @@ for (const y of years) {
   const rs = upcoming.filter((r) => r.discipline === 'trail');
   const kr = rs.filter(isKr).length;
   const ys = yearsEn([...new Set(rs.map((r) => r.race_date.slice(0, 4)))]);
+  const ultra = withBucket(rs, 'ultra');
+  const firstTrail = rs.find((r) => !isCancelled(r));
+  const trailRegions = regionPages.map((p) => ({ ...p, n: p.races.filter((r) => r.discipline === 'trail').length })).filter((p) => p.n > 0);
   out(
     enPath(koPath),
     pageEn({
       koPath,
-      title: `Trail Races ${ys} — Korea and Worldwide Registration | ${SITE_NAME_EN}`,
-      description: `Dates, locations, distances and registration open and close dates for ${num(rs.length)} upcoming trail races (${num(kr)} in Korea, ${num(rs.length - kr)} abroad).${etcEn(rs)}`.slice(0, 160),
+      title: `Trail Races ${ys} — ${num(kr)} in Korea, ${num(rs.length - kr)} Abroad, Registration | ${SITE_NAME_EN}`,
+      description: `Dates, locations, distances and registration open and close dates for ${num(rs.length)} upcoming trail races (${num(kr)} in Korea, ${num(rs.length - kr)} abroad${ultra ? `, ${num(ultra)} ultra distance` : ''}).${etcEn(rs)}`.slice(0, 160),
       h1: 'Trail Races',
-      lead: `${num(kr)} upcoming trail races in Korea and ${num(rs.length - kr)} abroad, sorted by date. Select a race to see its entry type, fee and official website.`,
+      lead: `There are ${num(kr)} upcoming trail races in Korea and ${num(rs.length - kr)} abroad.${ultra ? ` ${num(ultra)} of them have a course longer than 42.195 km (ultra distance).` : ''}${firstTrail ? ` The next one is ${raceNameEn(firstTrail)} (${fmtEn(firstTrail.race_date)}).` : ''} They are sorted by date; select a race to see its entry type, fee and official website.`,
       crumbs: crumbsEn(enPath(koPath), 'Trail Races'),
-      body: [byMonthBodyEn(rs), footNavEn(enPath(koPath))].join('\n'),
+      body: [
+        trailRegions.length
+          ? `<h2>Regions in Korea with Trail Races</h2><nav class="links" aria-label="Trail races by region">${trailRegions.map((p) => `<a href="${enPath(p.path)}">${esc(p.nameEn)} (${num(p.n)})</a>`).join('')}</nav><p class="meta">Region pages also list road marathons and other running races.</p>`
+          : '',
+        byMonthBodyEn(rs),
+        footNavEn(enPath(koPath)),
+      ].join('\n'),
       list: rs,
       noindex: !rs.length, // 다가오는 대회가 0개인 날(데이터가 다 지난 경우)에는 검색 결과에 넣지 않는다
     }),
@@ -697,7 +811,7 @@ for (const p of regionPages) {
       h1: `${p.name} 마라톤 대회 일정`,
       lead: `앞으로 열리는 ${p.name} 지역 대회 ${rs.length}개(접수 중 ${open}개)를 날짜순으로 모았습니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
       crumbs: [{ name: '마라톤 캘린더', path: '/' }, KR_CRUMB, { name: `${p.name} 마라톤 일정`, path: p.path }],
-      body: [byMonthBody(rs, { split: false, status: true }), footNav(p.path)].join('\n'),
+      body: [regionMonthNav(p.id, p.name), byMonthBody(rs, { split: false, status: true }), footNav(p.path)].join('\n'),
       list: rs,
     }),
   );
@@ -712,18 +826,22 @@ for (const p of regionPages) {
       h1: `Marathons in ${p.nameEn}, South Korea`,
       lead: `${num(rs.length)} upcoming races in ${p.nameEn} (${num(open)} open for registration), sorted by date. Select a race to see its entry type, fee and official website.`,
       crumbs: [{ name: SITE_NAME_EN, path: '/en/' }, KR_CRUMB_EN, { name: `Marathons in ${p.nameEn}`, path: en }],
-      body: [byMonthBodyEn(rs, { split: false, status: true }), footNavEn(en)].join('\n'),
+      body: [regionMonthNavEn(p.id, p.nameEn), byMonthBodyEn(rs, { split: false, status: true }), footNavEn(en)].join('\n'),
       list: rs,
     }),
   );
 }
 
 // 거리별 (국내 다가오는 대회)
+const COURSE_EN = { '5k': '5K', '10k': '10K', half: 'half marathon', full: 'full marathon' };
+const INTRO_5K_EN = ' A 5K is a short distance for people entering their first race.';
 for (const d of distancePages) {
   const rs = d.races;
   const ys = yearsText(rs);
   const open = rs.filter((r) => entryStatusOf(r) === 'open').length;
-  const label = d.bucket === 'full' ? '풀코스 마라톤' : d.bucket === 'half' ? '하프 마라톤' : '10km 마라톤';
+  const label = d.bucket === 'full' ? '풀코스 마라톤' : d.bucket === 'half' ? '하프 마라톤' : d.bucket === '5k' ? '5km 달리기' : '10km 마라톤';
+  // 5km: 순위·추천 표현 없이 짧은 거리라는 사실만
+  const intro5k = d.bucket === '5k' ? ' 5km는 처음 대회에 나가는 사람이 고를 수 있는 짧은 거리입니다.' : '';
   out(
     d.path,
     page({
@@ -731,7 +849,7 @@ for (const d of distancePages) {
       title: `${ys} 국내 ${label} 대회 일정 — 마라톤 캘린더`,
       description: `${d.name} 종목이 있는 다가오는 국내 대회 ${rs.length}개(접수 중 ${open}개)의 날짜, 장소, 접수 상태와 접수 시작·마감일.${etc(rs)}`.slice(0, 160),
       h1: `국내 ${label} 대회 일정`,
-      lead: `${d.name} 종목이 있는 국내 대회 ${rs.length}개(접수 중 ${open}개)를 날짜순으로 모았습니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
+      lead: `${d.name} 종목이 있는 국내 대회 ${rs.length}개(접수 중 ${open}개)를 날짜순으로 모았습니다.${intro5k} 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
       crumbs: [{ name: '마라톤 캘린더', path: '/' }, KR_CRUMB, { name: `${label} 일정`, path: d.path }],
       body: [`<p><a href="/abroad/">해외 대회는 해외 마라톤 일정에서 보기</a></p>`, byMonthBody(rs, { split: false, status: true }), footNav(d.path)].join('\n'),
       list: rs,
@@ -744,9 +862,9 @@ for (const d of distancePages) {
     pageEn({
       koPath,
       title: `${d.nameEn} in South Korea ${ysEnOf(rs)} — Race Dates & Registration | ${SITE_NAME_EN}`,
-      description: `Dates, locations, registration status and open and close dates for ${num(rs.length)} upcoming races in South Korea with a ${d.bucket === '10k' ? '10K' : d.bucket === 'half' ? 'half marathon' : 'full marathon'} course (${num(open)} open now).${etcEn(rs)}`.slice(0, 160),
+      description: `Dates, locations, registration status and open and close dates for ${num(rs.length)} upcoming races in South Korea with a ${COURSE_EN[d.bucket]} course (${num(open)} open now).${etcEn(rs)}`.slice(0, 160),
       h1: `${d.nameEn} in South Korea`,
-      lead: `${num(rs.length)} upcoming races in South Korea with a ${d.bucket === '10k' ? '10K' : d.bucket === 'half' ? 'half marathon' : 'full marathon'} course (${num(open)} open for registration), sorted by date. ${SELECT}`,
+      lead: `${num(rs.length)} upcoming races in South Korea with a ${COURSE_EN[d.bucket]} course (${num(open)} open for registration), sorted by date.${d.bucket === '5k' ? INTRO_5K_EN : ''} ${SELECT}`,
       crumbs: [{ name: SITE_NAME_EN, path: '/en/' }, KR_CRUMB_EN, { name: `${d.nameEn} in South Korea`, path: en }],
       body: [`<p><a href="/en/abroad/">Races outside Korea are in Marathons Outside Korea</a></p>`, byMonthBodyEn(rs, { split: false, status: true }), footNavEn(en)].join('\n'),
       list: rs,
@@ -818,6 +936,90 @@ for (const d of distancePages) {
   );
 }
 
+// ── 월별 + 시·도 (/m/<ym>/<id>/): 국내 다가오는 대회가 3개 이상인 조합만 (seo-lib.mjs 의 monthRegionPages) ──
+const shortDateEn = (iso) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(iso + 'T00:00:00Z'));
+for (const p of monthRegionPages) {
+  const rs = p.races;
+  const n = rs.length;
+  const open = rs.filter((r) => entryStatusOf(r) === 'open').length;
+  const first = rs[0].race_date;
+  const last = rs.at(-1).race_date;
+  const full = withBucket(rs, 'full');
+  const half = withBucket(rs, 'half');
+  const k10 = withBucket(rs, '10k');
+  const k5 = withBucket(rs, '5k');
+  const label = monthLabel(p.ym);
+  const sameRegion = mrOfRegion(p.id).filter((x) => x.ym !== p.ym);
+  const sameMonth = mrOfMonth(p.ym).filter((x) => x.id !== p.id);
+  const idx = mrOfRegion(p.id).findIndex((x) => x.ym === p.ym);
+  const prev = mrOfRegion(p.id)[idx - 1];
+  const next = mrOfRegion(p.id)[idx + 1];
+  const mix = [full && `풀코스 ${full}개`, half && `하프 ${half}개`, k10 && `10km ${k10}개`, k5 && `5km ${k5}개`].filter(Boolean).join(', ');
+  const day = (iso) => `${Number(iso.slice(8, 10))}일`;
+  const when = first === last ? `${day(first)}에` : `${day(first)}부터 ${day(last)}까지`;
+  out(
+    p.path,
+    page({
+      path: p.path,
+      title: `${label} ${p.name} 마라톤 대회 일정 — ${n}개 접수 | 마라톤 캘린더`,
+      description: `${label} ${p.name} 지역에서 열리는 마라톤·러닝 대회 ${n}개(접수 중 ${open}개)의 날짜, 장소, 종목, 접수 기간.${etc(rs)}`.slice(0, 160),
+      h1: `${label} ${p.name} 마라톤 대회 일정`,
+      lead: `${label} ${p.name}에서는 ${when} 대회 ${n}개가 열리고 접수 중인 대회는 ${open}개입니다.${mix ? ` 종목별로는 ${mix}(한 대회에 여러 종목이 있으면 각각 셉니다)입니다.` : ''} 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
+      crumbs: [{ name: '마라톤 캘린더', path: '/' }, { name: `${label} 마라톤 일정`, path: monthPath(p.ym) }, { name: `${label} ${p.name} 마라톤`, path: p.path }],
+      body: [
+        prev || next
+          ? `<nav class="links" aria-label="이전·다음 달">${prev ? `<a href="${prev.path}">← ${monthLabel(prev.ym)}</a>` : ''}${next ? `<a href="${next.path}">${monthLabel(next.ym)} →</a>` : ''}</nav>`
+          : '',
+        `<h2>${label} ${esc(p.name)} 마라톤 (${n}개)</h2><ul class="races">${rs.map((r) => item(r, { status: true })).join('')}</ul>`,
+        `<h2>관련 일정</h2><nav class="links" aria-label="관련 일정"><a href="${monthPath(p.ym)}">${label} 전체 마라톤</a><a href="${regionPath(p.id)}">${esc(p.name)} 마라톤 일정</a></nav>`,
+        sameMonth.length
+          ? `<h2>${label} 다른 시·도</h2><nav class="links" aria-label="이 달 다른 시·도">${sameMonth.map((x) => `<a href="${x.path}">${esc(x.name)} (${x.races.length})</a>`).join('')}</nav>`
+          : '',
+        sameRegion.length
+          ? `<h2>${esc(p.name)} 다른 달</h2><nav class="links" aria-label="${esc(p.name)} 다른 달">${sameRegion.map((x) => `<a href="${x.path}">${monthLabel(x.ym)} (${x.races.length})</a>`).join('')}</nav>`
+          : '',
+        monthNav(p.ym),
+        topicNav(p.path),
+        placeNav(p.path),
+      ].join('\n'),
+      list: rs,
+    }),
+  );
+  const koPath = p.path;
+  const en = enPath(koPath);
+  const labelEn = monthLabelEn(p.ym);
+  const mixEn = [full && `${num(full)} full marathon`, half && `${num(half)} half marathon`, k10 && `${num(k10)} with a 10K`, k5 && `${num(k5)} with a 5K`].filter(Boolean).join(', ');
+  const whenEn = first === last ? `on ${shortDateEn(first)}` : `from ${shortDateEn(first)} to ${Number(last.slice(8, 10))}`;
+  out(
+    en,
+    pageEn({
+      koPath,
+      title: `${labelEn} Marathons in ${p.nameEn}, South Korea — ${num(n)} Races, Dates & Registration | ${SITE_NAME_EN}`,
+      description: `Dates, locations, distances and registration windows for ${num(n)} races in ${p.nameEn}, South Korea in ${labelEn} (${num(open)} open now).${etcEn(rs)}`.slice(0, 160),
+      h1: `${labelEn} Marathons in ${p.nameEn}, South Korea`,
+      lead: `${num(n)} races take place in ${p.nameEn} ${whenEn} in ${labelEn}, and ${num(open)} ${open === 1 ? 'is' : 'are'} open for registration.${mixEn ? ` By distance: ${mixEn} (a race with several distances counts in each).` : ''} ${SELECT}`,
+      crumbs: [{ name: SITE_NAME_EN, path: '/en/' }, { name: `${labelEn} Marathons`, path: enPath(monthPath(p.ym)) }, { name: `${labelEn} Marathons in ${p.nameEn}`, path: en }],
+      body: [
+        prev || next
+          ? `<nav class="links" aria-label="Previous and next month">${prev ? `<a href="${enPath(prev.path)}">← ${monthLabelEn(prev.ym)}</a>` : ''}${next ? `<a href="${enPath(next.path)}">${monthLabelEn(next.ym)} →</a>` : ''}</nav>`
+          : '',
+        `<h2>${labelEn} Races in ${esc(p.nameEn)} (${num(n)})</h2><ul class="races">${rs.map((r) => itemEn(r, { status: true })).join('')}</ul>`,
+        `<h2>Related</h2><nav class="links" aria-label="Related"><a href="${enPath(monthPath(p.ym))}">All ${labelEn} marathons</a><a href="${enPath(regionPath(p.id))}">Marathons in ${esc(p.nameEn)}</a></nav>`,
+        sameMonth.length
+          ? `<h2>Other Regions in ${labelEn}</h2><nav class="links" aria-label="Other regions this month">${sameMonth.map((x) => `<a href="${enPath(x.path)}">${esc(x.nameEn)} (${num(x.races.length)})</a>`).join('')}</nav>`
+          : '',
+        sameRegion.length
+          ? `<h2>Other Months in ${esc(p.nameEn)}</h2><nav class="links" aria-label="Other months in ${esc(p.nameEn)}">${sameRegion.map((x) => `<a href="${enPath(x.path)}">${monthLabelEn(x.ym)} (${num(x.races.length)})</a>`).join('')}</nav>`
+          : '',
+        monthNavEn(p.ym),
+        topicNavEn(en),
+        placeNavEn(en),
+      ].join('\n'),
+      list: rs,
+    }),
+  );
+}
+
 // /open/ → /entry-open/ 넘김 (같은 내용이라 중복 페이지를 만들지 않는다. canonical 이 가리키는 쪽만 색인되게 noindex 는 넣지 않는다)
 const forward = ({ lang, target, title, text }) => `<!doctype html>
 <html lang="${lang}">
@@ -840,3 +1042,4 @@ out(enPath('/open/'), forward({ lang: 'en', target: enPath('/entry-open/'), titl
 
 console.log(`seo-pages: 월별 ${months.length}개, 나라별 ${countries.length}개, 검색어 랜딩 ${LANDINGS.length}개 목록 페이지 (한국어·영어 각각)`);
 console.log(`seo-pages: 시·도별 ${regionPages.length}개, 거리별 ${distancePages.length}개, 이번 주말 1개(${weekend.from}~${weekend.to}, 대회 ${weekend.races.length}개${weekend.races.length ? '' : ' → noindex'}), /open/ 넘김 1개 (한국어·영어 각각)`);
+console.log(`seo-pages: 월별+시·도 ${monthRegionPages.length}개 (한국어·영어 각각, 대회 ${MIN_MONTH_REGION}개 이상 조합만)`);

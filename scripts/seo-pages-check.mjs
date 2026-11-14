@@ -8,11 +8,14 @@
  *   빈 페이지(대회 0개)는 noindex(시·도·거리는 파일 자체가 없음) · 한·영 목록 수·순서 같음 · 목록 수 = 데이터.
  * 그 밖: sitemap 에 새 주소가 있고 noindex·/open/ 은 없음, lastmod 형식, /open/ 넘김, dist/d/ 아래 html 없음, 기존 랜딩 canonical·title,
  * seo-lib 에 옮겨 적은 시·도 id = src/lib/places.ts.
+ * 파트 A(g-geo): 월×시·도(/m/<ym>/<id>/)·5km 도 같은 검사를 받는다 + 3개 이상 조합만 있는지(데이터에서 다시 셈)·월/시·도 페이지의 링크·
+ * 나라 페이지 요약 숫자(/c/*)·트레일 요약·description 160자(전체 목록 페이지)·푸터 about/faq 링크(소개 페이지가 아직 없으면 경고만).
  * 날짜는 seo-lib 의 today 를 따른다(SEO_TODAY 로 시뮬레이션하려면 seo-pages.mjs·sitemap.mjs·이 검사에 같은 값을 줄 것).
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import {
   ORIGIN, PROVINCES, STATUS_EN, STATUS_LABEL, distancePages, enPath, entryStatusOf, fmt, fmtEn, isCancelled, listPages, listPagesEn, regionPages, snap, upcoming, weekend,
+  INFO_PATHS, MIN_MONTH_REGION, countries, monthRegionPages, months as allMonths, provinceOf,
 } from './seo-lib.mjs';
 import { isEntryConfirmed } from '../src/lib/util.ts';
 
@@ -37,8 +40,15 @@ const idOfLi = (li) => unesc(li.match(/href="(?:\/en)?\/r\/([^"]+)"/)?.[1] ?? ''
 /** 폴더 주소('/kr/')는 dist/<path>/index.html, 그 밖('/favicon.svg')은 dist 파일 */
 const pageUrlOk = (p) => (p.endsWith('/') ? !!read(p) : existsSync(new URL(`.${p}`, DIST)) || existsSync(new URL(`.${p}.html`, DIST))); // /terms → terms.html
 /** 내부 링크 대상 존재: /r/<id>·/en/r/<id> 는 data.json id (preview 가 상세를 못 내줘서), 나머지는 dist */
+const infoWarn = new Set();
+const INFO_ALL = Object.values(INFO_PATHS).flatMap((p) => [p, enPath(p)]);
 const targetExists = (href) => {
   const p = decodeURIComponent(href.split(/[?#]/)[0]);
+  // 소개·FAQ 페이지는 파트 B 가 만든다 — 아직 없으면 경고만 (최종은 geo-check.mjs 가 엄격하게 본다)
+  if (INFO_ALL.includes(p) && !pageUrlOk(p)) {
+    infoWarn.add(p);
+    return true;
+  }
   const m = p.match(/^(?:\/en)?\/r\/(.+)$/);
   return m ? raceById.has(m[1]) : pageUrlOk(p);
 };
@@ -49,7 +59,7 @@ if (!existsSync(DIST)) {
 }
 
 // 1. 새 페이지 (한·영): 시·도·거리·이번 주말 + 접수 중
-const newPaths = [...regionPages.map((p) => p.path), ...distancePages.map((d) => d.path), weekend.path];
+const newPaths = [...regionPages.map((p) => p.path), ...distancePages.map((d) => d.path), ...monthRegionPages.map((p) => p.path), weekend.path];
 const newAll = [...newPaths, ...newPaths.map(enPath)];
 const checkPaths = [...newPaths, '/entry-open/'];
 const checkedAll = [...checkPaths, ...checkPaths.map(enPath)];
@@ -57,6 +67,7 @@ const titles = new Map();
 const descs = new Map();
 const pageIds = new Map();
 const entryOpenCount = upcoming.filter((r) => entryStatusOf(r) === 'open').length;
+const snapToday = (await import('./seo-lib.mjs')).today;
 const isLandingEmptyOk = (koPath) => koPath === weekend.path || koPath === '/entry-open/';
 
 for (const path of checkedAll) {
@@ -163,7 +174,7 @@ for (const path of checkedAll) {
       ? weekend.races.length
       : koPath === '/entry-open/'
         ? entryOpenCount
-        : (regionPages.find((p) => p.path === koPath) ?? distancePages.find((d) => d.path === koPath))?.races.length;
+        : (regionPages.find((p) => p.path === koPath) ?? distancePages.find((d) => d.path === koPath) ?? monthRegionPages.find((p) => p.path === koPath))?.races.length;
   if (want !== lis.length) fail(`${path}: 목록 ${lis.length}개 ≠ 데이터 ${want}개`);
 }
 // 한·영 목록 수·순서 같음
@@ -193,7 +204,7 @@ for (const [d, ps] of descs) if (ps.length > 1) fail(`description 겹침 "${d.sl
 const regionIds = new Set(regionPages.map((p) => p.id));
 for (const p of PROVINCES) if (!regionIds.has(p.id) && (read(`/kr/${p.id}/`) || read(`/en/kr/${p.id}/`))) fail(`/kr/${p.id}/: 대회 0개인데 페이지가 있음`);
 const buckets = new Set(distancePages.map((d) => d.bucket));
-for (const b of ['full', 'half', '10k']) if (!buckets.has(b) && (read(`/distance/${b}/`) || read(`/en/distance/${b}/`))) fail(`/distance/${b}/: 대회 0개인데 페이지가 있음`);
+for (const b of ['full', 'half', '10k', '5k']) if (!buckets.has(b) && (read(`/distance/${b}/`) || read(`/en/distance/${b}/`))) fail(`/distance/${b}/: 대회 0개인데 페이지가 있음`);
 
 // 4. sitemap
 const sm = readFileSync(new URL('sitemap.xml', DIST), 'utf8');
@@ -270,13 +281,119 @@ const srcIds = [...block.matchAll(/id: '([^']+)'/g)].map((m) => m[1]);
 const libIds = PROVINCES.map((p) => p.id);
 if (srcIds.join(',') !== libIds.join(',')) fail(`시·도 id 가 places.ts 와 다름: places.ts [${srcIds}] / seo-lib [${libIds}]`);
 
+// 9. 파트 A (g-geo): 월×시·도·나라·트레일·5km·푸터 링크
+{
+  // 9-1. 월×시·도: 데이터에서 다시 세서 3개 이상인 조합만 있어야 한다 (한·영 같은 조합)
+  const by = new Map();
+  for (const r of upcoming) {
+    if (r.country_code !== 'KR' || isCancelled(r)) continue;
+    const id = provinceOf(r);
+    if (!id) continue;
+    const k = `${r.race_date.slice(0, 7)}|${id}`;
+    by.set(k, [...(by.get(k) ?? []), r.id]);
+  }
+  const want = new Map([...by].filter(([, ids]) => ids.length >= MIN_MONTH_REGION));
+  const have = new Set(monthRegionPages.map((p) => `${p.ym}|${p.id}`));
+  for (const k of want.keys()) if (!have.has(k)) fail(`월×시·도 ${k}: 3개 이상인데 monthRegionPages 에 없음`);
+  for (const k of have) if (!want.has(k)) fail(`월×시·도 ${k}: 3개 미만인데 monthRegionPages 에 있음`);
+  // 파일: dist/m/<ym>/<id>/ 와 dist/en/m/<ym>/<id>/ 가 정확히 이 조합들
+  const onDisk = (base) => {
+    const root = new URL(`${base}m/`, DIST);
+    if (!existsSync(root)) return [];
+    return readdirSync(root)
+      .filter((ym) => /^\d{4}-\d{2}$/.test(ym))
+      .flatMap((ym) => readdirSync(new URL(`${ym}/`, root)).filter((x) => statSync(new URL(`${ym}/${x}`, root)).isDirectory()).map((id) => `${ym}|${id}`));
+  };
+  for (const [lang, base] of [['ko', ''], ['en', 'en/']]) {
+    const files = new Set(onDisk(base));
+    for (const k of have) if (!files.has(k)) fail(`월×시·도 ${lang} ${k}: 파일 없음`);
+    for (const k of files) if (!have.has(k)) fail(`월×시·도 ${lang} ${k}: 파일이 있는데 조합이 3개 미만`);
+  }
+  for (const p of monthRegionPages) {
+    const ids = want.get(`${p.ym}|${p.id}`) ?? [];
+    if (p.races.length !== ids.length || p.races.some((r) => isCancelled(r))) fail(`${p.path}: races 가 셈과 다름`);
+    for (const [path, en] of [[p.path, false], [enPath(p.path), true]]) {
+      const h = read(path) ?? '';
+      const hrefs = hrefsOf(h);
+      const must = en ? [enPath(`/m/${p.ym}/`), enPath(`/kr/${p.id}/`)] : [`/m/${p.ym}/`, `/kr/${p.id}/`];
+      for (const m of must) if (!hrefs.includes(m)) fail(`${path}: ${m} 링크 없음`);
+      if (!h.includes(en ? p.nameEn : p.name)) fail(`${path}: 시·도 이름이 없음`);
+      if (!titleOf(h)?.includes(en ? p.nameEn : p.name) || !(h.match(/<meta name="description" content="([^"]*)"/)?.[1] ?? '').includes(en ? p.nameEn : p.name)) fail(`${path}: title·description 에 시·도 이름이 없음`);
+      const ymLabel = en ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${p.ym}-01T00:00:00Z`)) : `${Number(p.ym.slice(0, 4))}년 ${Number(p.ym.slice(5, 7))}월`;
+      if (!titleOf(h)?.includes(ymLabel)) fail(`${path}: title 에 월 이름(${ymLabel})이 없음`);
+      // 취소 대회 줄 없음
+      if (h.includes('class="x"')) fail(`${path}: 취소 대회 줄이 있음`);
+    }
+    // 들어오는 링크: 월 페이지·시·도 페이지
+    for (const [from, target] of [[`/m/${p.ym}/`, p.path], [`/kr/${p.id}/`, p.path], [enPath(`/m/${p.ym}/`), enPath(p.path)], [enPath(`/kr/${p.id}/`), enPath(p.path)]]) {
+      if (!hrefsOf(read(from) ?? '').includes(target)) fail(`${from}: ${target} 링크 없음`);
+    }
+  }
+  // 월 페이지의 '시·도별' 줄 = 그 달의 조합 전부 (조합이 없는 달에는 링크가 없다)
+  const linked = (h) => hrefsOf(h).filter((x) => /^(\/en)?\/m\/\d{4}-\d{2}\/[a-z-]+\/$/.test(x));
+  for (const ym of allMonths) {
+    const expect = monthRegionPages.filter((p) => p.ym === ym).map((p) => p.path);
+    const got = linked(read(`/m/${ym}/`) ?? '').filter((x, i, a) => a.indexOf(x) === i);
+    // /m/<ym>/ 의 월 이동 링크는 /m/<다른 월>/ 한 단계라 여기 안 걸린다 — 시·도 줄만 비교
+    if (expect.join('|') !== got.filter((x) => x.startsWith(`/m/${ym}/`)).join('|')) fail(`/m/${ym}/: 시·도 링크 ${got.length}개가 조합 ${expect.length}개와 다름`);
+  }
+
+  // 9-2. 나라 페이지: 요약 숫자 = 데이터, /c/kr/ title 이 /kr/ 과 다름
+  for (const c of countries) {
+    const up = c.races.filter((r) => r.race_date >= snapToday).length;
+    const h = read(`/c/${c.code}/`) ?? '';
+    const he = read(`/en/c/${c.code}/`) ?? '';
+    const lead = unesc(h.match(/<p class="lead">([^<]*)<\/p>/)?.[1] ?? '');
+    const leadEn = unesc(he.match(/<p class="lead">([^<]*)<\/p>/)?.[1] ?? '');
+    if (!lead || !leadEn) fail(`/c/${c.code}/: lead 없음`);
+    if (c.races.length > 1) {
+      if (!lead.includes(`${c.races.length}개`)) fail(`/c/${c.code}/: lead 에 전체 대회 수 ${c.races.length} 없음`);
+      if (up && !lead.includes(`${up}개`)) fail(`/c/${c.code}/: lead 에 다가오는 대회 수 ${up} 없음`);
+      if (!leadEn.includes(c.races.length.toLocaleString('en-US'))) fail(`/en/c/${c.code}/: lead 에 전체 대회 수 없음`);
+    }
+    if (/undefined|null|NaN|\s{2,}/.test(lead + leadEn)) fail(`/c/${c.code}/: lead 에 값 오류 글자`);
+    if (/\(\s*\)|, ,|\.\./.test(lead + leadEn)) fail(`/c/${c.code}/: lead 문장부호 이상`);
+  }
+  if (titleOf(read('/c/kr/') ?? '') === titleOf(read('/kr/') ?? '')) fail('/c/kr/ title 이 /kr/ 와 같음');
+  if (titleOf(read('/en/c/kr/') ?? '') === titleOf(read('/en/kr/') ?? '')) fail('/en/c/kr/ title 이 /en/kr/ 와 같음');
+
+  // 9-3. 트레일: 요약 숫자
+  const trailUp = upcoming.filter((r) => r.discipline === 'trail');
+  const tkr = trailUp.filter((r) => r.country_code === 'KR').length;
+  if (trailUp.length) {
+    const tl = unesc(read('/trail/')?.match(/<p class="lead">([^<]*)<\/p>/)?.[1] ?? '');
+    if (!tl.includes(`국내 ${tkr}개`) || !tl.includes(`해외 ${trailUp.length - tkr}개`)) fail(`/trail/: lead 의 국내·해외 수가 데이터(${tkr}/${trailUp.length - tkr})와 다름: ${tl}`);
+    const tle = unesc(read('/en/trail/')?.match(/<p class="lead">([^<]*)<\/p>/)?.[1] ?? '');
+    if (!tle.includes(`${tkr} upcoming trail races in Korea and ${trailUp.length - tkr} abroad`)) fail(`/en/trail/: lead 의 수가 데이터와 다름: ${tle}`);
+  }
+
+  // 9-4. 전체 목록 페이지 description 160자 이하, 푸터 about/faq 링크 (새 페이지 + 보강 페이지)
+  for (const p of [...listPages, ...listPagesEn]) {
+    const h = read(p.path) ?? '';
+    const d = unesc(h.match(/<meta name="description" content="([^"]*)"/)?.[1] ?? '');
+    if (d.length > 160) fail(`${p.path}: description 160자 넘음 (${d.length})`);
+    if (!d) fail(`${p.path}: description 없음`);
+    const en = p.path.startsWith('/en/');
+    for (const info of Object.values(INFO_PATHS)) {
+      const want = en ? enPath(info) : info;
+      if (!hrefsOf(h).includes(want)) fail(`${p.path}: 푸터에 ${want} 링크 없음`);
+    }
+  }
+  // 5km: 앱 거리 필터와 같은 묶음 (id 목록)
+  const d5 = distancePages.find((d) => d.bucket === '5k');
+  if (!d5) fail('distancePages 에 5k 가 없음');
+  else if (!unesc(read('/distance/5k/')?.match(/<p class="lead">([^<]*)<\/p>/)?.[1] ?? '').includes(`${d5.races.length}개`)) fail('/distance/5k/: lead 의 대회 수가 데이터와 다름');
+}
+if (infoWarn.size) console.warn(`경고: 소개·FAQ 페이지가 아직 없음(파트 B) — ${[...infoWarn].join(' ')}`);
+
 // 결과
 const countLis = (path) => lisOf(read(path) ?? '').length;
 const noindexN = checkedAll.filter((p) => read(p) && noindexOf(read(p))).length;
 console.log(
   `seo-pages-check: 새 페이지 ${newAll.length}개 (한국어 ${newPaths.length} + 영어 ${newPaths.length}) + 접수 중 2개(/entry-open/ 한·영) 검사, /open/ 넘김 2개, noindex ${noindexN}개`,
 );
-for (const path of checkPaths) {
+console.log(`  월×시·도 ${monthRegionPages.length}개 (한국어·영어 각각, 대회 ${MIN_MONTH_REGION}개 이상 조합만 — 아래 목록에서는 줄여서 첫 3개만)`);
+for (const path of checkPaths.filter((p) => !monthRegionPages.slice(3).some((m) => m.path === p))) {
   const h = read(path) ?? '';
   console.log(`  ${path.padEnd(28)} 대회 ${String(countLis(path)).padStart(4)}개${noindexOf(h) ? ' (noindex)' : ''}  ${titleOf(h)}`);
 }

@@ -127,6 +127,7 @@ const DISTANCES = [
   { bucket: 'full', name: '풀코스', nameEn: 'Full Marathons' },
   { bucket: 'half', name: '하프', nameEn: 'Half Marathons' },
   { bucket: '10k', name: '10km', nameEn: '10K Races' },
+  { bucket: '5k', name: '5km', nameEn: '5K Races' },
 ];
 /** distanceBucket 이 그 묶음인 거리가 하나라도 있는 다가오는 국내 대회 (0개 묶음은 뺀다) */
 export const distancePages = DISTANCES.map((d) => ({
@@ -134,6 +135,33 @@ export const distancePages = DISTANCES.map((d) => ({
   path: distancePath(d.bucket),
   races: upcoming.filter((r) => isKr(r) && (r.distances ?? []).some((x) => distanceBucket(x) === d.bucket)),
 })).filter((d) => d.races.length > 0);
+
+// ── 월별 + 시·도 (/m/<ym>/<id>/): 국내 다가오는 대회(취소 제외)가 그 달·그 시·도에 3개 이상인 조합만 ──
+export const MIN_MONTH_REGION = 3;
+export const monthRegionPath = (ym, id) => `/m/${ym}/${id}/`;
+/** 정렬: 달 오름차순, 같은 달은 PROVINCES 순. races 는 센 그대로(취소 제외, 날짜·이름순) */
+export const monthRegionPages = (() => {
+  const by = new Map();
+  for (const r of upcoming) {
+    if (!isKr(r) || isCancelled(r)) continue;
+    const id = provinceOf(r);
+    if (!id) continue;
+    const k = `${r.race_date.slice(0, 7)}|${id}`;
+    by.set(k, [...(by.get(k) ?? []), r]);
+  }
+  const out = [];
+  for (const [k, rs] of by) {
+    if (rs.length < MIN_MONTH_REGION) continue;
+    const [ym, id] = k.split('|');
+    const p = PROVINCES.find((x) => x.id === id);
+    out.push({ ym, id, name: p.name, nameEn: provinceName(id, 'en'), path: monthRegionPath(ym, id), races: rs });
+  }
+  const order = (id) => PROVINCES.findIndex((x) => x.id === id);
+  return out.sort((a, b) => a.ym.localeCompare(b.ym) || order(a.id) - order(b.id));
+})();
+
+/** about·faq 페이지(scripts 파트 B 가 만든다). 영어는 enPath(...) */
+export const INFO_PATHS = { about: '/about/', faq: '/faq/' };
 
 // ── 이번 주말 (/weekend/): 한국 시간 이번 주 토·일. 오늘이 토·일이면 오늘~일요일 ──
 const addDays = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
@@ -181,6 +209,7 @@ export const listPages = [
   ...landingPages,
   ...regionPages.map((p) => ({ path: p.path, races: p.races })),
   ...distancePages.map((d) => ({ path: d.path, races: d.races })),
+  ...monthRegionPages.map((p) => ({ path: p.path, races: p.races })),
   // 0개면 noindex 페이지라 sitemap 에서 뺀다
   ...(weekend.races.length ? [{ path: weekend.path, races: weekend.races, lastmod: today }] : []),
 ];

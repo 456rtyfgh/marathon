@@ -9,6 +9,7 @@ export const SEO_LINKS: { path: string; ko: string; en: string }[] = [
   { path: '/distance/full/', ko: '풀코스', en: 'Full marathons' },
   { path: '/distance/half/', ko: '하프', en: 'Half marathons' },
   { path: '/distance/10k/', ko: '10km', en: '10K races' },
+  { path: '/distance/5k/', ko: '5km', en: '5K races' },
   { path: '/kr/', ko: '국내', en: 'Korea' },
   { path: '/abroad/', ko: '해외', en: 'Abroad' },
 ];

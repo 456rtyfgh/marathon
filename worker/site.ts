@@ -25,6 +25,7 @@ import { ogTitle, shareEntryLine } from '../src/lib/shareText.ts';
 import { gaRoute, type GaEnv } from './gaRoute';
 import { communityApi, communityPage } from './community';
 import { unsubscribeRoute } from './alerts/unsubscribe';
+import { raceSummaryEn, raceSummaryKo } from './raceSummary.ts';
 
 // 목록·전체 파일 주소 (scripts/pages.mjs 가 esbuild define 으로 넣는다 — scripts/data-split.mjs)
 declare const __LIST_PATH__: string;
@@ -84,6 +85,8 @@ interface RaceMeta {
   discipline?: string | null;
   /** confirmed | expected | tbc — 앱 화면은 confirmed 가 아니면 '일정 예상/미정' 으로 보인다 */
   entry_confidence?: string;
+  /** confirmed | expected | tbc — 한 문장 요약(worker/raceSummary.ts)이 '예상' 표기에 쓴다 */
+  date_confidence?: string;
   sold_out_on?: string | null;
 }
 
@@ -243,6 +246,7 @@ function raceHtml(r: RaceMeta, desc: string, related: string): string {
   return `<main style="max-width:48rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
 <nav aria-label="위치"><a href="/">마라톤 캘린더</a>${cpath ? ` › <a href="${cpath}">${esc(countryCrumb(r))}</a>` : ''} › <a href="/m/${r.race_date.slice(0, 7)}/">${Number(r.race_date.slice(0, 4))}년 ${Number(r.race_date.slice(5, 7))}월</a></nav>
 <h1>${esc(r.name_ko)}</h1>
+<p>${esc(raceSummaryKo(r, todayKst()))}</p>
 <p>${r.race_date.slice(0, 4)}년 일정·접수 기간</p>
 ${cancelled ? '<p><strong>대회 취소</strong> — 주최 측이 이 대회를 취소(중단)했습니다.</p>' : ''}
 ${r.name_en ? `<p>${esc(r.name_en)}</p>` : ''}
@@ -349,6 +353,7 @@ function raceHtmlEn(r: RaceMeta, desc: string, related: string): string {
   return `<main style="max-width:48rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,sans-serif">
 <nav aria-label="Breadcrumb"><a href="/en/">${SITE_NAME_EN}</a>${cpath ? ` › <a href="/en${cpath}">${esc(countryCrumbEn(r))}</a>` : ''} › <a href="/en/m/${ym}/">${fmtMonth(ym, 'en')}</a></nav>
 <h1>${esc(nameEn(r))}</h1>
+<p>${esc(raceSummaryEn(r, todayKst()))}</p>
 <p>${r.race_date.slice(0, 4)} race date &amp; registration</p>
 ${cancelled ? '<p><strong>Cancelled</strong> — The organizer has cancelled (suspended) this race.</p>' : ''}
 <p>${esc(desc)}</p>
@@ -375,7 +380,8 @@ function availability(r: RaceMeta, today: string): string | undefined {
   return undefined;
 }
 
-const ORG = { '@type': 'Organization', name: '마라톤 캘린더', url: SITE, logo: `${SITE}/brand/logo-512.png` };
+// '@id' 는 홈·소개 페이지의 Organization(scripts/info-lib.mjs ORG_ID)과 같은 문자열 — 같은 사이트 운영 주체로 이어진다
+const ORG = { '@type': 'Organization', '@id': `${SITE}/#organization`, name: '마라톤 캘린더', url: SITE, logo: `${SITE}/brand/logo-512.png` };
 const ORG_EN = { ...ORG, name: SITE_NAME_EN };
 
 function eventLd(r: RaceMeta, url: string, desc: string, lang: Lang = 'ko') {

@@ -5,6 +5,8 @@
  * 날짜 시뮬레이션은 자식 프로세스(SEO_TODAY·PROBE_NOW)로 돌린다 — seo-lib 은 날짜를 모듈을 읽을 때 한 번만 계산해서다.
  * 본다: 접수 중 판정 = 홈 목록의 entryStatus · 시·도 분류 누락·중복 · 거리 묶음 = 앱 거리 필터 · 주말 범위(요일·월말·연말·한국 자정 경계) ·
  *       대회 0개일 때 페이지 목록 · 취소 대회 · 목록 안 중복 id · 푸터·첫 화면 링크 대상 · sitemap = listPages.
+ * 파트 A(g-geo): 5k 묶음 = 앱 거리 필터 · 월×시·도(monthRegionPages)가 날짜 시뮬레이션(SEO_TODAY)에서도 월 경계에 맞음
+ *       (지난 달 없음, 현재 달은 오늘 이후 대회만, 3개 미만 조합 없음) · 앱 푸터 5km 링크 대상 · sitemap 에 새 페이지.
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -21,6 +23,7 @@ if (process.argv[2] === '--probe') {
       weekend: { from: m.weekend.from, to: m.weekend.to, n: m.weekend.races.length },
       regions: m.regionPages.map((p) => p.id),
       distances: m.distancePages.map((d) => d.bucket),
+      monthRegion: m.monthRegionPages.map((p) => `${p.ym}|${p.id}|${p.races.length}`),
       upcoming: m.upcoming.length,
       open: m.upcoming.filter((r) => m.isEntryOpen(r)).length,
       cancelledOpen,
@@ -35,7 +38,7 @@ if (process.argv[2] === '--probe') {
 }
 
 const lib = await import('./seo-lib.mjs');
-const { ORIGIN, PROVINCES, today, upcoming, races, regionPages, distancePages, weekend, listPages, listPagesEn, isEntryOpen, entryStatusOf, isCancelled, provinceOf, enPath } = lib;
+const { ORIGIN, PROVINCES, today, upcoming, races, regionPages, distancePages, weekend, listPages, listPagesEn, isEntryOpen, entryStatusOf, isCancelled, provinceOf, enPath, monthRegionPages, INFO_PATHS, MIN_MONTH_REGION } = lib;
 const { distanceBucket, matchesDistances } = await import('../src/lib/distanceFilter.ts');
 const { entryStatus } = await import('../src/lib/util.ts');
 const { SEO_LINKS } = await import('../src/lib/seoLinks.ts');
@@ -117,11 +120,11 @@ const dup = (ids) => ids.filter((id, i) => ids.indexOf(id) !== i);
     ok(`/distance/${d.bucket}/ 중복 대회`, dup(d.races.map((r) => r.id)).length === 0);
     ok(`/distance/${d.bucket}/ 에 해외·지난 대회`, d.races.every((r) => isKr(r) && r.race_date >= today));
   }
-  for (const b of ['full', 'half', '10k'])
+  for (const b of ['full', 'half', '10k', '5k'])
     ok(`/distance/${b}/ 가 없음 (국내 다가오는 대회에 ${b} 가 있는데)`, distancePages.some((d) => d.bucket === b) === krUp.some((r) => (r.distances ?? []).some((x) => distanceBucket(x) === b)));
-  const sample = { full: ['풀', 'full', '42.195km', '42K'], half: ['하프', 'half', '21K', '21.0975km'], '10k': ['10km', '10K'] };
+  const sample = { full: ['풀', 'full', '42.195km', '42K'], half: ['하프', 'half', '21K', '21.0975km'], '10k': ['10km', '10K'], '5k': ['5km', '5K', '4.5km', '5.5km'] };
   for (const [b, labels] of Object.entries(sample)) for (const l of labels) ok(`거리 '${l}' → ${b}`, distanceBucket(l) === b, `${distanceBucket(l)}`);
-  for (const [l, b] of [['5km', '5k'], ['100km', 'ultra'], ['건강달리기', null]]) ok(`거리 '${l}' 가 풀·하프·10K 묶음에 들어감`, distanceBucket(l) === b);
+  for (const [l, b] of [['6km', null], ['100km', 'ultra'], ['건강달리기', null]]) ok(`거리 '${l}' 묶음`, distanceBucket(l) === b);
   notes.push(`거리 ${distancePages.map((d) => `${d.bucket} ${d.races.length}`).join(' · ')}`);
 }
 
@@ -172,13 +175,48 @@ const table = [];
   ok('2030-01-01: distancePages 가 비어 있지 않음', p.distances.length === 0, p.distances.join());
   ok('2030-01-01: 주말 대회가 있음', p.weekend.n === 0, `${p.weekend.n}`);
   ok('2030-01-01: 접수 중 대회가 있음', p.open === 0, `${p.open}`);
-  const newish = (path) => /^\/(en\/)?(kr\/[a-z-]+\/|distance\/|weekend\/|entry-open\/)/.test(path);
+  const newish = (path) => /^\/(en\/)?(kr\/[a-z-]+\/|distance\/|weekend\/|entry-open\/|m\/\d{4}-\d{2}\/[a-z-]+\/)/.test(path);
   ok('2030-01-01: listPages 에 시·도·거리·주말·접수 중 주소가 있음', !p.listPaths.some(newish), p.listPaths.filter(newish).join());
   ok('2030-01-01: listPagesEn 에 시·도·거리·주말·접수 중 주소가 있음', !p.listPathsEn.some(newish), p.listPathsEn.filter(newish).join());
   // sitemap.mjs 는 0개 페이지가 있으면 빌드를 멈춘다 → 대회가 다 지난 날에도 빌드가 돌아야 한다(/kr/·/abroad/·/trail/ 는 noindex)
   ok('2030-01-01: listPages 에 대회 0개 페이지가 있음 (sitemap 빌드가 멈춤)', p.emptyList.length === 0, p.emptyList.join(' '));
   ok('2030-01-01: LANDINGS 에 주말·접수 중이 남음', !p.landings.some((x) => x === '/weekend/' || x === '/entry-open/') && !p.landingsEn.some((x) => x === '/en/weekend/' || x === '/en/entry-open/'));
   notes.push('2030-01-01 시뮬레이션: 시·도·거리·주말·접수 중 주소는 listPages·LANDINGS 에서 빠짐');
+}
+
+// 5-2. 월×시·도 (파트 A): 날짜를 바꿔 돌려도 월 경계·3개 기준이 맞는다 (기대값은 seo-lib 과 따로 센다)
+{
+  const expectMonthRegion = (day) => {
+    const by = new Map();
+    for (const r of races) {
+      if (!isKr(r) || r.race_date < day || isCancelled(r)) continue;
+      const id = provinceOf(r);
+      if (!id) continue;
+      const k = `${r.race_date.slice(0, 7)}|${id}`;
+      by.set(k, (by.get(k) ?? 0) + 1);
+    }
+    const order = (id) => PROVINCES.findIndex((x) => x.id === id);
+    return [...by]
+      .filter(([, n]) => n >= MIN_MONTH_REGION)
+      .map(([k, n]) => `${k}|${n}`)
+      .sort((a, b) => a.split('|')[0].localeCompare(b.split('|')[0]) || order(a.split('|')[1]) - order(b.split('|')[1]));
+  };
+  const same = (a, b) => a.join(',') === b.join(',');
+  for (const day of ['2026-11-14', '2026-11-30', '2026-12-01', '2027-03-15', '2027-12-31', '2028-01-01', '2030-01-01']) {
+    const p = probe({ SEO_TODAY: day });
+    const want = expectMonthRegion(day);
+    ok(`월×시·도 ${day}: 조합·대회 수가 달라`, same(p.monthRegion, want), `${p.monthRegion.length}개 ≠ ${want.length}개 ${p.monthRegion.filter((x) => !want.includes(x)).slice(0, 3)}`);
+    ok(`월×시·도 ${day}: 지난 달 조합이 있음`, p.monthRegion.every((x) => x.split('|')[0] >= day.slice(0, 7)));
+    ok(`월×시·도 ${day}: 3개 미만 조합이 있음`, p.monthRegion.every((x) => Number(x.split('|')[2]) >= MIN_MONTH_REGION));
+  }
+  // 이번 빌드
+  ok('monthRegionPages 가 셈과 다름', same(monthRegionPages.map((p) => `${p.ym}|${p.id}|${p.races.length}`), expectMonthRegion(today)));
+  ok('monthRegionPages 주소 중복', dup(monthRegionPages.map((p) => p.path)).length === 0);
+  for (const p of monthRegionPages) {
+    ok(`${p.path}: 대회가 그 달·그 시·도 밖`, p.races.every((r) => r.race_date.startsWith(p.ym) && isKr(r) && provinceOf(r) === p.id && r.race_date >= today && !isCancelled(r)));
+    ok(`${p.path}: listPages 에 없음`, listPages.some((x) => x.path === p.path));
+  }
+  notes.push(`월×시·도 ${monthRegionPages.length}개 (3개 이상 조합만, 날짜 시뮬레이션 7일 일치)`);
 }
 
 // 6. 목록 안 중복 대회·sitemap 대상 규칙 (이번 빌드 날짜)
@@ -199,7 +237,7 @@ const table = [];
 {
   // seo-pages.mjs 가 대회 수와 상관없이 늘 파일을 만드는 페이지 + 대회가 있어야 만드는 페이지
   const always = new Set(['/kr/', '/abroad/', '/trail/', '/entry-open/', '/weekend/', '/open/', ...lib.years.map(lib.yearPath), ...lib.months.map(lib.monthPath), ...lib.countries.map((c) => lib.countryPath(c.code))]);
-  const made = new Set([...always, ...regionPages.map((p) => p.path), ...distancePages.map((d) => d.path)]);
+  const made = new Set([...always, ...regionPages.map((p) => p.path), ...distancePages.map((d) => d.path), ...monthRegionPages.map((p) => p.path)]);
   for (const l of SEO_LINKS) {
     ok(`앱 푸터 링크 ${l.path} 가 만들어지지 않음`, made.has(l.path), '데이터에 따라 대회 0개 → 페이지 없음이면 푸터에서 빼야 함');
     ok(`앱 푸터 링크 ${l.path} 문구(ko/en)`, !!l.ko?.trim() && !!l.en?.trim());
@@ -253,11 +291,12 @@ const table = [];
     ]);
     const have = new Set(locs);
     const missing = [...want].filter((u) => !have.has(u));
-    const extra = [...have].filter((u) => !want.has(u));
+    const infoUrls = new Set(Object.values(INFO_PATHS).flatMap((x) => [`${ORIGIN}${x}`, `${ORIGIN}${enPath(x)}`])); // 파트 B 가 만든 소개·FAQ
+    const extra = [...have].filter((u) => !want.has(u) && !infoUrls.has(u));
     ok('sitemap 에 없는 주소(listPages·대회)', missing.length === 0, `${missing.length}개 ${missing.slice(0, 3).join(' ')}`);
     ok('sitemap 에 있으면 안 되는 주소', extra.length === 0, `${extra.length}개 ${extra.slice(0, 3).join(' ')}`);
     for (const u of ['/open/', '/en/open/']) ok(`sitemap 에 ${u}`, !have.has(`${ORIGIN}${u}`));
-    const fresh = [...regionPages.map((p) => p.path), ...distancePages.map((d) => d.path), ...(weekend.races.length ? [weekend.path] : [])];
+    const fresh = [...regionPages.map((p) => p.path), ...distancePages.map((d) => d.path), ...monthRegionPages.map((p) => p.path), ...(weekend.races.length ? [weekend.path] : [])];
     for (const p of fresh) {
       ok(`sitemap 에 ${p}`, have.has(`${ORIGIN}${p}`));
       ok(`sitemap 에 ${enPath(p)}`, have.has(`${ORIGIN}${enPath(p)}`));
