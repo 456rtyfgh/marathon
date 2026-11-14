@@ -106,7 +106,9 @@ const closing = races
 info(`③ 접수 중인 다가오는 대회 ${closing.length}개`);
 
 // 몫: ① 절반, ② 4분의 1, ③ 나머지. 남는 몫은 다른 종류로 채운다 (순서는 ①②③ 그대로)
-const quota = [Math.ceil(limit / 2), Math.ceil(limit / 4)];
+// (--limit 1 이면 ① 1·② 0 — 몫 합이 한도를 넘지 않게)
+const quota = [Math.ceil(limit / 2)];
+quota.push(Math.min(Math.ceil(limit / 4), limit - quota[0]));
 quota.push(Math.max(0, limit - quota[0] - quota[1]));
 const groups = [
   { name: '① 최근 추가·변경 대회', list: recent },

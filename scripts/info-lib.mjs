@@ -4,12 +4,13 @@
  * 모든 수치는 public/data.json 에서 계산한다(하드코딩 금지). 글에 쓴 기능 설명은 src/ 의 실제 동작을 확인해 적었다(주석에 근거).
  */
 import { CONTACT_EMAIL } from '../src/lib/policy.ts';
-import { LANDINGS, ORIGIN, countries, distancePages, enPath, esc, fmt, fmtEn, races, regionPages, today, upcoming, weekend, years } from './seo-lib.mjs';
+import { INFO_PATHS, LANDINGS, ORIGIN, countries, distancePages, enPath, esc, fmt, fmtEn, races, regionPages, today, upcoming, weekend, years } from './seo-lib.mjs';
 
 export const ORG_ID = `${ORIGIN}/#organization`;
 /** about/faq 본문을 고친 날. 글을 고칠 때만 손으로 바꾼다 — today 로 두면 매일 lastmod 가 바뀌어 IndexNow 가 날마다 다시 보낸다 */
 export const INFO_UPDATED = '2026-11-14';
-export const INFO_PATHS = { about: '/about/', faq: '/faq/' };
+// about/faq 주소는 seo-lib 한 곳(PLAN 3.1 — 목록 페이지 푸터·llms.txt 가 같은 값을 쓴다)
+export { INFO_PATHS };
 /** sitemap 에 넣을 about/faq (한국어 + 영어) */
 export const INFO_PAGES = [
   ...Object.values(INFO_PATHS).map((path) => ({ path, lastmod: INFO_UPDATED })),
@@ -89,6 +90,8 @@ export const facts = (() => {
     upcoming: upcoming.length,
     kr,
     abroad: races.length - kr,
+    // /abroad/ 페이지에 실제로 나오는 수 (오늘 이후 해외 대회 — seo-lib landingPages 와 같은 기준)
+    abroadUpcoming: upcoming.filter((r) => !isKr(r)).length,
     abroadCountries: abroadCodes.size,
     trail: races.filter((r) => r.discipline === 'trail').length,
     // 연도별 대회 수 (오늘 연도 이후만, 최대 2개 — FAQ 의 '2026·2027 일정')
@@ -312,7 +315,7 @@ export function faqContent(lang) {
       },
       {
         q: '해외 마라톤은 어떻게 접수하나요?',
-        a: `<p>${a('/abroad/', '해외 마라톤 일정', lang)}에서 ${num(f.abroad)}개 대회의 접수 방식과 기간을 볼 수 있습니다. 해외 대회는 추첨·선착순·기록 기준이 많고, 개인 접수가 어려운 대회는 여행사 패키지로 참가합니다. 대회 상세의 ‘여행사’ 탭에 등록된 패키지와 ‘비용’ 탭의 예상 경비가 있고, 실제 신청은 대회 공식 홈페이지나 여행사에서 합니다.</p>`,
+        a: `<p>${a('/abroad/', '해외 마라톤 일정', lang)}에서 앞으로 열리는 ${num(f.abroadUpcoming)}개 대회의 접수 방식과 기간을 볼 수 있습니다. 해외 대회는 추첨·선착순·기록 기준이 많고, 개인 접수가 어려운 대회는 여행사 패키지로 참가합니다. 대회 상세의 ‘여행사’ 탭에 등록된 패키지와 ‘비용’ 탭의 예상 경비가 있고, 실제 신청은 대회 공식 홈페이지나 여행사에서 합니다.</p>`,
       },
       {
         q: '트레일러닝 대회 일정도 있나요?',
@@ -377,7 +380,7 @@ export function faqContent(lang) {
     },
     {
       q: 'How do I register for a marathon abroad?',
-      a: `<p>${a('/abroad/', 'Marathons Outside Korea', lang)} shows the entry type and registration window of ${num(f.abroad)} races. Many overseas races use a lottery, first-come entry or qualifying times, and races without individual entry are run through tour packages. A race page has a “Tours” tab with listed packages and a “Costs” tab with estimated costs; you register on the race’s official website or through a travel agency.</p>`,
+      a: `<p>${a('/abroad/', 'Marathons Outside Korea', lang)} shows the entry type and registration window of ${num(f.abroadUpcoming)} upcoming races. Many overseas races use a lottery, first-come entry or qualifying times, and races without individual entry are run through tour packages. A race page has a “Tours” tab with listed packages and a “Costs” tab with estimated costs; you register on the race’s official website or through a travel agency.</p>`,
     },
     {
       q: 'Are trail races listed too?',

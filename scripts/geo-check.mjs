@@ -34,8 +34,8 @@ const walk = (dir) =>
     return e.isDirectory() ? walk(p) : [p];
   });
 const rel = (f) => relative(DIST, f).split('\\').join('/');
-// 동시 빌드 흔적(이름 끝에 ' 2' — 두 빌드가 같은 dist 를 쓰면 생긴다): 검사 대상에서 빼고 따로 경고한다
-const STRAY = / 2(\.[^/.]+)?$/;
+// 동시 빌드·동기화 흔적(이름 끝에 ' 2'·' 3'… — 두 빌드가 같은 dist 를 쓰면 생긴다): 검사 대상에서 빼고 따로 경고한다
+const STRAY = / [2-9]\d*(\.[^/.]+)?$/;
 const allFiles = walk(DIST);
 const stray = allFiles.filter((f) => STRAY.test(rel(f)));
 // 검색엔진 소유 확인 파일(navere….html)은 페이지가 아니다
@@ -183,6 +183,10 @@ for (const p of ['/about/', '/faq/', '/en/about/', '/en/faq/']) {
     for (const [label, n] of [['전체', races.length], ['오늘 이후', upcomingN], ['국내', kr], ['해외', races.length - kr], ['나라', abroadCodes.size], ['트레일', trail]])
       if (!h.includes(f(n))) err(`${p}: ${label} 수 ${f(n)} 가 본문에 없음`);
   }
+  // FAQ 의 '/abroad/ 에서 N개' 는 그 페이지에 실제로 나오는 수(오늘 이후 해외 대회)
+  const abroadUpcoming = races.filter((r) => r.country_code !== 'KR' && r.race_date >= today).length;
+  for (const p of ['/faq/', '/en/faq/'])
+    if (byPath.get(p) && !byPath.get(p).html.includes(f(abroadUpcoming))) err(`${p}: 앞으로 열리는 해외 대회 수 ${f(abroadUpcoming)} 가 본문에 없음`);
   const faq = byPath.get('/faq/')?.html;
   if (faq) {
     const n = (faq.match(/<section id="q\d+">/g) ?? []).length;
@@ -289,8 +293,11 @@ for (const [lang, path] of [['ko', '/about/'], ['en', '/en/about/']]) {
 }
 // ── robots.txt 변경 없음 ──
 {
-  const r = spawnSync('git', ['diff', '--quiet', 'HEAD', '--', 'public/robots.txt'], { cwd: ROOT });
-  if (r.status !== 0) err('public/robots.txt 가 HEAD 와 다름 (AI 봇 차단 목록은 바꾸지 않는다)');
+  // HEAD 와만 비교하면 커밋해 버린 변경을 못 잡는다 → main 에서 갈라진 지점과 비교 (main 이 없으면 HEAD)
+  const mb = spawnSync('git', ['merge-base', 'HEAD', 'main'], { cwd: ROOT, encoding: 'utf8' });
+  const base = mb.status === 0 && mb.stdout.trim() ? mb.stdout.trim() : 'HEAD';
+  const r = spawnSync('git', ['diff', '--quiet', base, '--', 'public/robots.txt'], { cwd: ROOT });
+  if (r.status !== 0) err(`public/robots.txt 가 ${base === 'HEAD' ? 'HEAD' : 'main 분기점'} 과 다름 (AI 봇 차단 목록은 바꾸지 않는다)`);
   if (readFileSync(join(DIST, 'robots.txt'), 'utf8') !== readFileSync(join(ROOT, 'public/robots.txt'), 'utf8')) err('dist/robots.txt 가 public/robots.txt 와 다름');
 }
 
