@@ -65,6 +65,7 @@
 | 지역어 | 전라도 ≥80(전남·전북·광주만) · 전라북도 ≥20 · 충청도 ≥80 · 충청남도 ≥40 · 충청북도 ≥15 · 강원도 ≥40 · 경기도 ≥90 · 제주도 ≥15 · 경상북도·경상남도 ≥40 · `경상도 트레일` ≥5 · `경기도마라톤` ≥20 |
 | 별칭·오타 | 하낭 = 하남 결과와 같음(≥15) · 치앙마에 → chiangmai 2개 · 샌프란시스커 → sf-marathon·bay-to-breakers · 서울동아 → seoul-marathon 만 · 경주동아 → gyeongju-intl 만 · 월드메이저·6대메이저 = 세계6대 · 뉴욕·호놀룰루 |
 | 접두어 과확장 | 하남 ≤21, ibusuki·hanamaki 없음 · 런 에 running-sakurajima 없음 · 고양 ≤8 · 마랕 ≥100 · 고구려마라 → goguryeo-seoul · 치토세ㅣ ≥1 |
+| 두 글자 지명 오타 (검수 때 추가) | 진천 → 0개(전엔 인천 대회 29개) · 통영 → 0개(전엔 incheon-mbn-sunset-yeongjong, '마라톤영종' 의 '톤영') · 완도 → 0개(전엔 무관한 11개). 한글 두 글자 이하 검색어는 오타 단계를 돌리지 않는다(`search.ts` `shortHangul`). '혹시 이 대회인가요?' 제안은 그대로 |
 | 반복 | 서울 서울 / 서울서울 / 서울울울 = 서울 · 도쿄 도쿄 도쿄 = 도쿄 · ㅋㅋㅋㅋ, qwerty → 0개·제안 0개 |
 | 자판 변환 | rhrnfu → '고구려'+goguryeo-seoul · tjdnf → '서울'(204) · dkssud → 0개, 변환 안 씀 · ㅡㅠㅜ → keyboardFixes 'mbn', 결과 5개(mbn-seoul-marathon 등) · 고프·서울 은 변환 안 씀 |
 | 순수 함수 | rhvm→고프, rhrnfu→고구려, tjdnf→서울, dkssud→안녕, gksrmf→한글, Rkrk→까가, ㅡㅠㅜ→mbn, 고프→rhvm, 값→rkqt, 10k 는 한→영 없음, 빈 검색어 변환 없음 · aliasSiblings(상해)=상하이·shanghai, (하낭)=하남, (하남)=[] |

@@ -208,9 +208,13 @@ function exactSearch(index: SearchDoc[], q: string): Set<Race> {
   return out;
 }
 
+/** 한글 두 글자 이하 (받침 두 개면 자모 6개라 오타 1개를 허용하게 되지만, 두 글자 지명은 한 자모 차이가 곧 다른 곳이다: 진천↔인천, 통영↔(마라)톤영(종)) */
+const shortHangul = (q: string) => /^[가-힣]{1,2}$/.test(stripTail(normalize(q)));
+
 /** 2단계(오타): 자모 단위 근사 부분 일치 */
 function typoSearch(index: SearchDoc[], q: string): Set<Race> {
   const out = new Set<Race>();
+  if (shortHangul(q)) return out;
   const p = fuzzyKey(q);
   const limit = typoLimit(p.length);
   if (!limit) return out;
