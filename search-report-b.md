@@ -1,0 +1,89 @@
+# 검색 개선 — 파트 B 보고 (검색 사전·정확도 + 인기 검색어 데이터)
+
+기준일 2026-11-15, 색인 = 이 날 이후 대회 2509개 (`public/data.json`, 2761개 중).
+
+## 바꾼 파일
+
+| 파일 | 내용 |
+|---|---|
+| `src/lib/search.ts` | `searchWithFixes`, `keyboardFixes`, `KeyboardFix`, `SearchOutcome` 추가. 검색을 `exactSearch`(1단계)·`typoSearch`(2단계)·`stagedSearch` 로 나눔(`searchRaces` 의미·반환형 그대로). 반복 글자·중복 낱말 정리(`cleanQuery`), 쓰는 중 글자 과확장 방지, 지역어·세계6대 확장. `SearchDoc` 에 `regions`, `major` 추가 |
+| `src/lib/aliases.ts` | 오타·부분·별칭 묶음 추가(전부 `ONE_WAY`), `REGION_TERMS`, `MAJOR_TERMS`, `aliasSiblings` |
+| `src/lib/keyboard.ts` (신규) | 두벌식 영→한 조합 / 한→영 변환, `convertKeyboard` |
+| `supabase/migrations/0023_popular_searches.sql` (신규) | 브리프 SQL 그대로(맨 앞 "이미 적용됨, 다시 적용 말 것" 주석 1줄). **적용 안 함** |
+| `scripts/popular-lib.mjs` (신규) | 인기 검색어 거르기 순수 함수 |
+| `scripts/snapshot.mjs` | 대회 받기 뒤에 인기 검색어 단계 추가 (성공·실패와 무관하게 돎, 어디서 실패해도 `source:"empty"` + 종료 0). 환경변수 없으면 기존처럼 건너뜀 |
+| `public/popular-searches.json` (신규) | **`source: "seed"`** — Supabase MCP(읽기 전용 호출)를 이 세션에서 쓸 수 없어(권한 미허용) 실제 RPC 결과를 못 받았다. 필터 탓 0개 검색어 중 결과가 있는 8개(경주·대구·인천·도쿄·서울·부산·시카고·보스턴)를 순위값(108→101)으로 넣음. 건수는 실제 집계가 아니다. 첫 배포의 `npm run snapshot` 이 `source:"rpc"` 로 덮어쓴다 |
+| `scripts/search-test.mjs` (신규) | 기대 결과 표 (아래) |
+| `scripts/popular-test.mjs` (신규) | 거르기 단위 테스트 + JSON 형식 검사 |
+| `package.json` | `test:search` 추가 (`snapshot` 은 그대로) |
+
+## 결정·알게 된 점
+
+- **지역어** (`REGION_TERMS`, 국내 대회 `city_ko` 앞 토큰만 비교, `광주·전남` 은 둘로 봄): 경상도→경북·경남·대구·부산·울산(151개 = 실측 합과 일치) · 경상북도→경북·대구 · 경상남도→경남·부산·울산 · 전라도→전남·전북·광주 · 전라남도→전남·광주 · 전라북도·전북특별자치도→전북 · 충청도→충남·충북·대전·세종 · 충청남도→충남·대전·세종 · 충청북도→충북 · 강원도·강원특별자치도→강원 · 경기도→경기 · 제주도·제주특별자치도→제주. 서울·인천은 어느 도에도 안 넣음. 브리프 예시에 없던 `전라도`→전북 포함, 경상·전라·충청(도 없이)도 같은 말로 넣음. 기존 글자 일치와 합집합이라 `경기도`(23→101), `강원도`(5→50), `제주도`(2→18)도 시·도 전체로 넓어짐.
+- **세계6대·월드메이저·6대메이저**: 메모 글자가 아니라 `is_major && 해외` 로 거름 → tokyo boston london berlin chicago nyc sydney capetown 8개, 국내 메이저(seoul-marathon chuncheon jtbc-seoul) 없음.
+- **경주동아 → 경주국제마라톤 별칭을 걸었다.** 근거: `https://www.gyeongjumarathon.com/` (2026-11-15 읽기만) 하단에 `동아마라톤 조직위원회: 서울특별시 서대문구 충정로 29`(동아일보 사옥 주소), 사이트가 동마클럽 채널로 연결. 본문 '주최' 글은 JS 로 그려지는지 페이지 원문에서 못 찾았으므로 "운영 주체가 동아마라톤 조직위원회" 까지만 확인했다. 그래서 `경주동아`·`경주 동아`·`경주 동아 마라톤` 은 `gyeongju-intl` 1개. 틀렸다면 `aliases.ts` 의 `['경주동아','경주국제']` 한 줄과 `ONE_WAY` 의 `경주동아` 를 지우면 `0개` 로 돌아간다.
+- **대련 = 다롄(dalian)**: 없는 대회가 아니라 표기 차이 → 별칭. **rhvm → 고프**: `asics-goprun`(2026-11-21 이후엔 빠지므로 그때는 `rhrnfu`→고구려 `goguryeo-seoul` 로 확인).
+- **자판 변환은 정확 단계(1단계) 결과만 인정**하고, 원래 검색이 정확 단계로 나왔으면 변환 검색 자체를 건너뜀. `newbq`→`ㅜㄷ쥽` 은 어디에도 안 걸려 0개·변환 안 씀. 변환 후보는 영→한·한→영 최대 2개(낱말 단위).
+- **접두어 과확장 방지**: 쓰는 중인 끝 글자(자모) 일치는 글자 그대로 맞는 대회가 하나도 없을 때만 더한다. 효과: `런` 367→312(러닝 55개 빠짐), `하남` 23→21(이부스키 나노하나·하나마키), `고양` 나고야 제외. 글자 그대로 일치는 한 건도 안 줄었다(`search-check.mjs` 의 서울 204/하프 1454/도쿄 25 는 옛 방식 이상). `마랕`·`고구려마라`·`치토세ㅣ` 같은 쓰는 중 입력은 그대로 동작.
+- **반복 정리**는 원래 말로 정확히 못 찾았을 때만(이름에 같은 글자가 거듭 있는 대회 보호): 같은 글자 3연속 이상(서울울울→서울, ㅋㅋㅋㅋ→ㅋㅋ, 숫자 제외), 낱말 전체가 같은 덩어리 반복(경주경주→경주), 같은 낱말 반복(서울 서울→서울). `suggestRaces` 도 같은 정리를 먼저 함.
+- `뉴요`→9개(뉴욕 시·주: nyc, queens, long-island, buffalo …). 데이터가 `뉴욕주` 도 '뉴욕' 으로 묶어 색인하기 때문(`뉴욕` 검색과 같음).
+- 알려진 한계: 상위 실패어 중 `부피아·한강짐런·나눔레이스 서울·새해 동계·국제동계·교다·잔시문` 은 지금 데이터에 없어 0개가 정상(데이터 작업으로 추가되면 이 표를 고친다 — 느슨하게 풀지 않음). 읽기 전용 DB 쿼리는 하지 못해 `search_empty` 상위어를 더 늘리지 못했다.
+- `tsc -b` 오류 0 (파트 A 의 App.tsx 가 정리된 뒤 확인), `npm run build` 끝까지 통과(ledger 마지막 줄까지), `oxlint` 에서 내 파일의 새 경고 없음(기존 경고만).
+
+## 테스트 표 — `node scripts/search-test.mjs` (84개, 전부 PASS)
+
+### 필터를 꺼도 0개였던 20개
+
+| 검색어 | 기대 | 실제 |
+|---|---|---|
+| 부피아 | 0개 정상 | 0 PASS |
+| 호롤 | `honolulu`, 전부 호놀룰루, nyc·tokyo 없음 | 2개 (honolulu, hapalua-half) PASS |
+| 전라남도 | 40개 이상, 전부 국내 전남·광주, seoul-marathon 없음 | 57 PASS |
+| 경상도 | 100개 이상, 전부 경북·경남·대구·부산·울산, seoul-marathon 없음 | 151 PASS |
+| 한강짐런 | 0개 정상 | 0 PASS |
+| 뉴요 | `nyc` 포함, tokyo·honolulu 없음 | 9 PASS |
+| 파나코니아 | 정확히 파타고니아 3개 (bariloche-utmb-trail, patagonia-jeju-trail, patagonia-run-trail) | 3 PASS |
+| 나눔레이스 서울 | 0개 정상 | 0 PASS |
+| 경기국제 | 정확히 `suwon-intl-half` | 1 PASS |
+| 대련 | 정확히 `dalian` | 1 PASS |
+| 경주 동아 마라톤 | 정확히 `gyeongju-intl` | 1 PASS |
+| 세계6대 | 정확히 해외 메이저 8개, 국내 메이저 없음 | 8 PASS |
+| 새해 동계 | 0개 정상 | 0 PASS |
+| newbq | 0개, 자판 변환 안 씀 | 0, fixed 없음 PASS |
+| 교다 | 0개 정상 | 0 PASS |
+| rhvm | `asics-goprun`, 변환 '고프' | 1, fixed '고프' PASS |
+| 경주 동아 | 정확히 `gyeongju-intl` | 1 PASS |
+| 국제동계 | 0개 정상 | 0 PASS |
+| 잔시문 | 0개 정상 | 0 PASS |
+| 경주경주 | `경주` 와 같은 결과 | 11 = 11 PASS |
+
+### 상위 검색어 · 지역어 · 별칭 · 과확장 · 반복 · 자판
+
+| 묶음 | 검색어 → 기대 (전부 PASS) |
+|---|---|
+| 상위 검색어 | 서울 ≥200(204) · 경주 ≥11 · 대구 ≥14 · 인천 ≥28 · 도쿄 ≥25(+tokyo) · 부산 ≥33 · 시카고 ≥2(+chicago) · 보스턴 ≥3(+boston) · tokyo/boston/nyc 는 변환 안 씀 |
+| 지역어 | 전라도 ≥80(전남·전북·광주만) · 전라북도 ≥20 · 충청도 ≥80 · 충청남도 ≥40 · 충청북도 ≥15 · 강원도 ≥40 · 경기도 ≥90 · 제주도 ≥15 · 경상북도·경상남도 ≥40 · `경상도 트레일` ≥5 · `경기도마라톤` ≥20 |
+| 별칭·오타 | 하낭 = 하남 결과와 같음(≥15) · 치앙마에 → chiangmai 2개 · 샌프란시스커 → sf-marathon·bay-to-breakers · 서울동아 → seoul-marathon 만 · 경주동아 → gyeongju-intl 만 · 월드메이저·6대메이저 = 세계6대 · 뉴욕·호놀룰루 |
+| 접두어 과확장 | 하남 ≤21, ibusuki·hanamaki 없음 · 런 에 running-sakurajima 없음 · 고양 ≤8 · 마랕 ≥100 · 고구려마라 → goguryeo-seoul · 치토세ㅣ ≥1 |
+| 반복 | 서울 서울 / 서울서울 / 서울울울 = 서울 · 도쿄 도쿄 도쿄 = 도쿄 · ㅋㅋㅋㅋ, qwerty → 0개·제안 0개 |
+| 자판 변환 | rhrnfu → '고구려'+goguryeo-seoul · tjdnf → '서울'(204) · dkssud → 0개, 변환 안 씀 · ㅡㅠㅜ → keyboardFixes 'mbn', 결과 5개(mbn-seoul-marathon 등) · 고프·서울 은 변환 안 씀 |
+| 순수 함수 | rhvm→고프, rhrnfu→고구려, tjdnf→서울, dkssud→안녕, gksrmf→한글, Rkrk→까가, ㅡㅠㅜ→mbn, 고프→rhvm, 값→rkqt, 10k 는 한→영 없음, 빈 검색어 변환 없음 · aliasSiblings(상해)=상하이·shanghai, (하낭)=하남, (하남)=[] |
+
+### 같이 돌린 검사
+
+| 명령 | 결과 |
+|---|---|
+| `node scripts/search-check.mjs` | PASS 31 / FAIL 0 / SKIP 0, 평균 2.5ms (기준 5ms) |
+| `node scripts/popular-test.mjs` | PASS 31 / FAIL 0 |
+| `node scripts/admin-search-test.mjs` | 전부 ok |
+| `node scripts/migrations-order-test.mjs` | 전부 ok |
+| `node scripts/related-test.mjs` (파트 A) | PASS 42 / FAIL 0 |
+| snapshot, 환경변수 없음 | "건너뜀", 종료 0, 기존 파일 그대로 |
+| snapshot, 잘못된 URL | 대회 받기 실패 로그(기존 그대로) + 인기 검색어 `source:"empty"` 로 씀, 종료 0 |
+| snapshot, 가짜 로컬 서버(RPC 만 응답) | 8개 중 3개 남김: 서울(50+5 합산)·경주·도쿄. 이메일·전화번호·결과 0개(`부피아`·`rhvm`)는 빠짐, 종료 0. 끝난 뒤 seed 파일로 되돌림 |
+
+## 다른 파트 메모
+
+- 파트 A: `SearchDoc` 에 필드가 둘(`regions`, `major`) 늘었다. `buildIndex` 로만 만들면 문제 없음.
+- 파트 A: 인기 검색어 파일은 지금 `seed`. UI 확인용이며 첫 배포 뒤 실제 값으로 바뀐다.
+- 운영자: `0023` 은 적용 금지(이미 적용됨). 경주동아 별칭은 위 근거로 확인한 범위까지만 걸었으니 틀리면 한 줄 삭제.
