@@ -140,6 +140,8 @@ export const en: Record<Key, string> & Partial<Record<`${Key}_one`, string>> = {
   'search.pastOnlyTitle_one': 'Only 1 past race matches “{q}”',
   'search.hiddenHelp': 'Nothing matches with the filters you have on. Clear the filters and keep your search to see them.',
   'search.hiddenHelpFew': 'These match your search but are left out by the filters you have on. Clear the filters and keep your search to see them.',
+  'search.pastAlsoTitle': '{n} past races also match',
+  'search.pastAlsoTitle_one': '1 past race also matches',
   'search.pastOnlyHelp': 'No upcoming race matches, only races that have already taken place.',
   'search.hiddenPast': '({n} past races included)',
   'search.hiddenPast_one': '(1 past race included)',

@@ -66,6 +66,7 @@
 | 빈 검색창 인기 검색어 | `evidence/search/a4-popular-empty-375.png` | `evidence/search/a4-popular-empty-1280.png` |
 | 'rhvm' → '고프' 로 찾은 결과 | `evidence/search/a5-rhvm-375.png` | `evidence/search/a5-rhvm-1280.png` |
 | 'rhrnfu' → '고구려' | `evidence/search/a6-rhrnfu-375.png` | — |
+| '통영' (결과 1개 + 더 찾은 건 끝난 대회뿐) → "이미 끝난 대회 2개도 찾았습니다", 버튼 없음 | `evidence/search/a7-few-past-tongyeong-375.png` | `evidence/search/a7-few-past-tongyeong-1280.png` |
 
 ## 동작 정리
 

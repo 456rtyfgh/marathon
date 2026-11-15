@@ -28,7 +28,12 @@ export default function SearchAssist({
   const shownRaces = pickHidden(hidden);
   const rest = hidden.total - shownRaces.length;
   const n = fmtCount(hidden.total, lang);
-  const title = canClear ? t('search.hiddenTitle', { n }) : t('search.pastOnlyTitle', { q: query, n });
+  // 결과가 몇 개 있는데(few) 더 찾은 게 끝난 대회뿐이면 '끝난 대회만 찾았다' 가 아니라 '끝난 대회도 있다'
+  const title = canClear
+    ? t('search.hiddenTitle', { n })
+    : variant === 'few'
+      ? t('search.pastAlsoTitle', { n })
+      : t('search.pastOnlyTitle', { q: query, n });
   const clearBtn = canClear ? (
     <button
       type="button"
@@ -48,7 +53,7 @@ export default function SearchAssist({
       {rest > 0 && <p className="pt-3 text-[14px] text-ink-3">{t('search.hiddenMore', { n: fmtCount(rest, lang) })}</p>}
     </>
   );
-  const sub = [canClear ? t(variant === 'few' ? 'search.hiddenHelpFew' : 'search.hiddenHelp') : t('search.pastOnlyHelp'), canClear && hidden.past.length > 0 ? t('search.hiddenPast', { n: fmtCount(hidden.past.length, lang) }) : '']
+  const sub = [canClear ? t(variant === 'few' ? 'search.hiddenHelpFew' : 'search.hiddenHelp') : variant === 'few' ? '' : t('search.pastOnlyHelp'), canClear && hidden.past.length > 0 ? t('search.hiddenPast', { n: fmtCount(hidden.past.length, lang) }) : '']
     .filter(Boolean)
     .join(' ');
 

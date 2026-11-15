@@ -135,6 +135,7 @@ export const ko = {
   'search.pastOnlyTitle': '‘{q}’ 는 이미 끝난 대회 {n}개만 찾았습니다',
   'search.hiddenHelp': '지금 켜 둔 필터에서는 결과가 없습니다. 검색어는 그대로 두고 필터만 풀면 볼 수 있습니다.',
   'search.hiddenHelpFew': '지금 켜 둔 필터 때문에 위 목록에 나오지 않는 대회입니다. 검색어는 그대로 두고 필터만 풀면 볼 수 있습니다.',
+  'search.pastAlsoTitle': '이미 끝난 대회 {n}개도 찾았습니다',
   'search.pastOnlyHelp': '다가오는 대회에는 없고, 끝난 대회 기록만 있습니다.',
   'search.hiddenPast': '(이미 끝난 대회 {n}개 포함)',
   'search.hiddenList': '필터를 풀면 볼 수 있는 대회',

@@ -32,7 +32,7 @@ import MapSection, { type Scope } from './components/MapSection';
 import { byRaceDate, inDateRange, inScope, matchesAnyStatus, matchesStatus, NO_RANGE, orderRange, picksFromSearch, rangeFromSearch, resolveListPrefs, type DateRange, type ListPicks, type ListSort, type StatusFilter } from './lib/listPrefs';
 import { DISTANCE_BUCKETS, distancesFromSearch, matchesDistances, type DistanceBucket } from './lib/distanceFilter';
 import { matchesPlaces, placeOf } from './lib/places';
-import { buildIndex, searchWithFixes, suggestRaces } from './lib/search';
+import { buildIndex, searchWithFixes, suggestRaces, type SearchDoc } from './lib/search';
 import { popularInfo, relatedChips } from './lib/relatedSearches';
 import { usePopularSearches } from './lib/popularSearches';
 import { emptyKind, FEW_RESULTS, hiddenRaces, type Hidden } from './lib/outsideFilter';
@@ -394,20 +394,17 @@ function Main() {
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
   // 검색 결과 0개일 때 '혹시 이 대회인가요?' (필터와 무관하게 다가오는 대회 중). 결과 수(shown)에는 넣지 않는다 → search_empty 기록 그대로
   // 필터 때문에 안 보이는 대회: 검색어에 맞는데(필터 무관, 지난 대회 포함) 지금 목록에 없는 것. 결과가 0개이거나 몇 개 안 될 때만 찾는다
-  // (지난 대회 색인은 처음 필요할 때 한 번 만든다)
+  // (지난 대회 포함 색인은 처음 필요할 때 한 번만 만든다 — 데이터·언어가 바뀌기 전까지 다시 만들지 않는다)
   const needAll = !!dq.trim() && shown <= FEW_RESULTS && remote !== 'loading';
-  const allWantedRef = useRef(false);
-  if (needAll) allWantedRef.current = true;
-  const allIndex = useMemo(
-    () => (allWantedRef.current ? buildIndex([...upcomingRaces, ...pastRaces], lang) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [needAll, upcomingRaces, pastRaces, lang],
-  );
+  const getAllIndex = useMemo(() => {
+    let built: SearchDoc[] | null = null;
+    return () => (built ??= buildIndex([...upcomingRaces, ...pastRaces], lang));
+  }, [upcomingRaces, pastRaces, lang]);
   const shownSet = useMemo(() => new Set(groups.flatMap((g) => g.races)), [groups]);
   const hidden = useMemo<Hidden>(() => {
-    if (!needAll || !allIndex) return NO_HIDDEN;
-    return hiddenRaces([...(hits ?? []), ...searchWithFixes(allIndex, dq).hits], shownSet, todayKey);
-  }, [needAll, allIndex, hits, dq, shownSet, todayKey]);
+    if (!needAll) return NO_HIDDEN;
+    return hiddenRaces([...(hits ?? []), ...searchWithFixes(getAllIndex(), dq).hits], shownSet, todayKey);
+  }, [needAll, getAllIndex, hits, dq, shownSet, todayKey]);
   // 0개일 때 '혹시 이 대회인가요?' 는 전체에서도 없을 때만 (필터 탓이면 위 안내가 대신한다)
   const suggestions = useMemo(
     () => (shown === 0 && dq.trim() && hidden.total === 0 ? suggestRaces(searchIndex, dq, 3) : []),
@@ -997,7 +994,7 @@ function Main() {
             count={shown}
             suggestions={suggestions.length}
             loading={remote === 'loading'}
-            hidden={hidden.total}
+            hidden={hidden.upcoming.length}
             fixed={outcome?.fixed?.query ?? null}
           />
           <RelatedChips chips={chips} popular={!dq.trim()} onPick={setQ} />
