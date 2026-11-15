@@ -35,6 +35,7 @@ const ROWS = [
   { q: '대련', only: ['dalian'] },
   { q: '경주 동아 마라톤', only: ['gyeongju-intl'] },
   { q: '세계6대', only: ['tokyo', 'boston', 'london', 'berlin', 'chicago', 'nyc', 'sydney', 'capetown'], not: ['seoul-marathon', 'chuncheon', 'jtbc-seoul'] },
+  { q: '세계 6대 마라톤', same: '세계6대', min: 8, not: ['seoul-marathon', 'chuncheon', 'jtbc-seoul'] },
   { q: '새해 동계', zero: true },
   { q: 'newbq', zero: true, fixed: null },
   { q: '교다', zero: true },
@@ -109,6 +110,12 @@ const ROWS = [
   { q: 'dkssud', zero: true, fixed: null },
   { q: 'ㅡㅠㅜ', min: 1, fixed: 'mbn', kbd: ['mbn'] },
   { q: '고프', ids: ['asics-goprun'], fixed: null },
+  // 짧은 조각으로 바뀌는 것은 쓰지 않는다 (고치기 전: ㅜㅜ → 'nn' 128개, ㅠㅠ → 'bb' 14개, qm → '브' 127개, hz → 'ㅗㅋ' 154개, 쑈 → 'Ty' 116개)
+  { q: 'ㅜㅜ', zero: true, fixed: null },
+  { q: 'ㅠㅠ', zero: true, fixed: null },
+  { q: 'qm', zero: true, fixed: null },
+  { q: 'hz', zero: true, fixed: null },
+  { q: '쑈', zero: true, fixed: null },
   { q: '서울', fixed: null },
 ];
 

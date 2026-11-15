@@ -106,8 +106,10 @@ type Term = { plain: string[]; jamo: string[]; region: ReadonlySet<string> | nul
 function termOf(word: string, strip: boolean): Term {
   const core = strip ? stripTail(word) : word;
   const plain = aliasVariants(core);
-  const region = Object.hasOwn(REGION_TERMS, core) ? new Set(REGION_TERMS[core]) : null;
-  return { plain, jamo: plain.filter(maybeTyping).map(toJamo), region, major: MAJOR_TERMS.has(core) };
+  // 지역어·세계6대는 꼬리말을 뗀 모양으로 본다 ('세계 6대 마라톤' 은 낱말이 여럿이라 꼬리말 떼기 단계가 없다)
+  const key = stripTail(core);
+  const region = Object.hasOwn(REGION_TERMS, key) ? new Set(REGION_TERMS[key]) : null;
+  return { plain, jamo: plain.filter(maybeTyping).map(toJamo), region, major: MAJOR_TERMS.has(key) };
 }
 
 /** typing 이 true 면 쓰는 중인 끝 글자(자모) 일치도 본다 */
@@ -261,6 +263,18 @@ export function keyboardFixes(q: string): KeyboardFix[] {
   return convertKeyboard(q);
 }
 
+const LONE_JAMO = /[ㄱ-ㅣ]/;
+/**
+ * 바꾼 말이 검색어로 쓸 만한가. 짧은 조각은 아무 이름에나 부분 일치로 걸린다 (ㅜㅜ → 'nn' 128개, qm → '브' 127개, hz → 'ㅗㅋ' 154개).
+ * 영→한: 친 영문이 3글자 이상이고 바뀐 한글이 온전한 글자만 (낱자모가 남으면 한글로 친 게 아니다).
+ * 한→영: 바뀐 영문이 4글자 이상, 또는 3글자이면서 친 말에 낱자모가 있을 때 (영문을 한글 자판으로 치면 거의 늘 낱자모가 생긴다 — ㅡㅠㅜ → mbn).
+ */
+function usableFix(q: string, fix: KeyboardFix): boolean {
+  const len = normalize(fix.query).length;
+  if (fix.kind === 'en2ko') return normalize(q).length >= 3 && !LONE_JAMO.test(fix.query);
+  return len >= 4 || (len === 3 && LONE_JAMO.test(q));
+}
+
 /**
  * 원래 검색 + 자판 변환 검색. 변환 결과는 원래보다 나을 때만 쓴다:
  * 원래 결과가 정확 단계로 나왔으면 변환 검색은 하지 않는다. 원래가 0개이거나 오타 단계 결과일 때,
@@ -270,6 +284,7 @@ export function searchWithFixes(index: SearchDoc[], q: string): SearchOutcome {
   const base = stagedSearch(index, q);
   if (base.stage === 'exact' || base.stage === 'all') return { hits: base.hits, fixed: null };
   for (const fix of keyboardFixes(q)) {
+    if (!usableFix(q, fix)) continue;
     const hits = exactSearch(index, fix.query);
     if (hits.size) return { hits, fixed: fix };
   }

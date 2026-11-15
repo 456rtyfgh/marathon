@@ -30,7 +30,7 @@
 - 알려진 한계: 상위 실패어 중 `부피아·한강짐런·나눔레이스 서울·새해 동계·국제동계·교다·잔시문` 은 지금 데이터에 없어 0개가 정상(데이터 작업으로 추가되면 이 표를 고친다 — 느슨하게 풀지 않음). 읽기 전용 DB 쿼리는 하지 못해 `search_empty` 상위어를 더 늘리지 못했다.
 - `tsc -b` 오류 0 (파트 A 의 App.tsx 가 정리된 뒤 확인), `npm run build` 끝까지 통과(ledger 마지막 줄까지), `oxlint` 에서 내 파일의 새 경고 없음(기존 경고만).
 
-## 테스트 표 — `node scripts/search-test.mjs` (84개, 전부 PASS)
+## 테스트 표 — `node scripts/search-test.mjs` (93개, 전부 PASS)
 
 ### 필터를 꺼도 0개였던 20개
 
@@ -66,6 +66,8 @@
 | 별칭·오타 | 하낭 = 하남 결과와 같음(≥15) · 치앙마에 → chiangmai 2개 · 샌프란시스커 → sf-marathon·bay-to-breakers · 서울동아 → seoul-marathon 만 · 경주동아 → gyeongju-intl 만 · 월드메이저·6대메이저 = 세계6대 · 뉴욕·호놀룰루 |
 | 접두어 과확장 | 하남 ≤21, ibusuki·hanamaki 없음 · 런 에 running-sakurajima 없음 · 고양 ≤8 · 마랕 ≥100 · 고구려마라 → goguryeo-seoul · 치토세ㅣ ≥1 |
 | 두 글자 지명 오타 (검수 때 추가) | 진천 → 0개(전엔 인천 대회 29개) · 통영 → 0개(전엔 incheon-mbn-sunset-yeongjong, '마라톤영종' 의 '톤영') · 완도 → 0개(전엔 무관한 11개). 한글 두 글자 이하 검색어는 오타 단계를 돌리지 않는다(`search.ts` `shortHangul`). '혹시 이 대회인가요?' 제안은 그대로 |
+| 자판 변환 짧은 조각 (2차 검수 때 추가) | ㅜㅜ·ㅠㅠ·qm·hz·쑈 → 0개, 변환 안 씀(전엔 ㅜㅜ → 'nn' 128개, ㅠㅠ → 'bb' 14개, qm → '브' 127개, hz → 'ㅗㅋ' 154개, 쑈 → 'Ty' 116개). 영→한은 친 영문 3글자 이상 + 바뀐 한글에 낱자모가 없을 때만, 한→영은 바뀐 영문 4글자 이상 또는 3글자 + 친 말에 낱자모가 있을 때만 쓴다(`search.ts` `usableFix`). rhvm·rhrnfu·tjdnf·ㅡㅠㅜ 는 그대로 |
+| 세계 6대 (빈칸) (2차 검수 때 추가) | `세계 6대 마라톤` = `세계6대` 결과 8개(전엔 0개 — 낱말이 여럿이면 꼬리말 떼기를 안 해서 '세계6대' 로 못 알아봄). 지역어·세계6대는 꼬리말 뗀 모양으로 본다(`termOf`) |
 | 반복 | 서울 서울 / 서울서울 / 서울울울 = 서울 · 도쿄 도쿄 도쿄 = 도쿄 · ㅋㅋㅋㅋ, qwerty → 0개·제안 0개 |
 | 자판 변환 | rhrnfu → '고구려'+goguryeo-seoul · tjdnf → '서울'(204) · dkssud → 0개, 변환 안 씀 · ㅡㅠㅜ → keyboardFixes 'mbn', 결과 5개(mbn-seoul-marathon 등) · 고프·서울 은 변환 안 씀 |
 | 순수 함수 | rhvm→고프, rhrnfu→고구려, tjdnf→서울, dkssud→안녕, gksrmf→한글, Rkrk→까가, ㅡㅠㅜ→mbn, 고프→rhvm, 값→rkqt, 10k 는 한→영 없음, 빈 검색어 변환 없음 · aliasSiblings(상해)=상하이·shanghai, (하낭)=하남, (하남)=[] |
