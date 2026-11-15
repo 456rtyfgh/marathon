@@ -32,7 +32,12 @@ import MapSection, { type Scope } from './components/MapSection';
 import { byRaceDate, inDateRange, inScope, matchesAnyStatus, matchesStatus, NO_RANGE, orderRange, picksFromSearch, rangeFromSearch, resolveListPrefs, type DateRange, type ListPicks, type ListSort, type StatusFilter } from './lib/listPrefs';
 import { DISTANCE_BUCKETS, distancesFromSearch, matchesDistances, type DistanceBucket } from './lib/distanceFilter';
 import { matchesPlaces, placeOf } from './lib/places';
-import { buildIndex, searchRaces, suggestRaces } from './lib/search';
+import { buildIndex, searchWithFixes, suggestRaces } from './lib/search';
+import { popularInfo, relatedChips } from './lib/relatedSearches';
+import { usePopularSearches } from './lib/popularSearches';
+import { emptyKind, FEW_RESULTS, hiddenRaces, type Hidden } from './lib/outsideFilter';
+import SearchAssist from './components/SearchAssist';
+import RelatedChips from './components/RelatedChips';
 import { scrollToResults, RESULTS_EMPTY_ID } from './lib/scrollToResults';
 import { ResultsAnnouncer } from './components/ResultsAnnouncer';
 import { track, pageView } from './lib/analytics';
@@ -61,6 +66,9 @@ const PAGE = 80;
 const GROUP_PAGE = 12;
 const GROUP_MORE = 24;
 const SHOW_ALL_UNDER = 30;
+
+/** 필터 밖 결과 없음 (렌더마다 새 객체를 만들지 않게 하나만) */
+const NO_HIDDEN: Hidden = { upcoming: [], past: [], total: 0 };
 
 const ENTRY_TYPES: EntryType[] = ['lottery', 'fcfs', 'qualifying', 'open', 'tour_only'];
 
@@ -311,7 +319,9 @@ function Main() {
     };
   }, [upcomingRaces, info, status, scope, today]);
   // 검색어에 맞는 대회 (띄어쓰기·다른 표기·꼬리말·오타 — src/lib/search.ts). 필터·정렬을 바꿀 때는 다시 계산하지 않는다
-  const hits = useMemo(() => (dq.trim() ? searchRaces(searchIndex, dq) : null), [searchIndex, dq]);
+  // (한/영 자판이 바뀌어 0개일 때는 바꿔 본 결과 — outcome.fixed 가 있으면 화면에 알린다)
+  const outcome = useMemo(() => (dq.trim() ? searchWithFixes(searchIndex, dq) : null), [searchIndex, dq]);
+  const hits = outcome?.hits ?? null;
 
   const groups = useMemo(() => {
     const matches = (r: Race) => {
@@ -383,15 +393,43 @@ function Main() {
 
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
   // 검색 결과 0개일 때 '혹시 이 대회인가요?' (필터와 무관하게 다가오는 대회 중). 결과 수(shown)에는 넣지 않는다 → search_empty 기록 그대로
+  // 필터 때문에 안 보이는 대회: 검색어에 맞는데(필터 무관, 지난 대회 포함) 지금 목록에 없는 것. 결과가 0개이거나 몇 개 안 될 때만 찾는다
+  // (지난 대회 색인은 처음 필요할 때 한 번 만든다)
+  const needAll = !!dq.trim() && shown <= FEW_RESULTS && remote !== 'loading';
+  const allWantedRef = useRef(false);
+  if (needAll) allWantedRef.current = true;
+  const allIndex = useMemo(
+    () => (allWantedRef.current ? buildIndex([...upcomingRaces, ...pastRaces], lang) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [needAll, upcomingRaces, pastRaces, lang],
+  );
+  const shownSet = useMemo(() => new Set(groups.flatMap((g) => g.races)), [groups]);
+  const hidden = useMemo<Hidden>(() => {
+    if (!needAll || !allIndex) return NO_HIDDEN;
+    return hiddenRaces([...(hits ?? []), ...searchWithFixes(allIndex, dq).hits], shownSet, todayKey);
+  }, [needAll, allIndex, hits, dq, shownSet, todayKey]);
+  // 0개일 때 '혹시 이 대회인가요?' 는 전체에서도 없을 때만 (필터 탓이면 위 안내가 대신한다)
   const suggestions = useMemo(
-    () => (shown === 0 && dq.trim() ? suggestRaces(searchIndex, dq, 3) : []),
-    [shown, dq, searchIndex],
+    () => (shown === 0 && dq.trim() && hidden.total === 0 ? suggestRaces(searchIndex, dq, 3) : []),
+    [shown, dq, searchIndex, hidden.total],
+  );
+  // 검색창 아래 칩 (검색어 있으면 관련 검색어, 비면 많이 찾는 검색어)
+  const popular = usePopularSearches();
+  useEffect(() => {
+    if (!popular.length || remote === 'loading') return;
+    const run = () => popularInfo(searchIndex, popular);
+    const id = typeof requestIdleCallback === 'function' ? requestIdleCallback(run) : setTimeout(run, 800);
+    return () => (typeof cancelIdleCallback === 'function' ? cancelIdleCallback(id as number) : clearTimeout(id as ReturnType<typeof setTimeout>));
+  }, [popular, searchIndex, remote]);
+  const chips = useMemo(
+    () => (remote === 'loading' ? [] : relatedChips({ q: dq, index: searchIndex, races: upcomingRaces, results: hits ? [...hits] : [], popular, lang })),
+    [remote, dq, searchIndex, upcomingRaces, hits, popular, lang],
   );
   const activeFilters =
     types.length + status.length + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0) + disciplines.length + dists.length + (dated ? 1 : 0);
 
-  const reset = () => {
-    setQ('');
+  // 검색어는 두고 필터만 풀기 (필터 때문에 안 보이는 대회 안내의 버튼)
+  const resetFilters = () => {
     setScope('all');
     setRegions([]);
     setPlaces([]);
@@ -405,8 +443,15 @@ function Main() {
     setDists([]);
     setRange(NO_RANGE);
   };
+  const reset = () => {
+    setQ('');
+    resetFilters();
+  };
 
   const openRace = useCallback((r: Race) => setSelected(r), []);
+  const renderHiddenRow = (r: Race) => (
+    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} registered={reg.has(r.id)} onOpen={openRace} />
+  );
   // 내 정보 '저장한 대회' 에 넘기는 값 — 같은 fav·reg 상태를 써야 저장 해제가 목록·상세에도 바로 보인다 (lib/myRacesContext)
   const myRacesBridge = useMemo<MyRacesBridge>(
     () => ({
@@ -428,12 +473,15 @@ function Main() {
   const similarProps = { races: upcomingRaces, ratingMap, isFavorite: fav.has, isRegistered: reg.has, onOpenRace: openRace };
 
   // 검색어: 입력이 1.2초 멈추면 한 번 기록 (결과 0건이면 '찾는데 없는 대회'로 따로 센다)
+  // 결과 0개일 때 outside = 필터를 풀면 있는 대회 수 (0 이면 전체에서도 없음) → analytics 가 search_filtered_empty / search_empty 로 나눈다
   const shownRef = useRef(0);
+  const outsideRef = useRef(0);
   shownRef.current = shown;
+  outsideRef.current = emptyKind(shown, hidden.total) === 'filtered' ? hidden.total : 0;
   useEffect(() => {
     const term = q.trim();
     if (term.length < 2) return;
-    const t = setTimeout(() => track('search', { search_term: term, results: shownRef.current }), 1200);
+    const t = setTimeout(() => track('search', { search_term: term, results: shownRef.current, outside: outsideRef.current }), 1200);
     return () => clearTimeout(t);
   }, [q]);
 
@@ -944,13 +992,33 @@ function Main() {
         {/* 목록 */}
         {/* 휴대폰은 위에 붙는 것이 머리말(56px)뿐이라 그만큼만 띄운다 (sm 부터는 고정 도구 막대 높이까지) */}
         <section id="list" className="mx-auto max-w-6xl scroll-mt-14 pb-16 sm:scroll-mt-44 sm:px-6 lg:scroll-mt-32">
-          <ResultsAnnouncer query={dq.trim()} count={shown} suggestions={suggestions.length} loading={remote === 'loading'} />
+          <ResultsAnnouncer
+            query={dq.trim()}
+            count={shown}
+            suggestions={suggestions.length}
+            loading={remote === 'loading'}
+            hidden={hidden.total}
+            fixed={outcome?.fixed?.query ?? null}
+          />
+          <RelatedChips chips={chips} popular={!dq.trim()} onPick={setQ} />
+          {outcome?.fixed && remote !== 'loading' && (
+            <p className="mx-auto max-w-6xl px-4 pt-3 text-[15px] text-ink-2 sm:px-6">
+              {t('search.fixedNotice', { q: outcome.fixed.query })}{' '}
+              <button type="button" onClick={() => setQ(outcome.fixed!.query)} className="-my-3 inline-flex min-h-11 items-center font-semibold whitespace-nowrap underline underline-offset-4 hover:text-ink">
+                {t('search.fixedUse', { q: outcome.fixed.query })}
+              </button>
+            </p>
+          )}
           {remote === 'loading' ? (
             <div className="space-y-px pt-8" aria-busy="true" aria-label={t('list.loading')}>
               {/* 실제 카드(104px 안팎)와 같은 높이 — 목록이 뜰 때 아래가 덜 움직인다 */}
               {Array.from({ length: 6 }, (_, i) => (
                 <div key={i} className="h-[104px] animate-pulse bg-surface" />
               ))}
+            </div>
+          ) : shown === 0 && dq.trim() && hidden.total > 0 ? (
+            <div id={RESULTS_EMPTY_ID} className="scroll-mt-14 sm:scroll-mt-44 lg:scroll-mt-32">
+              <SearchAssist variant="empty" query={dq.trim()} hidden={hidden} onClear={resetFilters} renderRow={renderHiddenRow} />
             </div>
           ) : shown === 0 ? (
             <div id={RESULTS_EMPTY_ID} className="scroll-mt-14 px-4 py-20 text-center sm:scroll-mt-44 lg:scroll-mt-32">
@@ -983,7 +1051,8 @@ function Main() {
               )}
             </div>
           ) : (
-            visible.map((g, i) => (
+            <>
+            {visible.map((g, i) => (
               <div key={g.key} className="pt-8">
                 <div className="flex items-baseline justify-between gap-3 px-4 pb-2">
                   <h2 className="flex items-baseline gap-2">
@@ -1015,7 +1084,10 @@ function Main() {
                   </div>
                 )}
               </div>
-            ))
+            ))}
+            {/* 결과가 몇 개 안 되면 필터 때문에 안 보이는 대회를 아래에 알린다 */}
+            {shown > 0 && hidden.total > 0 && <SearchAssist variant="few" query={dq.trim()} hidden={hidden} onClear={resetFilters} renderRow={renderHiddenRow} />}
+            </>
           )}
 
           {pastRaces.length > 0 && (

@@ -71,7 +71,8 @@ function toStat(name: string, p: Params) {
       return stat(name, p.tab as string);
     case 'search':
       stat('search', p.search_term as string);
-      if (p.results === 0) stat('search_empty', p.search_term as string);
+      // 결과 0개: 필터를 풀면 있는 검색어(outside > 0)는 search_filtered_empty, 전체에서도 없으면 search_empty (추가 후보)
+      if (p.results === 0) stat(Number(p.outside) > 0 ? 'search_filtered_empty' : 'search_empty', p.search_term as string);
       return;
     case 'filter':
       return stat('filter', `${p.name}:${p.value}`);
