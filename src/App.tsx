@@ -999,7 +999,7 @@ function Main() {
           />
           <RelatedChips chips={chips} popular={!dq.trim()} onPick={setQ} />
           {outcome?.fixed && remote !== 'loading' && (
-            <p className="mx-auto max-w-6xl px-4 pt-3 text-[15px] text-ink-2 sm:px-6">
+            <p className="px-4 pt-3 text-[15px] text-ink-2">
               {t('search.fixedNotice', { q: outcome.fixed.query })}{' '}
               <button type="button" onClick={() => setQ(outcome.fixed!.query)} className="-my-3 inline-flex min-h-11 items-center font-semibold whitespace-nowrap underline underline-offset-4 hover:text-ink">
                 {t('search.fixedUse', { q: outcome.fixed.query })}

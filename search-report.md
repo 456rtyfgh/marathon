@@ -68,6 +68,8 @@
 | 'rhrnfu' → '고구려' | `evidence/search/a6-rhrnfu-375.png` | — |
 | '통영' (결과 1개 + 더 찾은 건 끝난 대회뿐) → "이미 끝난 대회 2개도 찾았습니다", 버튼 없음 | `evidence/search/a7-few-past-tongyeong-375.png` | `evidence/search/a7-few-past-tongyeong-1280.png` |
 
+검수 때 다시 찍은 것 (`evidence/search/fix-a/`, 주소 `?q=…&scope=abroad&dist=full` 로 필터를 켠 상태): `empty-375.png`·`empty-1280.png`(해외+풀 '경주' → 필터 밖 12개), `empty-en-375.png`(영어), `gyeongju-abroad-375.png`(결과 2개 + 아래 안내), `seoul-375.png`·`seoul-1280.png`, `popular-375.png`(빈 검색창 인기 검색어), `rhvm-375.png`. 칩 줄·자판 변환 안내 줄이 넓은 화면에서 목록보다 8px 더 들어가던 것을 맞췄다.
+
 ## 동작 정리
 
 - 결과 0개 + 필터 밖에 있음: 빈 결과 화면 대신 필터 밖 안내(대회 추가 요청 버튼·'혹시 이 대회인가요?' 는 나오지 않음). 전체에서도 0개: 기존 화면 + '혹시 이 대회인가요?'.

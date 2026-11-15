@@ -8,7 +8,8 @@ import { parsePopular } from '../src/lib/popularSearches.ts';
 import { splitData } from './data-split.mjs';
 
 const data = splitData(JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'))).list;
-const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+// 기준일 고정 (scripts/search-test.mjs 와 같은 방식 — 날짜가 지나도 결과가 흔들리지 않게). SEARCH_TEST_TODAY 로 바꿀 수 있다
+const today = process.env.SEARCH_TEST_TODAY || '2026-11-15';
 const upcoming = data.races.filter((r) => r.race_date >= today);
 const past = data.races.filter((r) => r.race_date < today);
 const index = buildIndex(upcoming);

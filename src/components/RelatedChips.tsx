@@ -10,7 +10,7 @@ export default function RelatedChips({ chips, popular, onPick }: { chips: Chip[]
   const { t } = useLang();
   if (!chips.length) return null;
   return (
-    <nav aria-label={t(popular ? 'search.popular' : 'search.related')} className="mx-auto max-w-6xl px-4 pt-4 sm:px-6">
+    <nav aria-label={t(popular ? 'search.popular' : 'search.related')} className="px-4 pt-4">
       <div className="-mx-4 flex min-h-11 items-center gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:py-0 [&>*]:shrink-0">
         <span className="pr-1 text-[13px] font-semibold whitespace-nowrap text-ink-3">{t(popular ? 'search.popular' : 'search.related')}</span>
         {chips.map((c) => (
