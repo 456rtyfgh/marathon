@@ -471,14 +471,12 @@ function Main() {
 
   // 검색어: 입력이 1.2초 멈추면 한 번 기록 (결과 0건이면 '찾는데 없는 대회'로 따로 센다)
   // 결과 0개일 때 outside = 필터를 풀면 있는 대회 수 (0 이면 전체에서도 없음) → analytics 가 search_filtered_empty / search_empty 로 나눈다
-  const shownRef = useRef(0);
-  const outsideRef = useRef(0);
-  shownRef.current = shown;
-  outsideRef.current = emptyKind(shown, hidden.total) === 'filtered' ? hidden.total : 0;
+  const shownRef = useRef({ results: 0, outside: 0 });
+  shownRef.current = { results: shown, outside: emptyKind(shown, hidden.total) === 'filtered' ? hidden.total : 0 };
   useEffect(() => {
     const term = q.trim();
     if (term.length < 2) return;
-    const t = setTimeout(() => track('search', { search_term: term, results: shownRef.current, outside: outsideRef.current }), 1200);
+    const t = setTimeout(() => track('search', { search_term: term, ...shownRef.current }), 1200);
     return () => clearTimeout(t);
   }, [q]);
 

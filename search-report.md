@@ -1,6 +1,6 @@
 # 검색 개선 + 관련 검색어 — 보고서 (파트 A)
 
-브랜치 g-search. 파트 B(검색 사전·정확도·인기 검색어 데이터)의 상세 표는 `search-report-b.md` 에 있다 (아직 없으면 `node scripts/search-test.mjs` 로 같은 표가 나온다).
+브랜치 g-search. 파트 B(검색 사전·정확도·인기 검색어 데이터)의 표는 아래 '파트 B 테스트 표' 에 옮겨 두었고, 결정 근거·전체 묶음은 `search-report-b.md` 에 있다.
 
 ## 바꾼 파일 (파트 A)
 
@@ -13,11 +13,11 @@
 | `src/lib/outsideFilter.ts` (신규) | 필터 밖 결과 계산 (다가오는 대회 먼저, 지난 대회는 최근 순), 기록 분기 `emptyKind` |
 | `src/lib/popularSearches.ts` (신규) | `/popular-searches.json` 읽기·검사. 못 받거나 모양이 틀리면 빈 목록 (칩 줄만 안 나옴) |
 | `src/lib/analytics.ts` | 결과 0개: `outside > 0` → `search_filtered_empty`, 아니면 `search_empty` |
-| `src/components/AdminPanel.tsx` | 통계 라벨: `search_empty` = '전체에서도 결과가 없던 검색어 (추가 후보)', `search_filtered_empty` = '필터 때문에 결과가 없던 검색어 (필터를 풀면 있음)' |
+| `src/components/AdminPanel.tsx` | 통계 라벨: `search_empty` = '전체에서도 결과가 없던 검색어 (추가 후보)', `search_filtered_empty` = '필터 때문에 결과가 없던 검색어 (필터를 풀거나 끝난 대회에는 있음)' |
 | `src/components/ResultsAnnouncer.tsx` | 필터 밖 대회 수·자판 변환 안내를 스크린 리더 문구에 추가 |
 | `src/i18n/ko.ts`, `src/i18n/en.ts` | `search.*`, `announce.hidden/fixed` (영어 단수형 포함) |
 | `supabase/migrations/0024_stat_search_filtered_empty.sql` (신규) | `stat_hit` 허용 이벤트에 `search_filtered_empty` 추가. **적용하지 않았다** |
-| `scripts/related-test.mjs` (신규) | 칩·필터 밖 결과 단위 테스트 42개 |
+| `scripts/related-test.mjs` (신규) | 칩·필터 밖 결과 단위 테스트 43개 |
 | `evidence/search/*.png` | 스크린샷 |
 
 ## 운영자가 해야 할 일
@@ -32,9 +32,10 @@
 | `npx tsc -b` | 오류 0 |
 | `npm run build` | EXIT 0 |
 | `npx oxlint` | 이번에 건드린 파일에 새 경고 없음 (기존 경고만) |
-| `node scripts/related-test.mjs` | PASS 42 / FAIL 0 |
+| `node scripts/related-test.mjs` | PASS 43 / FAIL 0 |
 | `node scripts/search-check.mjs` | PASS 31 / FAIL 0 / SKIP 0, 평균 2.5ms |
-| `node scripts/search-test.mjs` (파트 B) | PASS 84 / FAIL 0 |
+| `node scripts/search-test.mjs` (파트 B, 커밋 7850623 기준 직접 돌림) | PASS 104 / FAIL 0 (색인 2509개, 기준일 2026-11-15) |
+| `node scripts/popular-test.mjs` (파트 B) | PASS 33 / FAIL 0 |
 | `node scripts/admin-search-test.mjs` | 전부 ok |
 | 375px 가로 넘침 | `scrollWidth 375 / innerWidth 375` |
 | 눌러 보기 | [검색어는 두고 필터 풀기] → 검색어 유지·필터 해제로 결과 2개 표시, 칩 누르면 검색창 값이 칩 말로 바뀜 |
@@ -56,7 +57,7 @@
 
 ## 스크린샷 (직접 열어 확인함)
 
-필터 켠 상태는 주소 `?scope=abroad` (해외 탭) 로 만들었다. 인기 검색어 칩 화면은 `public/popular-searches.json` 이 아직 비어 있어(`source: "empty"`) 확인용으로 `dist/` 에만 임시 파일을 두고 찍었고, 저장소 파일은 건드리지 않았다.
+필터 켠 상태는 주소 `?scope=abroad` (해외 탭) 로 만들었다. `a4-popular-empty-*` 는 `public/popular-searches.json` 이 생기기 전이라 `dist/` 에만 임시 파일을 두고 찍은 것이다. 지금 저장소 파일은 `source: "seed"` 8개(파트 B)이고, 아래 `fix-a`·`fix-a2` 는 그 파일 그대로 찍었다.
 
 | 장면 | 375px | 1280px |
 |---|---|---|
@@ -70,6 +71,37 @@
 
 검수 때 다시 찍은 것 (`evidence/search/fix-a/`, 주소 `?q=…&scope=abroad&dist=full` 로 필터를 켠 상태): `empty-375.png`·`empty-1280.png`(해외+풀 '경주' → 필터 밖 12개), `empty-en-375.png`(영어), `gyeongju-abroad-375.png`(결과 2개 + 아래 안내), `seoul-375.png`·`seoul-1280.png`, `popular-375.png`(빈 검색창 인기 검색어), `rhvm-375.png`. 칩 줄·자판 변환 안내 줄이 넓은 화면에서 목록보다 8px 더 들어가던 것을 맞췄다.
 
+2차 검수 때 다시 찍은 것 (`evidence/search/fix-a2/`, 해외 탭을 눌러 필터를 켠 뒤 검색): `gyeongju-filtered-375.png`·`gyeongju-filtered-1280.png`(해외 탭 + '경주' → 결과 2개 + "필터 때문에 안 보이는 대회 10개"), `gyeongju-cleared-375.png`·`gyeongju-cleared-1280.png`([검색어는 두고 필터 풀기] 를 누른 뒤 — 검색어 '경주' 그대로, 전체 탭, 결과 11개), `seoul-375.png`·`seoul-1280.png`, `popular-375.png`·`popular-1280.png`, `rhvm-375.png`·`rhvm-1280.png`, `en-tokyo-domestic-375.png`(영어, 국내 탭 + 'tokyo' → "25 races hidden by your filters"), `en-seoul-375.png`. 화면 값으로도 확인: 375·1280 모두 `scrollWidth = innerWidth`, 칩은 6개 이하, 칩을 누르면 검색창 값이 바뀜, 해외 탭 + `rhvm` 은 "필터 때문에 안 보이는 대회 1개" + '고프' 안내, `부피아` 는 기존 '찾지 못했습니다' 화면만(칩·필터 안내 없음). 필터가 하나도 없을 때 '필터 때문에 안 보이는 다가오는 대회' 가 생기는 검색어가 있는지 대회 이름·도시에서 뽑은 검색어 30,713개(한국어·영어 색인 각각)로 확인했고 0건이었다.
+
+## 파트 B 테스트 표 (`search-report-b.md` 에서 옮김 — `node scripts/search-test.mjs` 직접 돌린 결과 PASS 104 / FAIL 0)
+
+필터를 꺼도 0개였던 20개:
+
+| 검색어 | 기대 | 실제 |
+|---|---|---|
+| 부피아 | 0개 정상 | 0 PASS |
+| 호롤 | `honolulu`, 전부 호놀룰루, nyc·tokyo 없음 | 2개 (honolulu, hapalua-half) PASS |
+| 전라남도 | 40개 이상, 전부 국내 전남·광주, seoul-marathon 없음 | 57 PASS |
+| 경상도 | 100개 이상, 전부 경북·경남·대구·부산·울산, seoul-marathon 없음 | 151 PASS |
+| 한강짐런 | 0개 정상 | 0 PASS |
+| 뉴요 | `nyc` 포함, tokyo·honolulu 없음 | 9 PASS |
+| 파나코니아 | 정확히 파타고니아 3개 | 3 PASS |
+| 나눔레이스 서울 | 0개 정상 | 0 PASS |
+| 경기국제 | 정확히 `suwon-intl-half` | 1 PASS |
+| 대련 | 정확히 `dalian` | 1 PASS |
+| 경주 동아 마라톤 | 정확히 `gyeongju-intl` | 1 PASS |
+| 세계6대 | 정확히 해외 메이저 8개, 국내 메이저 없음 | 8 PASS |
+| 새해 동계 | 0개 정상 | 0 PASS |
+| newbq | 0개, 자판 변환 안 씀 | 0, fixed 없음 PASS |
+| 교다 | 0개 정상 | 0 PASS |
+| rhvm | `asics-goprun`, 변환 '고프' | 1, fixed '고프' PASS |
+| 경주 동아 | 정확히 `gyeongju-intl` | 1 PASS |
+| 국제동계 | 0개 정상 | 0 PASS |
+| 잔시문 | 0개 정상 | 0 PASS |
+| 경주경주 | `경주` 와 같은 결과 | 11 = 11 PASS |
+
+상위 검색어(서울 ≥200 · 경주 ≥11 · 대구 ≥14 · 인천 ≥28 · 도쿄 ≥25 · 부산 ≥33 · 시카고 ≥2 · 보스턴 ≥3 — 다가오는 대회만 색인한 최소 개수), 지역어, 별칭·오타, 접두어 과확장, 반복 글자, 자판 변환 묶음의 기대값과 근거(경주동아 별칭의 출처 포함)는 `search-report-b.md` 의 표 그대로다.
+
 ## 동작 정리
 
 - 결과 0개 + 필터 밖에 있음: 빈 결과 화면 대신 필터 밖 안내(대회 추가 요청 버튼·'혹시 이 대회인가요?' 는 나오지 않음). 전체에서도 0개: 기존 화면 + '혹시 이 대회인가요?'.
@@ -79,6 +111,7 @@
 
 ## 남은 문제 / 메모
 
-- `public/popular-searches.json` 은 환경변수가 없는 로컬에서는 비어 있다 — 그 경우 빈 검색창에는 칩 줄이 나오지 않는다(의도한 동작). 배포 때 `npm run snapshot` 이 채운다.
-- 영어 화면의 칩은 영어 색인으로 확인되는 이름(예: 'Gyeongju, Gyeongbuk')만 낸다. 인기 검색어는 한국어라 영어 화면에서도 한글 칩이 나올 수 있다.
+- `public/popular-searches.json` 은 지금 `source: "seed"` 8개(실제 집계가 아닌 확인용 순위값)다. 배포 때 `npm run snapshot` 이 실제 값으로 덮어쓴다. 받지 못해 목록이 비면 빈 검색창에는 칩 줄이 나오지 않는다(의도한 동작).
+- 영어 화면의 칩은 영어 색인으로 확인되는 이름(예: 'Gyeongju, Gyeongbuk')만 낸다. 인기 검색어와 표기 사전의 다른 표기는 한국어라 영어 화면에서도 한글 칩('서울', '도쿄')이 나온다 — 영어 화면에서 한글 칩을 뺄지는 정하지 않았다.
+- 결과 대회 이름에서 뽑는 키워드 칩(라)은 낱말 빈도만 보므로 'Peace', '바이' 처럼 주최·시리즈 이름이 아닌 말이 섞일 수 있다(누르면 결과는 나온다).
 - 다른 파트 메모: 없음 (B 의 인터페이스 `searchWithFixes`·`aliasSiblings` 는 약속대로 동작).

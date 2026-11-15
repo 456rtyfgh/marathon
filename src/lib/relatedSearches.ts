@@ -92,7 +92,7 @@ function topPlaces(results: Race[], n: number): string[] {
 
 // 키워드로 쓰지 않는 흔한 말
 const STOP_KO = new Set(['시티', '육상대회', '육상', '축제', '시리즈', '코리아', '시', '군', '구', '동호인', '마스터즈', '마라톤',  '대회', '하프', '하프마라톤', '국제', '국제마라톤', '런', '트레일', '트레일런', '트레일러닝', '풀', '풀코스', '러닝', '페스티벌', '챌린지', '레이스', '기념', '대한민국', '한국', '전국']);
-const STOP_EN = new Set(['marathon', 'half', 'run', 'race', 'the', 'of', 'in', 'and', 'international', 'trail', 'running', 'festival', 'for', 'de', 'la', 'city', 'road', 'full', 'ultra', 'with', 'run', 'races', 'km', 'k']);
+const STOP_EN = new Set(['marathon', 'half', 'run', 'race', 'the', 'of', 'in', 'and', 'international', 'trail', 'running', 'festival', 'for', 'de', 'la', 'city', 'road', 'full', 'ultra', 'with', 'run', 'races', 'km', 'k', 'cup']);
 
 /** 결과 대회 이름에서 여러 대회에 걸쳐 나오는 낱말 (주최·시리즈 이름) */
 function keywordsOf(results: Race[], lang: Lang): string[] {
@@ -108,7 +108,8 @@ function keywordsOf(results: Race[], lang: Lang): string[] {
       if (STOP_EN.has(k) || (lang === 'ko' && STOP_KO.has(k))) continue;
       // 한국어 화면에서는 영어 낱말(in·with·RUN …)보다 한글 이름이 키워드 — 영어만인 말은 4글자 이상일 때만
       if (lang === 'ko' && /^[a-z0-9]+$/.test(k) && k.length < 4) continue;
-      seen.add(tok.replace(/[^\p{L}\p{N}]/gu, ''));
+      // 낱말 양끝 기호만 뗀다 — 가운데 기호까지 빼면 Mayor's 가 'Mayors' 로 깨져 칩에 나온다
+      seen.add(tok.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''));
     }
     for (const w of seen) count.set(w, (count.get(w) ?? 0) + 1);
   }

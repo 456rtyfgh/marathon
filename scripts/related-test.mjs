@@ -82,6 +82,15 @@ for (const q of ['서울', '경주', '도쿄', '보스턴', '하프', '대구', 
   check('칩: 결과 대회 이름에서 나온 키워드(keyword) 출처가 있을 수 있다', hasKw || true, hasKw ? '있음' : '이 데이터에서는 없음');
   check('칩: 같은 호출은 같은 결과 (정해져 있음)', JSON.stringify(chips) === JSON.stringify(chipsFor('경주', pop)));
 }
+{
+  // 키워드 칩은 대회 이름에 있는 글자 그대로 (가운데 기호를 빼 Mayor's 가 'Mayors' 로 깨지면 안 된다)
+  const enIndex = buildIndex(upcoming, 'en');
+  const results = [...searchRaces(enIndex, 'seoul')];
+  const kws = relatedChips({ q: 'seoul', index: enIndex, races: upcoming, results, popular: [], lang: 'en', max: 40 }).filter((c) => c.source === 'keyword');
+  const names = results.map((r) => (r.name_en || r.name_ko).toLowerCase());
+  const broken = kws.filter((c) => !names.some((n) => n.includes(c.term.toLowerCase())));
+  check('칩(영어): 키워드는 대회 이름에 있는 글자 그대로', broken.length === 0, broken.length ? '깨진 말: ' + broken.map((c) => c.term).join(', ') : kws.map((c) => c.term).slice(0, 6).join(' · '));
+}
 check('resultCount 는 searchRaces 와 같다', resultCount(index, '서울') === searchRaces(index, '서울').size);
 {
   const t = performance.now();
