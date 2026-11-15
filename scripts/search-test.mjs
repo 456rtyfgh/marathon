@@ -103,6 +103,14 @@ const ROWS = [
   { q: '도쿄 도쿄 도쿄', same: '도쿄' },
   { q: 'ㅋㅋㅋㅋ', zero: true, noSuggest: true },
   { q: 'qwerty', zero: true, noSuggest: true },
+  // 줄이고 남는 게 짧은 조각이면 줄이지 않는다 (고치기 전: 하하하 → '하' 1527개, 1010 → '10' 1521개, nana → 'na' 395개, gogo → 'go' 107개, aaaa → 'aa' 22개, ㅇㅇㅇ → 'ㅇㅇ' 157개)
+  { q: '하하하', max: 2, not: ['seoul-marathon', 'busan-intl'] }, // 오타 단계의 하하호호마라톤 정도만
+  { q: '1010', zero: true },
+  { q: 'nana', zero: true },
+  { q: 'gogo', zero: true },
+  { q: 'aaaa', zero: true },
+  { q: 'ㅇㅇㅇ', zero: true, fixed: null },
+  { q: 'nycnyc', same: 'nyc' },
 
   // ── 한/영 자판 실수 ──
   { q: 'rhrnfu', ids: ['goguryeo-seoul'], fixed: '고구려' },
@@ -116,6 +124,12 @@ const ROWS = [
   { q: 'qm', zero: true, fixed: null },
   { q: 'hz', zero: true, fixed: null },
   { q: '쑈', zero: true, fixed: null },
+  // 한 글자만 거듭 친 것은 영문으로 바꾸지 않는다 (고치기 전: ㅠㅠㅠ → 'bbb' 로 버뮤다 대회 1개)
+  { q: 'ㅠㅠㅠ', zero: true, fixed: null },
+  // 첫 글자 자동 대문자·Caps Lock: 대문자 그대로(R → ㄲ, '꼬프')는 0개 → 소문자로 바꾼 것도 본다 (고치기 전 0개)
+  { q: 'Rhvm', ids: ['asics-goprun'], fixed: '고프' },
+  { q: 'RHRNFU', ids: ['goguryeo-seoul'], fixed: '고구려' },
+  { q: 'Tokyo', min: 5, fixed: null },
   { q: '서울', fixed: null },
 ];
 

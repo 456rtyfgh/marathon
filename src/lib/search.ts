@@ -164,9 +164,14 @@ const fuzzyKey = (q: string) => toJamo(stripTail(normalize(q)));
 /** 자모 길이에 따른 오타 허용 거리: 6개 미만은 오타 안 봄 · 12개 미만 1 · 그 이상 2 */
 const typoLimit = (n: number) => (n < 6 ? 0 : n < 12 ? 1 : 2);
 
+/** 반복을 줄이고 남은 말이 검색어로 쓸 만한 길이인가: 한글 두 글자 이상, 또는 영문·숫자 3글자 이상 (낱자모는 세지 않는다) */
+const longEnough = (n: string) => (n.match(/[가-힣]/g) ?? []).length >= 2 || n.replace(/[ㄱ-ㅣ가-힣]/g, '').length >= 3;
+
 /**
  * 반복 정리: 같은 글자 3번 이상 연속(서울울울 → 서울, ㅋㅋㅋㅋ → ㅋㅋ, 숫자 제외), 낱말 전체가 같은 덩어리의 반복(경주경주 → 경주),
  * 같은 낱말 반복(서울 서울 → 서울). 바뀐 게 없으면 null.
+ * 줄이고 남은 말이 짧은 조각이면 그 낱말은 줄이지 않는다 — 조각은 아무 이름에나 부분 일치로 걸린다
+ * (하하하 → '하' 1527개, 1010 → '10' 1521개, nana → 'na' 395개, ㅇㅇㅇ → 'ㅇㅇ' 157개).
  */
 function cleanQuery(q: string): string | null {
   const seen = new Set<string>();
@@ -179,6 +184,7 @@ function cleanQuery(q: string): string | null {
         w = n.slice(0, len);
         break;
       }
+    if (w !== raw && !longEnough(normalize(w))) w = raw;
     const key = normalize(w);
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -268,22 +274,29 @@ const LONE_JAMO = /[ㄱ-ㅣ]/;
  * 바꾼 말이 검색어로 쓸 만한가. 짧은 조각은 아무 이름에나 부분 일치로 걸린다 (ㅜㅜ → 'nn' 128개, qm → '브' 127개, hz → 'ㅗㅋ' 154개).
  * 영→한: 친 영문이 3글자 이상이고 바뀐 한글이 온전한 글자만 (낱자모가 남으면 한글로 친 게 아니다).
  * 한→영: 바뀐 영문이 4글자 이상, 또는 3글자이면서 친 말에 낱자모가 있을 때 (영문을 한글 자판으로 치면 거의 늘 낱자모가 생긴다 — ㅡㅠㅜ → mbn).
+ * 한 글자만 거듭 친 것(ㅠㅠㅠ → 'bbb', ㅋㅋㅋㅋ → 'zzzz')은 영문을 친 게 아니다.
  */
 function usableFix(q: string, fix: KeyboardFix): boolean {
-  const len = normalize(fix.query).length;
+  const to = normalize(fix.query);
   if (fix.kind === 'en2ko') return normalize(q).length >= 3 && !LONE_JAMO.test(fix.query);
-  return len >= 4 || (len === 3 && LONE_JAMO.test(q));
+  if (/^(.)\1*$/u.test(to)) return false;
+  return to.length >= 4 || (to.length === 3 && LONE_JAMO.test(q));
 }
 
 /**
  * 원래 검색 + 자판 변환 검색. 변환 결과는 원래보다 나을 때만 쓴다:
  * 원래 결과가 정확 단계로 나왔으면 변환 검색은 하지 않는다. 원래가 0개이거나 오타 단계 결과일 때,
  * 변환 문자열이 정확 단계로 1개 이상 맞으면 그 결과를 쓴다 (오타 단계로만 맞는 변환은 인정하지 않는다 — 'newbq' 같은 말이 엉뚱한 대회에 걸리지 않게).
+ * 대문자는 쌍자음으로 바꾸지만(R → ㄲ), 휴대폰의 첫 글자 자동 대문자나 Caps Lock 으로 생긴 대문자일 수 있다
+ * (Rhvm → '꼬프' 0개) — 친 그대로 못 찾으면 소문자로 바꾼 것도 본다.
  */
 export function searchWithFixes(index: SearchDoc[], q: string): SearchOutcome {
   const base = stagedSearch(index, q);
   if (base.stage === 'exact' || base.stage === 'all') return { hits: base.hits, fixed: null };
-  for (const fix of keyboardFixes(q)) {
+  const fixes = keyboardFixes(q);
+  const lower = q.toLowerCase();
+  if (lower !== q) for (const f of keyboardFixes(lower)) if (f.kind === 'en2ko' && !fixes.some((x) => x.query === f.query)) fixes.push(f);
+  for (const fix of fixes) {
     if (!usableFix(q, fix)) continue;
     const hits = exactSearch(index, fix.query);
     if (hits.size) return { hits, fixed: fix };

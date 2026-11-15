@@ -26,6 +26,8 @@ export function isSafeTerm(raw) {
   if (!term || term.length > MAX_LEN) return false;
   if (EMAIL.test(term) || URL_LIKE.test(term) || PHONE.test(term) || DIGITS(term) >= 8) return false;
   if (!/\p{L}/u.test(term)) return false; // 숫자·기호만
+  // 낱자모가 든 말은 쓰다 만 글자(경ㅈ, 서울ㅁ)이거나 ㅋㅋ·ㅠㅠ — 검색은 '쓰는 중인 글자' 로 결과를 내지만 칩으로 권할 말이 아니다
+  if (/[ㄱ-ㅣ]/.test(term)) return false;
   const flat = term.toLowerCase().replace(/\s+/g, '');
   if (BAD.some((b) => flat.includes(b))) return false;
   return true;

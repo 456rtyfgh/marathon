@@ -29,6 +29,8 @@ const UNSAFE = [
   ['욕설', '씨 발'],
   ['욕설 영문', 'Fuck'],
   ['빈 문자열', '   '],
+  ['쓰다 만 글자', '서울ㅁ'],
+  ['낱자모만', 'ㅋㅋ'],
 ];
 for (const q of SAFE) check(isSafeTerm(q), `안전 '${q}'`);
 for (const [why, q] of UNSAFE) check(!isSafeTerm(q), `거름 ${why} '${q}'`);
