@@ -329,9 +329,10 @@ function Main() {
   const regionList = useMemo(() => (dq.trim() ? regionHits(searchIndex, dq, lang) : []), [searchIndex, dq, lang]);
   const [regionSel, setRegionSel] = useState<{ q: string; pick: string | null; gu: string | null }>({ q: '', pick: null, gu: null });
   const regionNow = regionSel.q === dq.trim() ? regionSel : { q: '', pick: null, gu: null };
-  const sidoHit = regionList.find((h) => h.kind === 'sido');
-  const guChipList = useMemo(() => (sidoHit ? guChipsOf(sidoHit.races, sidoHit.sido!, lang) : []), [sidoHit, lang]);
   const pickedRegion = regionList.find((h) => h.key === regionNow.pick);
+  // 구 칩은 시·도 묶음에 딸린 것 — 다른 묶음('광주' 검색의 '경기 광주')을 고르면 광주광역시 구 칩은 걸러도 0개라 숨긴다
+  const sidoHit = !pickedRegion || pickedRegion.kind === 'sido' ? regionList.find((h) => h.kind === 'sido') : undefined;
+  const guChipList = useMemo(() => (sidoHit ? guChipsOf(sidoHit.races, sidoHit.sido!, lang) : []), [sidoHit, lang]);
   const regionSet = useMemo(() => (pickedRegion ? new Set(pickedRegion.races) : null), [pickedRegion]);
   const guNow = sidoHit && guChipList.some((c) => c.gu === regionNow.gu) ? regionNow.gu : null;
 
