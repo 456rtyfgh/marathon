@@ -677,12 +677,13 @@ function Main() {
             )}
             {/* 언어 전환: 글자는 두 언어 모두 'EN / 한', 지금 언어 쪽만 진하게.
                 휴대폰에서도 메뉴를 열지 않고 상단바에 늘 보인다 (터치 높이 44px·좁은 좌우 여백). 768px 부터는 예전 모양 그대로.
-                360px 미만(확대 표시한 320px 등)은 'EN / 한' 이 다 안 들어가 바꿀 언어 쪽만 보인다 (aria-label 이 뜻을 알린다) */}
+                360px 미만(확대 표시한 320px 등)은 'EN / 한' 이 다 안 들어가 바꿀 언어 쪽만 보인다 (aria-label 이 뜻을 알린다).
+                320px 미만(접는 휴대폰 바깥 화면 280px 등)은 그것도 안 들어가 숨긴다 — 넘치면 메뉴 버튼이 화면 밖으로 밀리고 가로 스크롤이 생긴다. 메뉴 안에는 늘 있다 */}
             <button
               onClick={switchLang}
               aria-label={t('lang.switch')}
               lang={nextLang}
-              className="inline-flex h-11 items-center rounded-ctl px-2 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink md:h-9 md:px-3"
+              className="inline-flex h-11 items-center rounded-ctl px-2 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink max-[320px]:hidden md:h-9 md:px-3"
             >
               <span>
                 <span className={lang === 'en' ? 'text-ink max-[360px]:hidden' : undefined}>EN</span>
