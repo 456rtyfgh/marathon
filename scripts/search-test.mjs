@@ -8,6 +8,7 @@ import { aliasSiblings } from '../src/lib/aliases.ts';
 import { splitData } from './data-split.mjs';
 import { souvenirInfo } from '../src/lib/util.ts';
 import { cityName } from '../src/i18n/names.ts';
+import { guChips, inGu, regionHits } from '../src/lib/regions.ts';
 
 const TODAY = process.env.SEARCH_TEST_TODAY || '2026-11-15';
 const data = splitData(JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'))).list;
@@ -308,6 +309,67 @@ const SI = [
   ['listed 인데 글 없음', souvenirInfo({ souvenir_status: 'listed', souvenir_ko: ' ' }, 'ko'), null],
 ];
 for (const [name, got, want] of SI) show(JSON.stringify(got) === JSON.stringify(want), `souvenirInfo ${name}`, JSON.stringify(got));
+
+// ── 지역 검색: '<지역> 지역 대회 N개' 묶음 (regionHits) 과 구·시·군 접미사 ──
+{
+  const tok = (r) => (r.city_ko ?? '').trim().split(/\s+/);
+  const kr = races.filter((r) => r.country_code === 'KR');
+  const sidoN = (s) => kr.filter((r) => tok(r)[0].split('·').includes(s)).length;
+  const guN = (s, g) => kr.filter((r) => tok(r)[0] === s && tok(r)[1]?.split('·').some((x) => x.replace(/[시군구]$/, '') === g || x === g)).length;
+  const keys = (q, lang = 'ko') => regionHits(lang === 'en' ? idxEn : index, q, lang).map((h) => `${h.key}=${h.races.length}`).join(' ');
+  const R = [
+    // [검색어, 화면 언어, 기대 묶음 (key=수)]
+    ['인천', 'ko', `sido:인천=${sidoN('인천')}`],
+    ['연수구', 'ko', `gu:인천|연수=${guN('인천', '연수')}`],
+    ['연수', 'ko', `gu:인천|연수=${guN('인천', '연수')}`],
+    ['인천 연수구', 'ko', `gu:인천|연수=${guN('인천', '연수')}`],
+    ['인천연수구', 'ko', `gu:인천|연수=${guN('인천', '연수')}`],
+    ['경주시', 'ko', `gu:경북|경주=${guN('경북', '경주')}`],
+    ['경주', 'ko', `gu:경북|경주=${guN('경북', '경주')}`],
+    ['해운대구', 'ko', `gu:부산|해운대=${guN('부산', '해운대')}`],
+    ['해운대', 'ko', `gu:부산|해운대=${guN('부산', '해운대')}`],
+    ['제주', 'ko', `sido:제주=${sidoN('제주')}`],
+    ['서울시', 'ko', `sido:서울=${sidoN('서울')}`],
+    ['Incheon', 'en', `sido:인천=${sidoN('인천')}`],
+    ['Yeonsu-gu', 'en', `gu:인천|연수=${guN('인천', '연수')}`],
+    // 지역 뒤에 다른 말이 붙으면 묶음 없음 (대회 이름 결과가 그대로 먼저)
+    ['대구마라톤', 'ko', ''],
+    ['대구 하프', 'ko', ''],
+    ['도쿄마라톤', 'ko', ''],
+    ['경상도', 'ko', ''],
+    // 한 글자·접미사만은 지역이 아니다
+    ['구', 'ko', ''],
+    ['시', 'ko', ''],
+    ['군', 'ko', ''],
+  ];
+  for (const [q, lang, want] of R) {
+    const got = keys(q, lang);
+    show(got === want, `지역 묶음 ${q} (${lang})`, `${got || '없음'}${got === want ? '' : ` · 기대 ${want || '없음'}`}`);
+  }
+  // 시드니: 해외 도시 묶음 (한/영)
+  const syd = races.filter((r) => r.country_code !== 'KR' && /시드니/.test(r.city_ko ?? '')).length;
+  show(keys('시드니') === `city:시드니=${syd}` && syd > 0, '지역 묶음 시드니 (ko)', keys('시드니'));
+  show(/^city:sydney=\d+$/.test(keys('Sydney', 'en')), '지역 묶음 Sydney (en)', keys('Sydney', 'en'));
+  // 같은 이름 구가 여러 시·도에 있으면 시·도별로 따로
+  show(keys('중구').split(' ').length >= 2 && keys('중구').split(' ').every((k) => k.startsWith('gu:') && k.includes('|중구=')), '지역 묶음 중구 → 시·도별', keys('중구'));
+  // 묶음이 대회 이름 결과를 바꾸지 않는다: 접미사 쿼리 결과 ⊇ 지역 대회
+  for (const q of ['연수구', '경주시', '해운대구', '양평군']) {
+    const found = new Set(searchRaces(index, q));
+    const hit = regionHits(index, q, 'ko');
+    show(hit.length > 0 && hit.every((h) => h.races.every((r) => found.has(r))), `접미사 검색 ${q}`, `결과 ${found.size}개 ⊇ 지역 ${hit.map((h) => h.races.length).join('+')}개`);
+  }
+  // 구 칩: 많은 순, 합 ≤ 시·도 대회 수, 시·도 하나뿐인 대회는 칩에 안 들어감, inGu 와 수가 같음
+  for (const s of ['인천', '서울', '경기']) {
+    const sidoRaces = regionHits(index, s, 'ko')[0].races;
+    const chips = guChips(sidoRaces, s, 'ko');
+    const sorted = chips.every((c, i) => i === 0 || chips[i - 1].count >= c.count);
+    const same = chips.every((c) => sidoRaces.filter((r) => inGu(r, s, c.gu)).length === c.count);
+    const bare = sidoRaces.filter((r) => (r.city_ko ?? '').trim().split(/\s+/).length === 1).length;
+    show(chips.length > 0 && sorted && same && chips.reduce((n, c) => n + c.count, 0) <= sidoRaces.length - bare, `구 칩 ${s}`, chips.slice(0, 4).map((c) => `${c.label}${c.count}`).join(' '));
+    show(sidoRaces.filter((r) => (r.city_ko ?? '').trim().split(/\s+/).length === 1).every((r) => chips.every((c) => !inGu(r, s, c.gu))), `구 칩 ${s}: 시·도만 있는 대회는 칩에 없음`, `${bare}개`);
+  }
+  show(guChips(regionHits(idxEn, 'Incheon', 'en')[0].races, '인천', 'en').every((c) => !/[가-힣]/.test(c.label)), '구 칩 영어 라벨', guChips(regionHits(idxEn, 'Incheon', 'en')[0].races, '인천', 'en').slice(0, 3).map((c) => c.label).join(' '));
+}
 
 console.log(`\nPASS ${pass} / FAIL ${fail} (색인 ${races.length}개, 기준일 ${TODAY})`);
 process.exit(fail ? 1 : 0);

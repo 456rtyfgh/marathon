@@ -2,6 +2,7 @@ import type { Race } from './types';
 import { ALIASES, MAJOR_TERMS, ONE_WAY, REGION_TERMS, TAILS } from './aliases.ts';
 import { convertKeyboard } from './keyboard.ts';
 import { SUBREGION_NAME, subOf } from './subregions.ts';
+import { stripAdmin } from './regions.ts';
 import { cityName, countryName, subregionName } from '../i18n/names.ts';
 import type { Lang } from '../i18n/lang.ts';
 
@@ -128,6 +129,11 @@ function placeWords(index: SearchDoc[]): Set<string> {
 function termOf(word: string, strip: boolean, places: Set<string>): Term {
   const core = strip ? stripTail(word) : word;
   const plain = aliasVariants(core);
+  // '연수구'·'경주시'·'Yeonsu-gu' 처럼 시·군·구 접미사를 붙여 친 말은 접미사를 뗀 지명으로도 본다 (지명 낱말일 때만 — 아무 말에서나 떼지 않게)
+  if (!places.has(core)) {
+    const bare = normalize(stripAdmin(core));
+    if (bare !== core && places.has(bare)) plain.push(bare);
+  }
   // 지역어·세계6대는 꼬리말을 뗀 모양으로 본다 ('세계 6대 마라톤' 은 낱말이 여럿이라 꼬리말 떼기 단계가 없다)
   const key = stripTail(core);
   const region = Object.hasOwn(REGION_TERMS, key) ? new Set(REGION_TERMS[key]) : null;

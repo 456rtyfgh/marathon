@@ -34,10 +34,12 @@ import { DISTANCE_BUCKETS, distancesFromSearch, matchesDistances, type DistanceB
 import { matchesPlaces, placeOf } from './lib/places';
 import { buildIndex, searchWithFixes, suggestRaces, type SearchDoc } from './lib/search';
 import { popularInfo, relatedChips } from './lib/relatedSearches';
+import { guChips as guChipsOf, inGu, regionHits } from './lib/regions';
 import { usePopularSearches } from './lib/popularSearches';
 import { emptyKind, FEW_RESULTS, hiddenRaces, type Hidden } from './lib/outsideFilter';
 import SearchAssist from './components/SearchAssist';
 import RelatedChips from './components/RelatedChips';
+import RegionResults from './components/RegionResults';
 import { scrollToResults, RESULTS_EMPTY_ID } from './lib/scrollToResults';
 import { ResultsAnnouncer } from './components/ResultsAnnouncer';
 import { track, pageView } from './lib/analytics';
@@ -323,6 +325,16 @@ function Main() {
   const outcome = useMemo(() => (dq.trim() ? searchWithFixes(searchIndex, dq) : null), [searchIndex, dq]);
   const hits = outcome?.hits ?? null;
 
+  // 지역 이름 검색: '<지역> 지역 대회 N개' 묶음 + 시·도 아래 시·군·구 칩. 고른 값은 검색어가 바뀌면 풀린다 (고른 때의 검색어를 같이 기억)
+  const regionList = useMemo(() => (dq.trim() ? regionHits(searchIndex, dq, lang) : []), [searchIndex, dq, lang]);
+  const [regionSel, setRegionSel] = useState<{ q: string; pick: string | null; gu: string | null }>({ q: '', pick: null, gu: null });
+  const regionNow = regionSel.q === dq.trim() ? regionSel : { q: '', pick: null, gu: null };
+  const sidoHit = regionList.find((h) => h.kind === 'sido');
+  const guChipList = useMemo(() => (sidoHit ? guChipsOf(sidoHit.races, sidoHit.sido!, lang) : []), [sidoHit, lang]);
+  const pickedRegion = regionList.find((h) => h.key === regionNow.pick);
+  const regionSet = useMemo(() => (pickedRegion ? new Set(pickedRegion.races) : null), [pickedRegion]);
+  const guNow = sidoHit && guChipList.some((c) => c.gu === regionNow.gu) ? regionNow.gu : null;
+
   const groups = useMemo(() => {
     const matches = (r: Race) => {
       const x = info.get(r)!;
@@ -339,6 +351,8 @@ function Main() {
       if (!matchesAnyStatus(r, x.status, status, today)) return false;
       if (!x.domestic && r.flight_hours != null && r.flight_hours > maxFlight) return false;
       if (hits && !hits.has(r)) return false;
+      if (regionSet && !regionSet.has(r)) return false;
+      if (guNow && !inGu(r, sidoHit!.sido!, guNow)) return false;
       return true;
     };
     const list = upcomingRaces.filter(matches);
@@ -389,7 +403,7 @@ function Main() {
             ? t('group.saves')
             : t('group.views');
     return [{ key: 'all', title, races: sorted }];
-  }, [upcomingRaces, info, hits, scope, regions, places, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, disciplines, dists, range, lang, t]);
+  }, [upcomingRaces, info, hits, scope, regions, places, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, disciplines, dists, range, lang, t, regionSet, guNow, sidoHit]);
 
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
   // 검색 결과 0개일 때 '혹시 이 대회인가요?' (필터와 무관하게 다가오는 대회 중). 결과 수(shown)에는 넣지 않는다 → search_empty 기록 그대로
@@ -427,6 +441,7 @@ function Main() {
 
   // 검색어는 두고 필터만 풀기 (필터 때문에 안 보이는 대회 안내의 버튼)
   const resetFilters = () => {
+    setRegionSel({ q: '', pick: null, gu: null });
     setScope('all');
     setRegions([]);
     setPlaces([]);
@@ -509,7 +524,7 @@ function Main() {
 
   // 묶음(접수 중·곧 시작…)마다 처음 GROUP_PAGE 개만, '더 보기' 한 번에 GROUP_MORE 개씩 더.
   // 다시 접는 건 필터·정렬 값이 바뀔 때만 — groups 는 저장·접수 표시에도 다시 만들어져서 거기에 걸면 ☆ 하나에 접혀 버린다
-  const foldKey = JSON.stringify([dq.trim(), scope, regions, places, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, disciplines, dists, range.from, range.to]);
+  const foldKey = JSON.stringify([dq.trim(), scope, regions, places, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, disciplines, dists, range.from, range.to, regionNow.pick, guNow]);
   const [unfold, setUnfold] = useState<{ key: string; n: Record<string, number> }>({ key: foldKey, n: {} });
   // 키가 바뀌는 순간 비운다 (렌더 중 갱신). 비교만 하면 검색어를 지워 원래 키로 돌아올 때 예전 펼침이 되살아난다
   if (unfold.key !== foldKey) setUnfold({ key: foldKey, n: {} });
@@ -998,6 +1013,14 @@ function Main() {
             loading={remote === 'loading'}
             hidden={hidden.upcoming.length}
             fixed={outcome?.fixed?.query ?? null}
+          />
+          <RegionResults
+            hits={regionList}
+            pick={regionNow.pick}
+            onPick={(key) => setRegionSel({ q: dq.trim(), pick: key, gu: regionNow.gu })}
+            guChips={guChipList}
+            guPick={guNow}
+            onGuPick={(gu) => setRegionSel({ q: dq.trim(), pick: regionNow.pick, gu })}
           />
           <RelatedChips chips={chips} popular={!dq.trim()} onPick={setQ} />
           {outcome?.fixed && remote !== 'loading' && (

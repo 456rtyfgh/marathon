@@ -143,7 +143,12 @@ export const ko = {
   'search.hiddenMore': '외 {n}개가 더 있습니다.',
   'search.clearKeep': '검색어는 두고 필터 풀기',
   'search.fixedNotice': '‘{q}’ 로 찾은 결과입니다. 한/영 자판이 바뀌어 입력된 것 같아요.',
-  'search.fixedUse': '검색창도 ‘{q}’ 로 바꾸기',
+  'region.label': '지역 대회',
+  'region.count': '{label} 지역 대회 {n}개',
+  'region.guLabel': '시·군·구',
+  'region.count1': '{label} 지역 대회 1개',
+  'region.all': '전체',
+  'search.fixedUse':'검색창도 ‘{q}’ 로 바꾸기',
   'more.label': '더 보기',
   'more.leftPost': '개 남음',
 
