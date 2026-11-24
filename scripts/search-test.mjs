@@ -211,7 +211,7 @@ show(sib3.length === 0, 'aliasSiblings 하남', `${sib3.join(',') || '[]'} (ONE_
 
 // ── 기념품 글 검색 (listed 일 때만 색인, 영어 글은 영어 화면 색인에서만) ──
 // 데이터에 기념품이 들어 있든 없든 같은 결과가 나오도록 가짜 대회를 끼워 확인한다.
-const fxBase = races.find((r) => r.country_code === 'KR');
+const fxBase = races.find((r) => r.country_code === 'KR' && !(r.city_ko ?? '').includes('완주'));
 const fx = (id, extra) => ({ ...fxBase, id, name_ko: `기념품시험${id}`, name_en: `SouvenirProbe ${id}`, ...extra });
 const fxListed = fx('listed', {
   souvenir_status: 'listed',
@@ -235,7 +235,20 @@ const SOUVENIR_ROWS = [
   ['en', idxEn, 'gift voucher', ['listed'], ['none', 'unknown']],
   ['en', idxEn, '고글', ['listed'], ['none', 'unknown']], // 영어 화면도 한국어 글은 찾는다
   ['en', idxEn, '독특한양말', ['koonly'], []],
+  // 지명 검색어는 기념품 글로 찾지 않는다: '완주'(전북 완주) 가 다른 지역 대회의 '완주 메달' 을 내면 안 됨
+  ['ko', idxKo, '완주', [], ['listed']],
+  ['ko', idxKo, '완주군', [], ['listed']],
+  ['en', idxEn, '완주', [], ['listed']],
+  ['ko', idxKo, '메달', ['listed'], []],
+  ['ko', idxKo, '완주 메달', ['listed'], []],
 ];
+// 기념품 글을 넣어도 지명 '완주' 결과는 기념품 없는 색인과 같다
+{
+  const plain = buildIndex(races.map((r) => ({ ...r, souvenir_status: null })));
+  const a = idsOf(searchRaces(index, '완주')).sort().join();
+  const b = idsOf(searchRaces(plain, '완주')).sort().join();
+  show(a === b, '기념품 지명 회귀 완주', `${searchRaces(index, '완주').size}개 (기념품 없는 색인 ${searchRaces(plain, '완주').size}개)`);
+}
 for (const [kind, idx, q, want, not] of SOUVENIR_ROWS) {
   const got = idsOf(searchWithFixes(idx, q).hits);
   const problems = [
@@ -249,8 +262,10 @@ for (const [kind, idx, q, want, not] of SOUVENIR_ROWS) {
 const realListed = races.filter((r) => r.souvenir_status === 'listed' && r.souvenir_ko);
 if (realListed.length) {
   const bad = [];
+  // 지명 낱말('완주 메달' 의 완주)은 일부러 기념품 글로 찾지 않으니 고르지 않는다
+  const placeSet = new Set(races.flatMap((r) => (r.city_ko ?? '').split(/[\s·]+/)));
   for (const r of realListed) {
-    const word = r.souvenir_ko.match(/[가-힣]{2,}/)?.[0];
+    const word = r.souvenir_ko.match(/[가-힣]{2,}/g)?.find((w) => !placeSet.has(w));
     if (word && !idsOf(searchRaces(index, word)).includes(r.id)) bad.push(`${r.id}:${word}`);
   }
   show(!bad.length, '기념품 실제 데이터', `listed ${realListed.length}개 모두 기념품 낱말로 찾아짐${bad.length ? ` · 못 찾음 ${bad.slice(0, 3).join(',')}` : ''}`);

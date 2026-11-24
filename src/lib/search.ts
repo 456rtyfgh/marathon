@@ -50,6 +50,8 @@ export type SearchDoc = {
   exact: string;
   /** 오타 비교용: 이름·영문 이름·도시·나라·주/도 이름 각각 normalize+toJamo */
   fields: string[];
+  /** 기념품 글 (listed 대회만, normalize 해서 | 로 이음, 없으면 ''). 지명 검색어로는 찾지 않는다 — hit 참고 */
+  souvenir: string;
   /** exact 의 자모 (쓰는 중인 끝 글자 비교용) */
   exactJamo: string;
   /** 국내 대회의 시·도 약칭들 (city_ko 앞 토큰, '광주·전남' 은 둘). 해외는 빈 목록. 지역어(경상도 …) 비교용 */
@@ -69,14 +71,14 @@ export function buildIndex(races: Race[], lang: Lang = 'ko'): SearchDoc[] {
       lang === 'en' ? [cityName(r, 'en'), countryName(r.country_code, r.country_ko, 'en'), sub ? subregionName(sub, 'en') : ''] : [];
     const main = [r.name_ko, r.name_en, r.city_ko, r.country_ko, subName, ...enNames].map((x) => normalize(x ?? '')).filter(Boolean);
     const notes = lang === 'en' ? [normalize(r.notes_ko ?? ''), normalize(r.notes_en ?? '')] : [normalize(r.notes_ko ?? '')];
-    // 기념품 글: 공식 안내에 있다고 확인된(listed) 대회만. 영어 화면은 영어 글도
+    // 기념품 글: 공식 안내에 있다고 확인된(listed) 대회만. 영어 화면은 영어 글도. exact 와 따로 둔다 (hit 의 지명 검사)
     const souvenir =
       r.souvenir_status === 'listed'
-        ? (lang === 'en' ? [r.souvenir_ko, r.souvenir_en] : [r.souvenir_ko]).map((x) => normalize(x ?? '')).filter(Boolean)
-        : [];
-    const exact = [...main, ...notes, ...souvenir, ...r.distances.map(normalize)].join(SEP);
+        ? (lang === 'en' ? [r.souvenir_ko, r.souvenir_en] : [r.souvenir_ko]).map((x) => normalize(x ?? '')).filter(Boolean).join(SEP)
+        : '';
+    const exact = [...main, ...notes, ...r.distances.map(normalize)].join(SEP);
     const regions = r.country_code === 'KR' ? (r.city_ko ?? '').trim().split(/\s+/)[0].split('·').filter(Boolean) : [];
-    return { race: r, exact, fields: main.map(toJamo), exactJamo: toJamo(exact), regions, major: !!r.is_major && r.country_code !== 'KR' };
+    return { race: r, exact, souvenir, fields: main.map(toJamo), exactJamo: toJamo(exact), regions, major: !!r.is_major && r.country_code !== 'KR' };
   });
 }
 
@@ -105,21 +107,38 @@ const maybeTyping = (term: string) => {
   return isJamo(last) || (c >= 0 && c < 11172 && c % 28 !== 0);
 };
 
-type Term = { plain: string[]; jamo: string[]; region: ReadonlySet<string> | null; major: boolean };
+type Term = { plain: string[]; jamo: string[]; region: ReadonlySet<string> | null; major: boolean; place: boolean };
+
+/** 색인 대회들의 도시 낱말 (city_ko 를 빈칸·'·' 로 나눈 것: 전북·완주·서구 …) */
+const placeMemo = new WeakMap<SearchDoc[], Set<string>>();
+function placeWords(index: SearchDoc[]): Set<string> {
+  let s = placeMemo.get(index);
+  if (!s) {
+    s = new Set();
+    for (const d of index) for (const w of (d.race.city_ko ?? '').split(/[\s·]+/)) if (w) s.add(normalize(w));
+    placeMemo.set(index, s);
+  }
+  return s;
+}
 
 /** 낱말 하나를 맞춰 볼 변형들: 원래·다른 표기, strip 이면 꼬리말 뗀 핵심·그 다른 표기. 지역어·세계6대는 데이터의 시·도/is_major 로도 맞춘다 */
-function termOf(word: string, strip: boolean): Term {
+function termOf(word: string, strip: boolean, places: Set<string>): Term {
   const core = strip ? stripTail(word) : word;
   const plain = aliasVariants(core);
   // 지역어·세계6대는 꼬리말을 뗀 모양으로 본다 ('세계 6대 마라톤' 은 낱말이 여럿이라 꼬리말 떼기 단계가 없다)
   const key = stripTail(core);
   const region = Object.hasOwn(REGION_TERMS, key) ? new Set(REGION_TERMS[key]) : null;
-  return { plain, jamo: plain.filter(maybeTyping).map(toJamo), region, major: MAJOR_TERMS.has(key) };
+  const place = region !== null || plain.some((v) => places.has(v));
+  return { plain, jamo: plain.filter(maybeTyping).map(toJamo), region, major: MAJOR_TERMS.has(key), place };
 }
 
-/** typing 이 true 면 쓰는 중인 끝 글자(자모) 일치도 본다 */
+/**
+ * typing 이 true 면 쓰는 중인 끝 글자(자모) 일치도 본다.
+ * 기념품 글은 지명이 아닌 검색어만 본다 — '완주'(전북 완주) 가 '완주 메달', '이천' 이 '이천쌀' 을 준 다른 지역 대회까지 내지 않게
+ */
 const hit = (d: SearchDoc, t: Term, typing: boolean) =>
   t.plain.some((v) => d.exact.includes(v)) ||
+  (!t.place && d.souvenir !== '' && t.plain.some((v) => d.souvenir.includes(v))) ||
   (typing && t.jamo.some((v) => d.exactJamo.includes(v))) ||
   (t.region !== null && d.regions.some((x) => t.region!.has(x))) ||
   (t.major && d.major);
@@ -208,11 +227,12 @@ function exactSearch(index: SearchDoc[], q: string): Set<Race> {
   const words = q.split(/\s+/).map(normalize).filter(Boolean);
   const whole = words.join('');
   if (!whole) return out;
+  const places = placeWords(index);
   for (const strip of [false, true]) {
     // 붙여서 맞춰 보기 (꼬리말 떼기는 낱말 하나일 때만 — '울산 하프' 의 하프는 거리로 좁히는 말)
-    const one = !strip || words.length <= 1 ? termOf(whole, strip) : null;
+    const one = !strip || words.length <= 1 ? termOf(whole, strip, places) : null;
     // 빈칸으로 나뉜 검색어는 낱말마다 모두 맞으면 맞음
-    const each = words.length > 1 ? words.map((w) => termOf(w, strip)) : [];
+    const each = words.length > 1 ? words.map((w) => termOf(w, strip, places)) : [];
     for (const typing of [false, true]) {
       for (const d of index) if ((one && hit(d, one, typing)) || (each.length && each.every((t) => hit(d, t, typing)))) out.add(d.race);
       if (out.size) return out;
