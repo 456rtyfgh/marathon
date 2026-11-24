@@ -641,7 +641,7 @@ function Main() {
       </a>
 
       <header className="sticky top-0 z-30 border-b border-line bg-bg">
-        {/* 휴대폰(767px 이하): 로고 · 러닝톡 · 메뉴 버튼, 나머지는 메뉴 안. 768px 부터 펼쳐 보인다 (MobileMenu 의 NAV_INLINE_MIN) */}
+        {/* 휴대폰(767px 이하): 로고 · 러닝톡 · 언어 · 메뉴 버튼, 나머지는 메뉴 안. 768px 부터 펼쳐 보인다 (MobileMenu 의 NAV_INLINE_MIN) */}
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
           {/* 자리가 모자라도 로고는 줄지 않게 (예전엔 관리자 화면에서 워드마크가 찌그러졌다) */}
           <a href={langPath('/', lang)} className="flex h-11 shrink-0 items-center">
@@ -655,8 +655,9 @@ function Main() {
                 e.preventDefault();
                 openTalk();
               }}
-              // 360px 미만(확대 표시한 휴대폰 320px 등)은 로고 옆에 자리가 없어 숨긴다 — 넘치면 메뉴 버튼이 화면 밖으로 밀린다. 메뉴 안에는 늘 있다
-              className="inline-flex h-11 items-center rounded-ctl px-2.5 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink max-[360px]:hidden md:h-9 md:px-3"
+              // 로고(190px)·언어·메뉴 버튼 옆에 자리가 모자란 폭에서는 숨긴다 — 넘치면 메뉴 버튼이 화면 밖으로 밀린다. 메뉴 안에는 늘 있다.
+              // 다 들어가는 폭: 한국어 '러닝톡' 403px, 영어 'Run Talk' 425px (재어 본 값 + 여유 5px)
+              className={`inline-flex h-11 items-center rounded-ctl px-2.5 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink ${lang === 'en' ? 'max-[430px]:hidden' : 'max-[408px]:hidden'} md:h-9 md:px-3`}
             >
               {COMMUNITY_NAV[lang]}
             </a>
@@ -674,17 +675,19 @@ function Main() {
                 {t('header.admin')}
               </button>
             )}
-            {/* 언어 전환: 글자는 두 언어 모두 'EN / 한', 지금 언어 쪽만 진하게 */}
+            {/* 언어 전환: 글자는 두 언어 모두 'EN / 한', 지금 언어 쪽만 진하게.
+                휴대폰에서도 메뉴를 열지 않고 상단바에 늘 보인다 (터치 높이 44px·좁은 좌우 여백). 768px 부터는 예전 모양 그대로.
+                360px 미만(확대 표시한 320px 등)은 'EN / 한' 이 다 안 들어가 바꿀 언어 쪽만 보인다 (aria-label 이 뜻을 알린다) */}
             <button
               onClick={switchLang}
               aria-label={t('lang.switch')}
               lang={nextLang}
-              className="hidden h-9 items-center rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink md:inline-flex"
+              className="inline-flex h-11 items-center rounded-ctl px-2 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink md:h-9 md:px-3"
             >
               <span>
-                <span className={lang === 'en' ? 'text-ink' : undefined}>EN</span>
-                {' / '}
-                <span className={lang === 'ko' ? 'text-ink' : undefined}>한</span>
+                <span className={lang === 'en' ? 'text-ink max-[360px]:hidden' : undefined}>EN</span>
+                <span className="max-[360px]:hidden">{' / '}</span>
+                <span className={lang === 'ko' ? 'text-ink max-[360px]:hidden' : undefined}>한</span>
               </span>
             </button>
             <MyRacesProvider value={myRacesBridge}>
