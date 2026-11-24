@@ -7,6 +7,7 @@ import { buildIndex, keyboardFixes, searchRaces, searchWithFixes, suggestRaces }
 import { aliasSiblings } from '../src/lib/aliases.ts';
 import { splitData } from './data-split.mjs';
 import { souvenirInfo } from '../src/lib/util.ts';
+import { cityName } from '../src/i18n/names.ts';
 
 const TODAY = process.env.SEARCH_TEST_TODAY || '2026-11-15';
 const data = splitData(JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'))).list;
@@ -221,7 +222,19 @@ const fxListed = fx('listed', {
 const fxNone = fx('none', { souvenir_status: 'none', souvenir_ko: '고글 쌀 상품권', souvenir_en: 'goggles' });
 const fxUnknown = fx('unknown', { souvenir_status: 'unknown', souvenir_ko: '고글 쌀 상품권', souvenir_en: 'goggles' });
 const fxKoOnly = fx('koonly', { souvenir_status: 'listed', souvenir_ko: '독특한양말세트', souvenir_en: null });
-const fxRaces = [...races, fxListed, fxNone, fxUnknown, fxKoOnly];
+// 지명 검색어 확인용: 해외 대회의 나라 이름·영어 도시 이름을 국내 가짜 대회의 기념품 글에 넣는다
+const enCity = (r) => (r.country_code !== 'KR' && cityName(r, 'en')) || '';
+const abroad = races.find((r) => /^[A-Za-z]{5,}$/.test(enCity(r)));
+const abroad2 = races.find((r) => /^[A-Za-z]{2,} [A-Za-z]{4,}$/.test(enCity(r)));
+const [cityW1, cityW2] = abroad2 ? enCity(abroad2).split(' ') : [];
+const fxPlace = fx('place', {
+  souvenir_status: 'listed',
+  souvenir_ko: `${abroad?.country_ko ?? ''} 왕복 항공권 추첨`,
+  souvenir_en: `${abroad ? enCity(abroad) : ''} themed windbreaker`,
+});
+// 이름에 도시 첫 낱말, 기념품 글에 둘째 낱말 ('Ha Long' 이 'half …' + 'long-sleeve' 대회를 내던 꼴)
+const fxPlace2 = fx('place2', { name_en: `SouvenirProbe ${cityW1 ?? ''} run`, souvenir_status: 'listed', souvenir_ko: '티셔츠', souvenir_en: `${cityW2 ?? ''} edition windbreaker` });
+const fxRaces = [...races, fxListed, fxNone, fxUnknown, fxKoOnly, fxPlace, fxPlace2];
 const idxKo = buildIndex(fxRaces);
 const idxEn = buildIndex(fxRaces, 'en');
 const SOUVENIR_ROWS = [
@@ -241,6 +254,11 @@ const SOUVENIR_ROWS = [
   ['en', idxEn, '완주', [], ['listed']],
   ['ko', idxKo, '메달', ['listed'], []],
   ['ko', idxKo, '완주 메달', ['listed'], []],
+  // 나라 이름·영어 도시 이름(통째·낱말)도 지명이다
+  ['ko', idxKo, '항공권', ['place'], []],
+  ['en', idxEn, 'windbreaker', ['place', 'place2'], []],
+  ...(abroad ? [['ko', idxKo, abroad.country_ko, [], ['place']], ['en', idxEn, enCity(abroad), [], ['place']]] : []),
+  ...(abroad2 ? [['en', idxEn, enCity(abroad2), [], ['place2']]] : []),
 ];
 // 기념품 글을 넣어도 지명 '완주' 결과는 기념품 없는 색인과 같다
 {

@@ -52,6 +52,8 @@ export type SearchDoc = {
   fields: string[];
   /** 기념품 글 (listed 대회만, normalize 해서 | 로 이음, 없으면 ''). 지명 검색어로는 찾지 않는다 — hit 참고 */
   souvenir: string;
+  /** 지명 낱말: 도시·나라·주 이름(영어 화면은 영어 이름도)의 통째와 낱말 (전북·완주·일본, en 은 muscat·ha·long …). 기념품 글을 볼지 가릴 때 쓴다 */
+  places: string[];
   /** exact 의 자모 (쓰는 중인 끝 글자 비교용) */
   exactJamo: string;
   /** 국내 대회의 시·도 약칭들 (city_ko 앞 토큰, '광주·전남' 은 둘). 해외는 빈 목록. 지역어(경상도 …) 비교용 */
@@ -76,9 +78,10 @@ export function buildIndex(races: Race[], lang: Lang = 'ko'): SearchDoc[] {
       r.souvenir_status === 'listed'
         ? (lang === 'en' ? [r.souvenir_ko, r.souvenir_en] : [r.souvenir_ko]).map((x) => normalize(x ?? '')).filter(Boolean).join(SEP)
         : '';
+    const places = [r.city_ko, r.country_ko, subName, ...enNames].flatMap((x) => [x ?? '', ...(x ?? '').split(/[\s·,]+/)]).map(normalize).filter(Boolean);
     const exact = [...main, ...notes, ...r.distances.map(normalize)].join(SEP);
     const regions = r.country_code === 'KR' ? (r.city_ko ?? '').trim().split(/\s+/)[0].split('·').filter(Boolean) : [];
-    return { race: r, exact, souvenir, fields: main.map(toJamo), exactJamo: toJamo(exact), regions, major: !!r.is_major && r.country_code !== 'KR' };
+    return { race: r, exact, souvenir, places, fields: main.map(toJamo), exactJamo: toJamo(exact), regions, major: !!r.is_major && r.country_code !== 'KR' };
   });
 }
 
@@ -109,13 +112,13 @@ const maybeTyping = (term: string) => {
 
 type Term = { plain: string[]; jamo: string[]; region: ReadonlySet<string> | null; major: boolean; place: boolean };
 
-/** 색인 대회들의 도시 낱말 (city_ko 를 빈칸·'·' 로 나눈 것: 전북·완주·서구 …) */
+/** 색인 대회들의 지명 낱말 (SearchDoc.places 를 모은 것) */
 const placeMemo = new WeakMap<SearchDoc[], Set<string>>();
 function placeWords(index: SearchDoc[]): Set<string> {
   let s = placeMemo.get(index);
   if (!s) {
     s = new Set();
-    for (const d of index) for (const w of (d.race.city_ko ?? '').split(/[\s·]+/)) if (w) s.add(normalize(w));
+    for (const d of index) for (const w of d.places) s.add(w);
     placeMemo.set(index, s);
   }
   return s;
@@ -135,6 +138,7 @@ function termOf(word: string, strip: boolean, places: Set<string>): Term {
 /**
  * typing 이 true 면 쓰는 중인 끝 글자(자모) 일치도 본다.
  * 기념품 글은 지명이 아닌 검색어만 본다 — '완주'(전북 완주) 가 '완주 메달', '이천' 이 '이천쌀' 을 준 다른 지역 대회까지 내지 않게
+ * (영어 화면도: 'Muscat' 이 'Shine Muscat grapes', 'Ha Long' 이 'long-sleeve' 를 준 대회를 내지 않게)
  */
 const hit = (d: SearchDoc, t: Term, typing: boolean) =>
   t.plain.some((v) => d.exact.includes(v)) ||
