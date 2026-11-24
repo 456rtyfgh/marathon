@@ -88,6 +88,9 @@ function toStat(name: string, p: Params) {
       return stat('alert', p.race_id as string);
     case 'review_submit':
       return stat('review', p.race_id as string);
+    case 'install':
+      // 앱 설치: shown·accepted·dismissed·installed·ios_guide (lib/installApp 의 INSTALL_ACTIONS)
+      return stat('install', p.action as string);
   }
 }
 

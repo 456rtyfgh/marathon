@@ -5,10 +5,13 @@
  * 열 때 히스토리에 한 칸을 넣어 뒤로 가기로 닫히게 하고, 다른 방법으로 닫히면 그 칸을 도로 뺀다.
  * 항목의 onSelect 는 그 칸이 빠진 뒤에 부른다 — onSelect 가 주소를 바꾸는데(러닝톡·언어 전환) 순서가 바뀌면 주소가 꼬인다.
  * 한 화면에 하나만 그린다 (id="nav-menu" 고정).
+ * '앱 설치' 줄(data-menu-item="install")은 groups 와 별개로 여기서 그린다: 언어 줄 묶음 끝(없으면 마지막 묶음 앞 새 묶음).
+ * 이미 앱으로 열었으면 숨김 · 설치 창을 열 수 있으면 설치 창 · 아이폰이면 '공유 → 홈 화면에 추가' 안내 · 그 밖엔 브라우저 메뉴 안내.
  */
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { List, X } from '@phosphor-icons/react';
+import { Fragment, useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { Export, List, X } from '@phosphor-icons/react';
 import { useLang } from '../i18n';
+import { ensureServiceWorker, record, useInstall } from '../lib/installApp';
 
 /** 이 너비(px)부터는 항목이 머리말에 펼쳐지고 메뉴 버튼이 없다 (Tailwind md 와 같은 값) */
 export const NAV_INLINE_MIN = 768;
@@ -42,8 +45,12 @@ const closeCls =
 
 /** groups: 묶음 배열. 묶음 사이에 구분선. className 은 메뉴 버튼에만 붙는다(시트에는 안 붙음) */
 export function MobileMenu({ groups, className = '' }: { groups: MenuItem[][]; className?: string }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const ko = lang !== 'en';
   const [open, setOpen] = useState(false);
+  const { kind: installKind, install } = useInstall();
+  /** 아이폰·브라우저 메뉴 안내를 펼쳤나 (시트를 열 때마다 접힌 채로) */
+  const [guide, setGuide] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   /** 지금 열려 있나 (이벤트 핸들러가 최신 값을 보게) */
@@ -61,6 +68,7 @@ export function MobileMenu({ groups, className = '' }: { groups: MenuItem[][]; c
     history.pushState(history.state, '');
     pushed.current = true;
     openRef.current = true;
+    setGuide(false); // 지난번에 펼친 설치 안내는 접어서 연다
     setOpen(true);
   };
 
@@ -108,6 +116,65 @@ export function MobileMenu({ groups, className = '' }: { groups: MenuItem[][]; c
     }
     wasOpen.current = open;
   }, [open]);
+
+  // 팝업을 닫은 사람도 메뉴의 '앱 설치' 로 설치 창을 열 수 있게 서비스 워커를 미리 둔다 (처음 한 번)
+  useEffect(() => ensureServiceWorker(), []);
+
+  const pickInstall = () => {
+    if (installKind === 'prompt') {
+      // 설치 창은 누른 순간(사용자 동작 안)에 연다. 메뉴는 함께 닫는다
+      void install();
+      close();
+      return;
+    }
+    const next = !guide;
+    setGuide(next);
+    if (next && installKind === 'ios') record('ios_guide');
+  };
+
+  const guideShown = guide && installKind !== 'prompt';
+  const installRow =
+    installKind === 'none' ? null : (
+      <li key="install">
+        <button
+          type="button"
+          data-menu-item="install"
+          onClick={pickInstall}
+          aria-expanded={installKind === 'prompt' ? undefined : guide}
+          aria-controls={guideShown ? 'nav-install-guide' : undefined}
+          className={rowCls}
+        >
+          <span className="shrink-0">{ko ? '앱 설치' : 'Install app'}</span>
+        </button>
+        {guideShown && (
+          <div id="nav-install-guide" className="mx-3 mb-2">
+            {installKind === 'ios' ? (
+              <ol className="space-y-2 rounded-box bg-sunken p-4 text-[14px] leading-relaxed">
+                <li className="flex items-center gap-2">
+                  <span className="num font-bold">1.</span>
+                  {ko ? '사파리 아래쪽' : 'In Safari, tap'}
+                  <Export size={18} weight="bold" aria-label={ko ? '공유' : 'Share'} />
+                  {ko ? '(공유) 버튼을 누르고' : '(Share)'}
+                </li>
+                <li>
+                  <span className="num font-bold">2.</span> {ko ? "'홈 화면에 추가'를 고르면 끝이에요." : "choose 'Add to Home Screen'."}
+                </li>
+              </ol>
+            ) : (
+              <p className="rounded-box bg-sunken p-4 text-[14px] leading-relaxed">
+                {ko
+                  ? "브라우저 메뉴(⋮)에서 '앱 설치' 또는 '홈 화면에 추가'를 누르세요."
+                  : "Open the browser menu (⋮) and tap 'Install app' or 'Add to Home screen'."}
+              </p>
+            )}
+          </div>
+        )}
+      </li>
+    );
+  // 언어 줄 묶음 끝에 붙인다. 언어 줄이 없으면 마지막 묶음(로그인) 앞에 새 묶음으로
+  const langGroup = groups.findIndex((g) => g.some((item) => item.id === 'lang'));
+  const ownGroup = langGroup < 0 && !!installRow;
+  const installAt = langGroup >= 0 ? langGroup : Math.max(0, groups.length - 1);
 
   useEffect(() => {
     const onPop = () => {
@@ -199,38 +266,42 @@ export function MobileMenu({ groups, className = '' }: { groups: MenuItem[][]; c
           </button>
         </div>
         {groups.map((group, i) => (
-          <ul key={i} className={`p-1 ${i ? 'border-t border-line' : ''}`}>
-            {group.map((item) => {
-              const body =
-                item.tone === 'primary' ? (
-                  item.label
-                ) : (
-                  <>
-                    <span className="shrink-0">{item.label}</span>
-                    {item.hint && <span className="min-w-0 truncate text-[14px] font-normal text-ink-3">{item.hint}</span>}
-                  </>
-                );
-              const common = {
-                'data-menu-item': item.id,
-                lang: item.lang,
-                onClick: pick(item),
-                className: item.tone === 'primary' ? primaryCls : rowCls,
-              };
-              return (
-                <li key={item.id} className={item.tone === 'primary' ? 'px-3 py-2' : undefined}>
-                  {item.href ? (
-                    <a href={item.href} {...common}>
-                      {body}
-                    </a>
+          <Fragment key={i}>
+            {ownGroup && i === installAt && <ul className={`p-1 ${i ? 'border-t border-line' : ''}`}>{installRow}</ul>}
+            <ul className={`p-1 ${i || (ownGroup && i === installAt) ? 'border-t border-line' : ''}`}>
+              {group.map((item) => {
+                const body =
+                  item.tone === 'primary' ? (
+                    item.label
                   ) : (
-                    <button type="button" {...common}>
-                      {body}
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                    <>
+                      <span className="shrink-0">{item.label}</span>
+                      {item.hint && <span className="min-w-0 truncate text-[14px] font-normal text-ink-3">{item.hint}</span>}
+                    </>
+                  );
+                const common = {
+                  'data-menu-item': item.id,
+                  lang: item.lang,
+                  onClick: pick(item),
+                  className: item.tone === 'primary' ? primaryCls : rowCls,
+                };
+                return (
+                  <li key={item.id} className={item.tone === 'primary' ? 'px-3 py-2' : undefined}>
+                    {item.href ? (
+                      <a href={item.href} {...common}>
+                        {body}
+                      </a>
+                    ) : (
+                      <button type="button" {...common}>
+                        {body}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+              {!ownGroup && i === installAt && installRow}
+            </ul>
+          </Fragment>
         ))}
       </dialog>
     </>

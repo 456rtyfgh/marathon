@@ -12,7 +12,7 @@ import {
   upcoming, whereOf, yearPath, years,
   LANDINGS_EN, SITE_NAME_EN, countryNameEn, distEn, enPath, entryEn, fmtEn, inCountryEn, monthLabelEn, raceNameEn, whereEn, yearsEn,
   STATUS_EN, STATUS_LABEL, distancePages, entryStatusOf, regionPages, weekend, ENTRY_EN,
-  INFO_PATHS, MIN_MONTH_REGION, monthRegionPages, provinceOf, PROVINCES, regionPath,
+  INFO_PATHS, MIN_MONTH_REGION, monthRegionPages, provinceOf, PROVINCES, regionPath, guSearchPath,
 } from './seo-lib.mjs';
 import { distanceBucket } from '../src/lib/distanceFilter.ts';
 import { cityName, provinceName } from '../src/i18n/names.ts';
@@ -148,6 +148,18 @@ const monthRegionNav = (ym) => {
   const l = mrOfMonth(ym);
   return l.length
     ? `<h2>${monthLabel(ym)} 시·도별 마라톤</h2><nav class="links" aria-label="이 달 시·도별">${l.map((p) => `<a href="${p.path}">${esc(p.name)} (${p.races.length})</a>`).join('')}</nav>`
+    : '';
+};
+/** 시·도 페이지의 시·군·구 칩 (seo-lib 의 regionPages[].gus — 앱 검색의 구 칩과 같은 수, 많은 순). 누르면 앱에서 '<시·도> <구>' 검색 */
+const regionGuNav = (p) =>
+  p.gus.length
+    ? `<h2>${esc(p.name)} 시·군·구별 마라톤</h2><nav class="links" aria-label="${esc(p.name)} 시·군·구별">${p.gus.map((g) => `<a href="${esc(guSearchPath(p.name, g.label))}">${esc(g.label)} (${g.count})</a>`).join('')}</nav>`
+    : '';
+/** 영어: 글자는 영어 이름, 검색어는 한국어 '<시·도> <구>' (영어 화면 검색도 같은 구로 좁혀진다) */
+const regionGuNavEn = (p) => {
+  const ko = new Map(p.gus.map((g) => [g.gu, g.label]));
+  return p.gusEn.length
+    ? `<h2>${esc(p.nameEn)} Marathons by City and District</h2><nav class="links" aria-label="${esc(p.nameEn)} by city and district">${p.gusEn.map((g) => `<a href="${esc(guSearchPath(p.name, ko.get(g.gu) ?? g.label, 'en'))}">${esc(g.label)} (${num(g.count)})</a>`).join('')}</nav>`
     : '';
 };
 const regionMonthNav = (id, name) => {
@@ -814,7 +826,7 @@ for (const p of regionPages) {
       h1: `${p.name} 마라톤 대회 일정`,
       lead: `앞으로 열리는 ${p.name} 지역 대회 ${rs.length}개(접수 중 ${open}개)를 날짜순으로 모았습니다. 대회 이름을 누르면 접수 방식·참가비·공식 홈페이지를 볼 수 있습니다.`,
       crumbs: [{ name: '마라톤 캘린더', path: '/' }, KR_CRUMB, { name: `${p.name} 마라톤 일정`, path: p.path }],
-      body: [regionMonthNav(p.id, p.name), byMonthBody(rs, { split: false, status: true }), footNav(p.path)].join('\n'),
+      body: [regionGuNav(p), regionMonthNav(p.id, p.name), byMonthBody(rs, { split: false, status: true }), footNav(p.path)].join('\n'),
       list: rs,
     }),
   );
@@ -829,7 +841,7 @@ for (const p of regionPages) {
       h1: `Marathons in ${p.nameEn}, South Korea`,
       lead: `${num(rs.length)} upcoming races in ${p.nameEn} (${num(open)} open for registration), sorted by date. Select a race to see its entry type, fee and official website.`,
       crumbs: [{ name: SITE_NAME_EN, path: '/en/' }, KR_CRUMB_EN, { name: `Marathons in ${p.nameEn}`, path: en }],
-      body: [regionMonthNavEn(p.id, p.nameEn), byMonthBodyEn(rs, { split: false, status: true }), footNavEn(en)].join('\n'),
+      body: [regionGuNavEn(p), regionMonthNavEn(p.id, p.nameEn), byMonthBodyEn(rs, { split: false, status: true }), footNavEn(en)].join('\n'),
       list: rs,
     }),
   );
