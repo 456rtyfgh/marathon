@@ -11,7 +11,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { Export, List, X } from '@phosphor-icons/react';
 import { useLang } from '../i18n';
-import { ensureServiceWorker, record, useInstall } from '../lib/installApp';
+import { ensureServiceWorker, isMobile, record, useInstall } from '../lib/installApp';
 
 /** 이 너비(px)부터는 항목이 머리말에 펼쳐지고 메뉴 버튼이 없다 (Tailwind md 와 같은 값) */
 export const NAV_INLINE_MIN = 768;
@@ -118,7 +118,9 @@ export function MobileMenu({ groups, className = '' }: { groups: MenuItem[][]; c
   }, [open]);
 
   // 팝업을 닫은 사람도 메뉴의 '앱 설치' 로 설치 창을 열 수 있게 서비스 워커를 미리 둔다 (처음 한 번)
-  useEffect(() => ensureServiceWorker(), []);
+  useEffect(() => {
+    if (isMobile()) ensureServiceWorker(); // 데스크톱 방문자에게까지 등록하지 않는다 (팝업도 휴대폰에서만 했다)
+  }, []);
 
   const pickInstall = () => {
     if (installKind === 'prompt') {
