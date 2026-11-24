@@ -350,9 +350,11 @@ function Main() {
       if (!inDateRange(r, range)) return false;
       if (!matchesAnyStatus(r, x.status, status, today)) return false;
       if (!x.domestic && r.flight_hours != null && r.flight_hours > maxFlight) return false;
-      if (hits && !hits.has(r)) return false;
-      if (regionSet && !regionSet.has(r)) return false;
-      if (guNow && !inGu(r, sidoHit!.sido!, guNow)) return false;
+      // 지역 묶음·구 칩을 고르면 그 지역 대회가 기준 (칩에 적힌 수와 같게 — '서울특별시' 는 이름 일치 0개라도 묶음은 서울 대회 전부)
+      if (regionSet || guNow) {
+        if (regionSet && !regionSet.has(r)) return false;
+        if (guNow && !inGu(r, sidoHit!.sido!, guNow)) return false;
+      } else if (hits && !hits.has(r)) return false;
       return true;
     };
     const list = upcomingRaces.filter(matches);
@@ -420,7 +422,8 @@ function Main() {
     const all = [...(hits ?? []), ...searchWithFixes(getAllIndex(), dq).hits];
     // 지역 묶음·구 칩으로 직접 좁힌 것은 '필터 때문에 안 보이는 대회'가 아니다 → 고른 지역 안의 대회만 센다
     const inPick = (r: Race) => (!regionSet || regionSet.has(r)) && (!guNow || inGu(r, sidoHit!.sido!, guNow));
-    return hiddenRaces(regionSet || guNow ? all.filter(inPick) : all, shownSet, todayKey);
+    // (그 지역 대회는 이름 일치 결과에 없어도 후보 — 목록의 기준과 같게)
+    return hiddenRaces(regionSet || guNow ? [...(regionSet ?? sidoHit!.races), ...all].filter(inPick) : all, shownSet, todayKey);
   }, [needAll, getAllIndex, hits, dq, shownSet, todayKey, regionSet, guNow, sidoHit]);
   // 0개일 때 '혹시 이 대회인가요?' 는 전체에서도 없을 때만 (필터 탓이면 위 안내가 대신한다)
   const suggestions = useMemo(
