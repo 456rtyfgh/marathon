@@ -584,13 +584,14 @@ function Main() {
     track('lang', { value: nextLang });
     setLang(nextLang);
   };
-  // 휴대폰(767px 이하) 메뉴 항목 — 머리말에 펼쳐 보이는 것과 같은 일을 한다. 언어 전환은 휴대폰에서도 머리말에 늘 보이므로 여기에 두지 않는다
+  // 휴대폰(767px 이하) 메뉴 항목 — 머리말에 펼쳐 보이는 것과 같은 일을 한다
   const menuGroups: MenuItem[][] = [
     [
       { id: 'talk', label: COMMUNITY_NAV[lang], href: langPath(COMMUNITY_PATH, lang), onSelect: openTalk },
       { id: 'request', label: t('header.request'), onSelect: () => openRequest('header') },
       ...(profile?.is_admin ? [{ id: 'admin', label: t('header.admin'), onSelect: () => setShowAdmin(true) }] : []),
     ],
+    [{ id: 'lang', label: t('lang.switch'), lang: nextLang, onSelect: switchLang }],
     auth.session
       ? [
           { id: 'me', label: t('auth.me'), hint: profile?.nickname ?? auth.session.user.email, onSelect: () => setMeOpen(true) },
