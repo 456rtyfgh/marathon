@@ -34,6 +34,23 @@ export function noteText(race: Pick<Race, 'notes_ko' | 'notes_en'>, lang: Lang =
   return t || null;
 }
 
+/**
+ * 상세·검색이 함께 쓰는 기념품 표시 규칙.
+ * listed 이고 글이 있으면 listed (en 화면은 souvenir_en, 비었으면 souvenir_ko), none 이면 none,
+ * 그 밖(unknown · 칸 없음 · listed 인데 글이 빔)은 null = 줄을 보이지 않는다.
+ */
+export function souvenirInfo(
+  race: Pick<Race, 'souvenir_status' | 'souvenir_ko' | 'souvenir_en' | 'souvenir_source'>,
+  lang: Lang = 'ko',
+): { kind: 'listed'; text: string; source: string | null } | { kind: 'none' } | null {
+  if (race.souvenir_status === 'none') return { kind: 'none' };
+  if (race.souvenir_status !== 'listed') return null;
+  const ko = race.souvenir_ko?.trim() || '';
+  const text = (lang === 'en' && race.souvenir_en?.trim()) || ko;
+  if (!text) return null;
+  return { kind: 'listed', text, source: race.souvenir_source?.trim() || null };
+}
+
 /** 조기 마감일이 들어 있고 오늘이거나 지났으면 true */
 /** 공식에 '접수 중'만 있고 날짜가 없다고 확인된 대회 (notes 의 '공식: 접수 중(마감일 미공지, …)' 표시). 대회일 전까지 접수 중으로 본다 */
 const OPEN_NO_CLOSE_RE = /공식: 접수 중\(마감일 미공지/;

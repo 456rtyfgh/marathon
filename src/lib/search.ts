@@ -69,7 +69,12 @@ export function buildIndex(races: Race[], lang: Lang = 'ko'): SearchDoc[] {
       lang === 'en' ? [cityName(r, 'en'), countryName(r.country_code, r.country_ko, 'en'), sub ? subregionName(sub, 'en') : ''] : [];
     const main = [r.name_ko, r.name_en, r.city_ko, r.country_ko, subName, ...enNames].map((x) => normalize(x ?? '')).filter(Boolean);
     const notes = lang === 'en' ? [normalize(r.notes_ko ?? ''), normalize(r.notes_en ?? '')] : [normalize(r.notes_ko ?? '')];
-    const exact = [...main, ...notes, ...r.distances.map(normalize)].join(SEP);
+    // 기념품 글: 공식 안내에 있다고 확인된(listed) 대회만. 영어 화면은 영어 글도
+    const souvenir =
+      r.souvenir_status === 'listed'
+        ? (lang === 'en' ? [r.souvenir_ko, r.souvenir_en] : [r.souvenir_ko]).map((x) => normalize(x ?? '')).filter(Boolean)
+        : [];
+    const exact = [...main, ...notes, ...souvenir, ...r.distances.map(normalize)].join(SEP);
     const regions = r.country_code === 'KR' ? (r.city_ko ?? '').trim().split(/\s+/)[0].split('·').filter(Boolean) : [];
     return { race: r, exact, fields: main.map(toJamo), exactJamo: toJamo(exact), regions, major: !!r.is_major && r.country_code !== 'KR' };
   });

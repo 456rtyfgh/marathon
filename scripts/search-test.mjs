@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { buildIndex, keyboardFixes, searchRaces, searchWithFixes, suggestRaces } from '../src/lib/search.ts';
 import { aliasSiblings } from '../src/lib/aliases.ts';
 import { splitData } from './data-split.mjs';
+import { souvenirInfo } from '../src/lib/util.ts';
 
 const TODAY = process.env.SEARCH_TEST_TODAY || '2026-11-15';
 const data = splitData(JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'))).list;
@@ -207,6 +208,73 @@ const sib2 = aliasSiblings('하낭');
 show(sib2.length === 1 && sib2[0] === '하남', 'aliasSiblings 하낭', `${sib2.join(',')} (ONE_WAY 표기에서 나가는 것만)`);
 const sib3 = aliasSiblings('하남');
 show(sib3.length === 0, 'aliasSiblings 하남', `${sib3.join(',') || '[]'} (ONE_WAY 표기인 하낭은 칩으로 안 냄)`);
+
+// ── 기념품 글 검색 (listed 일 때만 색인, 영어 글은 영어 화면 색인에서만) ──
+// 데이터에 기념품이 들어 있든 없든 같은 결과가 나오도록 가짜 대회를 끼워 확인한다.
+const fxBase = races.find((r) => r.country_code === 'KR');
+const fx = (id, extra) => ({ ...fxBase, id, name_ko: `기념품시험${id}`, name_en: `SouvenirProbe ${id}`, ...extra });
+const fxListed = fx('listed', {
+  souvenir_status: 'listed',
+  souvenir_ko: '완주 메달, 햅쌀 5kg, 지역상품권, 월드런 고글',
+  souvenir_en: 'Finisher medal, new rice 5kg, local gift voucher, World Run goggles',
+});
+const fxNone = fx('none', { souvenir_status: 'none', souvenir_ko: '고글 쌀 상품권', souvenir_en: 'goggles' });
+const fxUnknown = fx('unknown', { souvenir_status: 'unknown', souvenir_ko: '고글 쌀 상품권', souvenir_en: 'goggles' });
+const fxKoOnly = fx('koonly', { souvenir_status: 'listed', souvenir_ko: '독특한양말세트', souvenir_en: null });
+const fxRaces = [...races, fxListed, fxNone, fxUnknown, fxKoOnly];
+const idxKo = buildIndex(fxRaces);
+const idxEn = buildIndex(fxRaces, 'en');
+const SOUVENIR_ROWS = [
+  // [색인 설명, 색인, 검색어, 있어야 하는 id, 없어야 하는 id]
+  ['ko', idxKo, '고글', ['listed'], ['none', 'unknown']],
+  ['ko', idxKo, '쌀', ['listed'], ['none', 'unknown']],
+  ['ko', idxKo, '상품권', ['listed'], ['none', 'unknown']],
+  ['ko', idxKo, '독특한양말', ['koonly'], ['listed']],
+  ['ko', idxKo, 'goggles', [], ['listed', 'none', 'unknown']], // 한국어 화면은 영어 기념품 글을 찾지 않는다
+  ['en', idxEn, 'goggles', ['listed'], ['none', 'unknown']],
+  ['en', idxEn, 'gift voucher', ['listed'], ['none', 'unknown']],
+  ['en', idxEn, '고글', ['listed'], ['none', 'unknown']], // 영어 화면도 한국어 글은 찾는다
+  ['en', idxEn, '독특한양말', ['koonly'], []],
+];
+for (const [kind, idx, q, want, not] of SOUVENIR_ROWS) {
+  const got = idsOf(searchWithFixes(idx, q).hits);
+  const problems = [
+    ...want.filter((i) => !got.includes(i)).map((i) => `${i} 없음`),
+    ...not.filter((i) => got.includes(i)).map((i) => `${i} 가 나오면 안 됨`),
+  ];
+  show(!problems.length, `기념품(${kind}) ${q}`, `${got.length}개${problems.length ? ` · ${problems.join(' / ')}` : ''}`);
+}
+
+// 진짜 데이터: 기념품이 listed 인 대회는 자기 기념품 글의 낱말로 찾아진다 (아직 데이터에 없으면 건너뜀)
+const realListed = races.filter((r) => r.souvenir_status === 'listed' && r.souvenir_ko);
+if (realListed.length) {
+  const bad = [];
+  for (const r of realListed) {
+    const word = r.souvenir_ko.match(/[가-힣]{2,}/)?.[0];
+    if (word && !idsOf(searchRaces(index, word)).includes(r.id)) bad.push(`${r.id}:${word}`);
+  }
+  show(!bad.length, '기념품 실제 데이터', `listed ${realListed.length}개 모두 기념품 낱말로 찾아짐${bad.length ? ` · 못 찾음 ${bad.slice(0, 3).join(',')}` : ''}`);
+} else console.log('SKIP 기념품 실제 데이터 → 지금 data.json 에 listed 대회 없음');
+
+// ── 목록 파일(data-split): 검색용 글만, 출처·확인일은 상세에서만 ──
+const lr = splitData({ generated_at: 'x', races: [{ ...fxListed, souvenir_source: 'https://example.com/a', souvenir_checked: '2026-11-24' }] }).list.races[0];
+show(
+  lr.souvenir_status === 'listed' && lr.souvenir_ko === fxListed.souvenir_ko && lr.souvenir_en === fxListed.souvenir_en && !('souvenir_source' in lr) && !('souvenir_checked' in lr),
+  'data-split 기념품 칸',
+  '목록에 status·ko·en 만 남고 source·checked 는 빠짐',
+);
+
+// ── souvenirInfo (상세 표시 규칙) ──
+const SI = [
+  ['listed ko', souvenirInfo({ souvenir_status: 'listed', souvenir_ko: '티셔츠', souvenir_en: 'Tee', souvenir_source: 'https://a.example/' }, 'ko'), { kind: 'listed', text: '티셔츠', source: 'https://a.example/' }],
+  ['listed en', souvenirInfo({ souvenir_status: 'listed', souvenir_ko: '티셔츠', souvenir_en: 'Tee' }, 'en'), { kind: 'listed', text: 'Tee', source: null }],
+  ['listed en 영어 없음 → 한국어', souvenirInfo({ souvenir_status: 'listed', souvenir_ko: '티셔츠', souvenir_en: '  ' }, 'en'), { kind: 'listed', text: '티셔츠', source: null }],
+  ['none', souvenirInfo({ souvenir_status: 'none' }, 'ko'), { kind: 'none' }],
+  ['unknown', souvenirInfo({ souvenir_status: 'unknown', souvenir_ko: '티셔츠' }, 'ko'), null],
+  ['칸 없음', souvenirInfo({}, 'en'), null],
+  ['listed 인데 글 없음', souvenirInfo({ souvenir_status: 'listed', souvenir_ko: ' ' }, 'ko'), null],
+];
+for (const [name, got, want] of SI) show(JSON.stringify(got) === JSON.stringify(want), `souvenirInfo ${name}`, JSON.stringify(got));
 
 console.log(`\nPASS ${pass} / FAIL ${fail} (색인 ${races.length}개, 기준일 ${TODAY})`);
 process.exit(fail ? 1 : 0);

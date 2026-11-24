@@ -26,6 +26,7 @@ import {
   safeUrl,
   isCancelled,
   noteText,
+  souvenirInfo,
   isEntryConfirmed,
   expectedEntryText,
   monthDay,
@@ -234,6 +235,7 @@ function RaceDetailView({
   const evMeta = isRunEvent(race) ? runEventMeta(race) : undefined;
   const evKinds = evMeta ? kindsText(evMeta.kinds, lang) : '';
   const note = evMeta !== undefined && lang === 'ko' ? stripRunEventHead(noteText(race, lang)) : noteText(race, lang);
+  const souvenir = souvenirInfo(race, lang);
   const entryLabel = ENTRY_TEXT[lang][race.entry_type];
   const isAdmin = !!profile?.is_admin;
   const view: Tab = (cancelled && tab === 'alert') || (!isAdmin && tab === 'edit') ? 'overview' : tab;
@@ -554,6 +556,30 @@ function RaceDetailView({
                 num
               />
               <Fact label={t('detail.distances')} value={lang === 'en' ? race.distances.map(DIST_TEXT.en).join(', ') : race.distances.join(', ')} />
+              {souvenir && (
+                <div className="col-span-2 rounded-box bg-surface px-4 py-3">
+                  <dt className="text-[13px] text-ink-3">{t('detail.souvenir')}</dt>
+                  {souvenir.kind === 'listed' ? (
+                    <>
+                      <dd className="mt-1 text-[17px] leading-7 font-semibold text-ink [overflow-wrap:anywhere]">{souvenir.text}</dd>
+                      {safeUrl(souvenir.source) && (
+                        <dd className="mt-1">
+                          <a
+                            href={safeUrl(souvenir.source)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block py-2 -my-2 text-[13px] text-ink-3 underline underline-offset-2 hover:text-ink hover:no-underline"
+                          >
+                            {t('detail.souvenirSource')}
+                          </a>
+                        </dd>
+                      )}
+                    </>
+                  ) : (
+                    <dd className="mt-1 text-[15px] leading-7 text-ink-2">{t('detail.souvenirNone')}</dd>
+                  )}
+                </div>
+              )}
               {trail ? (
                 <Fact
                   label={t('detail.gain')}
