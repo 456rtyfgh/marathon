@@ -148,7 +148,7 @@ export const ko = {
   'region.guLabel': '시·군·구',
   'region.count1': '{label} 지역 대회 1개',
   'region.all': '전체',
-  'search.fixedUse':'검색창도 ‘{q}’ 로 바꾸기',
+  'search.fixedUse': '검색창도 ‘{q}’ 로 바꾸기',
   'more.label': '더 보기',
   'more.leftPost': '개 남음',
 

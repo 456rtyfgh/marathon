@@ -417,8 +417,11 @@ function Main() {
   const shownSet = useMemo(() => new Set(groups.flatMap((g) => g.races)), [groups]);
   const hidden = useMemo<Hidden>(() => {
     if (!needAll) return NO_HIDDEN;
-    return hiddenRaces([...(hits ?? []), ...searchWithFixes(getAllIndex(), dq).hits], shownSet, todayKey);
-  }, [needAll, getAllIndex, hits, dq, shownSet, todayKey]);
+    const all = [...(hits ?? []), ...searchWithFixes(getAllIndex(), dq).hits];
+    // 지역 묶음·구 칩으로 직접 좁힌 것은 '필터 때문에 안 보이는 대회'가 아니다 → 고른 지역 안의 대회만 센다
+    const inPick = (r: Race) => (!regionSet || regionSet.has(r)) && (!guNow || inGu(r, sidoHit!.sido!, guNow));
+    return hiddenRaces(regionSet || guNow ? all.filter(inPick) : all, shownSet, todayKey);
+  }, [needAll, getAllIndex, hits, dq, shownSet, todayKey, regionSet, guNow, sidoHit]);
   // 0개일 때 '혹시 이 대회인가요?' 는 전체에서도 없을 때만 (필터 탓이면 위 안내가 대신한다)
   const suggestions = useMemo(
     () => (shown === 0 && dq.trim() && hidden.total === 0 ? suggestRaces(searchIndex, dq, 3) : []),
