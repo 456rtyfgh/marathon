@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react';
 import { DeviceMobile, Export, X } from '@phosphor-icons/react';
 import { useLang } from '../i18n';
-import { track } from '../lib/analytics';
+import { ensureServiceWorker, isIos, isMobile, isStandalone, record, useInstall } from '../lib/installApp';
 
-/** 처음 들어온 사람에게 '앱으로 받기' 팝업 (홈 화면 추가). 한 번 닫으면 14일 동안 안 띄움. 이미 앱으로 열었으면 안 띄움. */
-type BIP = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
+/** 처음 들어온 사람에게 '앱으로 받기' 팝업 (홈 화면 추가). 한 번 닫으면 14일 동안 안 띄움. 이미 앱으로 열었으면 안 띄움.
+ *  설치 창 이벤트(beforeinstallprompt)는 메뉴의 '앱 설치' 와 함께 쓰도록 lib/installApp 이 보관한다. */
 const KEY = 'mc:install-dismissed';
 const DAYS = 14;
-
-const standalone = () =>
-  window.matchMedia?.('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
-const ios = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const mobile = () => /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent) || ios();
 
 function dismissedRecently(): boolean {
   try {
@@ -25,48 +20,48 @@ function dismissedRecently(): boolean {
 export default function InstallPrompt() {
   const { lang } = useLang();
   const ko = lang !== 'en';
-  const [bip, setBip] = useState<BIP | null>(null);
+  const { kind, install: runInstall } = useInstall();
   const [open, setOpen] = useState(false);
-  const isIos = ios();
+  const ios = isIos();
 
   useEffect(() => {
-    if (standalone() || dismissedRecently() || !mobile()) return;
-    // 설치 가능 판정을 받으려면 서비스 워커가 있어야 하는 브라우저가 있어 미리 등록(캐시 없음, 알림용 sw.js)
-    navigator.serviceWorker?.getRegistration('/').then((r) => r ?? navigator.serviceWorker.register('/sw.js', { scope: '/' })).catch(() => {});
-    const onBip = (e: Event) => {
-      e.preventDefault();
-      setBip(e as BIP);
-    };
-    window.addEventListener('beforeinstallprompt', onBip);
+    if (isStandalone() || dismissedRecently() || !isMobile()) return;
+    ensureServiceWorker();
     // 첫 화면이 뜨고 잠깐 뒤에 띄운다
-    const timer = setTimeout(() => setOpen(true), 1500);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onBip);
-      clearTimeout(timer);
-    };
+    const timer = setTimeout(() => {
+      setOpen(true);
+      record('shown');
+    }, 1500);
+    return () => clearTimeout(timer);
   }, []);
 
-  if (!open) return null;
+  // 아이폰 안내가 보이는 순간 한 번
+  const iosGuide = open && kind === 'ios';
+  useEffect(() => {
+    if (iosGuide) record('ios_guide');
+  }, [iosGuide]);
 
-  const close = (why: string) => {
+  // 다른 곳(메뉴)에서 설치를 마쳤으면 닫는다
+  if (!open || kind === 'none') return null;
+
+  /** dismissed=true 면 '닫음'으로 센다 (설치 창의 수락·거절은 runInstall 이 센다) */
+  const close = (dismissed: boolean) => {
     try {
       localStorage.setItem(KEY, String(Date.now()));
     } catch {
       /* 저장 못 해도 이번엔 닫힘 */
     }
-    track('install', { action: why });
+    if (dismissed) record('dismissed');
     setOpen(false);
   };
 
   const install = async () => {
-    if (!bip) return;
-    await bip.prompt();
-    const { outcome } = await bip.userChoice;
-    close(outcome === 'accepted' ? 'installed' : 'declined');
+    const r = await runInstall();
+    if (r !== 'unavailable') close(false);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={() => close('outside')}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={() => close(true)}>
       <div
         role="dialog"
         aria-modal="true"
@@ -86,12 +81,12 @@ export default function InstallPrompt() {
                 : 'Open it from your home screen and get entry open and close alerts for saved races on your phone.'}
             </p>
           </div>
-          <button onClick={() => close('x')} aria-label={ko ? '닫기' : 'Close'} className="-mt-1 -mr-1 inline-flex h-11 w-11 items-center justify-center text-ink-3">
+          <button onClick={() => close(true)} aria-label={ko ? '닫기' : 'Close'} className="-mt-1 -mr-1 inline-flex h-11 w-11 items-center justify-center text-ink-3">
             <X size={20} weight="bold" />
           </button>
         </div>
 
-        {bip ? (
+        {kind === 'prompt' ? (
           <button
             onClick={install}
             className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-ctl bg-ink text-[16px] font-bold text-bg"
@@ -99,7 +94,7 @@ export default function InstallPrompt() {
             <DeviceMobile size={20} weight="bold" />
             {ko ? '앱 설치하기' : 'Install app'}
           </button>
-        ) : isIos ? (
+        ) : ios ? (
           <ol className="mt-4 space-y-2 rounded-box bg-sunken p-4 text-[14px] leading-relaxed">
             <li className="flex items-center gap-2">
               <span className="num font-bold">1.</span>
@@ -119,7 +114,7 @@ export default function InstallPrompt() {
           </p>
         )}
 
-        <button onClick={() => close('later')} className="mt-2 inline-flex h-11 w-full items-center justify-center text-[15px] font-semibold text-ink-3">
+        <button onClick={() => close(true)} className="mt-2 inline-flex h-11 w-full items-center justify-center text-[15px] font-semibold text-ink-3">
           {ko ? '다음에 할게요' : 'Maybe later'}
         </button>
       </div>

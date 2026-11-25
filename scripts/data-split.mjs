@@ -35,6 +35,10 @@ export const LIST_FIELDS = [
   'elevation_gain',
   'sold_out_on',
   'subregion',
+  // 기념품 글은 검색(색인)이 쓴다. 출처·확인일은 상세에서만
+  'souvenir_status',
+  'souvenir_ko',
+  'souvenir_en',
 ];
 /** 목록 파일에서 빠지는 대회 필드 (대회를 열 때 /r/<id>.json 으로 받는다). notes_ko 는 취소 태그만 남는다 */
 export const DETAIL_FIELDS = ['official_url', 'source_url', 'notes_ko', 'notes_en', 'course', 'last_verified'];
