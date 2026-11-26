@@ -8,6 +8,7 @@ import { DIST_TEXT, ENTRY_TEXT, fmtDate, fmtMonth } from '../src/i18n/format.ts'
 import { countryName, provinceName, whereText } from '../src/i18n/names.ts';
 import { STATUS_LABEL, entryStatus, isEntryConfirmed } from '../src/lib/util.ts';
 import { distanceBucket } from '../src/lib/distanceFilter.ts';
+import { guChips } from '../src/lib/regions.ts';
 
 export const ORIGIN = process.env.SITE_ORIGIN || 'https://marathon82.com';
 export const snap = JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'));
@@ -113,13 +114,21 @@ export const provinceOf = (r) => {
 };
 export const regionPath = (id) => `/kr/${id}/`;
 /** 다가오는 국내 대회가 1개 이상 있는 시·도만 */
-export const regionPages = PROVINCES.map((p) => ({
-  id: p.id,
-  name: p.name,
-  nameEn: provinceName(p.id, 'en'),
-  path: regionPath(p.id),
-  races: upcoming.filter((r) => isKr(r) && provinceOf(r) === p.id),
-})).filter((p) => p.races.length > 0);
+export const regionPages = PROVINCES.map((p) => {
+  const races = upcoming.filter((r) => isKr(r) && provinceOf(r) === p.id);
+  return {
+    id: p.id,
+    name: p.name,
+    nameEn: provinceName(p.id, 'en'),
+    path: regionPath(p.id),
+    races,
+    // 시·군·구 칩 (앱 검색의 구 칩과 같은 함수·같은 수. city_ko 가 시·도 하나뿐인 대회는 어느 칩에도 안 든다)
+    gus: guChips(races, p.name, 'ko'),
+    gusEn: guChips(races, p.name, 'en'),
+  };
+}).filter((p) => p.races.length > 0);
+/** 구 칩 링크: 앱 검색('<시·도> <구>' — '중구' 처럼 여러 시·도에 있는 이름도 그 시·도로 좁혀진다) */
+export const guSearchPath = (sido, guLabel, lang = 'ko') => `${lang === 'en' ? '/en/' : '/'}?q=${encodeURIComponent(`${sido} ${guLabel}`)}`;
 
 // ── 거리별 (/distance/<bucket>/). /d/* 는 워커가 데이터 파일 주소로 막아 두어(그 밖은 404) /distance/ 를 쓴다 ──
 export const distancePath = (bucket) => `/distance/${bucket}/`;
