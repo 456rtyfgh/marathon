@@ -32,7 +32,14 @@ import MapSection, { type Scope } from './components/MapSection';
 import { byRaceDate, inDateRange, inScope, matchesAnyStatus, matchesStatus, NO_RANGE, orderRange, picksFromSearch, rangeFromSearch, resolveListPrefs, type DateRange, type ListPicks, type ListSort, type StatusFilter } from './lib/listPrefs';
 import { DISTANCE_BUCKETS, distancesFromSearch, matchesDistances, type DistanceBucket } from './lib/distanceFilter';
 import { matchesPlaces, placeOf } from './lib/places';
-import { buildIndex, searchRaces, suggestRaces } from './lib/search';
+import { buildIndex, searchWithFixes, suggestRaces, type SearchDoc } from './lib/search';
+import { popularInfo, relatedChips } from './lib/relatedSearches';
+import { guChips as guChipsOf, inGu, regionHits } from './lib/regions';
+import { usePopularSearches } from './lib/popularSearches';
+import { emptyKind, FEW_RESULTS, hiddenRaces, type Hidden } from './lib/outsideFilter';
+import SearchAssist from './components/SearchAssist';
+import RelatedChips from './components/RelatedChips';
+import RegionResults from './components/RegionResults';
 import { scrollToResults, RESULTS_EMPTY_ID } from './lib/scrollToResults';
 import { ResultsAnnouncer } from './components/ResultsAnnouncer';
 import { track, pageView } from './lib/analytics';
@@ -61,6 +68,9 @@ const PAGE = 80;
 const GROUP_PAGE = 12;
 const GROUP_MORE = 24;
 const SHOW_ALL_UNDER = 30;
+
+/** 필터 밖 결과 없음 (렌더마다 새 객체를 만들지 않게 하나만) */
+const NO_HIDDEN: Hidden = { upcoming: [], past: [], total: 0 };
 
 const ENTRY_TYPES: EntryType[] = ['lottery', 'fcfs', 'qualifying', 'open', 'tour_only'];
 
@@ -311,7 +321,20 @@ function Main() {
     };
   }, [upcomingRaces, info, status, scope, today]);
   // 검색어에 맞는 대회 (띄어쓰기·다른 표기·꼬리말·오타 — src/lib/search.ts). 필터·정렬을 바꿀 때는 다시 계산하지 않는다
-  const hits = useMemo(() => (dq.trim() ? searchRaces(searchIndex, dq) : null), [searchIndex, dq]);
+  // (한/영 자판이 바뀌어 0개일 때는 바꿔 본 결과 — outcome.fixed 가 있으면 화면에 알린다)
+  const outcome = useMemo(() => (dq.trim() ? searchWithFixes(searchIndex, dq) : null), [searchIndex, dq]);
+  const hits = outcome?.hits ?? null;
+
+  // 지역 이름 검색: '<지역> 지역 대회 N개' 묶음 + 시·도 아래 시·군·구 칩. 고른 값은 검색어가 바뀌면 풀린다 (고른 때의 검색어를 같이 기억)
+  const regionList = useMemo(() => (dq.trim() ? regionHits(searchIndex, dq, lang) : []), [searchIndex, dq, lang]);
+  const [regionSel, setRegionSel] = useState<{ q: string; pick: string | null; gu: string | null }>({ q: '', pick: null, gu: null });
+  const regionNow = regionSel.q === dq.trim() ? regionSel : { q: '', pick: null, gu: null };
+  const pickedRegion = regionList.find((h) => h.key === regionNow.pick);
+  // 구 칩은 시·도 묶음에 딸린 것 — 다른 묶음('광주' 검색의 '경기 광주')을 고르면 광주광역시 구 칩은 걸러도 0개라 숨긴다
+  const sidoHit = !pickedRegion || pickedRegion.kind === 'sido' ? regionList.find((h) => h.kind === 'sido') : undefined;
+  const guChipList = useMemo(() => (sidoHit ? guChipsOf(sidoHit.races, sidoHit.sido!, lang) : []), [sidoHit, lang]);
+  const regionSet = useMemo(() => (pickedRegion ? new Set(pickedRegion.races) : null), [pickedRegion]);
+  const guNow = sidoHit && guChipList.some((c) => c.gu === regionNow.gu) ? regionNow.gu : null;
 
   const groups = useMemo(() => {
     const matches = (r: Race) => {
@@ -328,7 +351,11 @@ function Main() {
       if (!inDateRange(r, range)) return false;
       if (!matchesAnyStatus(r, x.status, status, today)) return false;
       if (!x.domestic && r.flight_hours != null && r.flight_hours > maxFlight) return false;
-      if (hits && !hits.has(r)) return false;
+      // 지역 묶음·구 칩을 고르면 그 지역 대회가 기준 (칩에 적힌 수와 같게 — '서울특별시' 는 이름 일치 0개라도 묶음은 서울 대회 전부)
+      if (regionSet || guNow) {
+        if (regionSet && !regionSet.has(r)) return false;
+        if (guNow && !inGu(r, sidoHit!.sido!, guNow)) return false;
+      } else if (hits && !hits.has(r)) return false;
       return true;
     };
     const list = upcomingRaces.filter(matches);
@@ -379,19 +406,49 @@ function Main() {
             ? t('group.saves')
             : t('group.views');
     return [{ key: 'all', title, races: sorted }];
-  }, [upcomingRaces, info, hits, scope, regions, places, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, disciplines, dists, range, lang, t]);
+  }, [upcomingRaces, info, hits, scope, regions, places, types, status, majorOnly, maxFlight, sort, today, ratingMap, favOnly, fav.ids, regOnly, reg.ids, disciplines, dists, range, lang, t, regionSet, guNow, sidoHit]);
 
   const shown = groups.reduce((n, g) => n + g.races.length, 0);
   // 검색 결과 0개일 때 '혹시 이 대회인가요?' (필터와 무관하게 다가오는 대회 중). 결과 수(shown)에는 넣지 않는다 → search_empty 기록 그대로
+  // 필터 때문에 안 보이는 대회: 검색어에 맞는데(필터 무관, 지난 대회 포함) 지금 목록에 없는 것. 결과가 0개이거나 몇 개 안 될 때만 찾는다
+  // (지난 대회 포함 색인은 처음 필요할 때 한 번만 만든다 — 데이터·언어가 바뀌기 전까지 다시 만들지 않는다)
+  const needAll = !!dq.trim() && shown <= FEW_RESULTS && remote !== 'loading';
+  const getAllIndex = useMemo(() => {
+    let built: SearchDoc[] | null = null;
+    return () => (built ??= buildIndex([...upcomingRaces, ...pastRaces], lang));
+  }, [upcomingRaces, pastRaces, lang]);
+  const shownSet = useMemo(() => new Set(groups.flatMap((g) => g.races)), [groups]);
+  const hidden = useMemo<Hidden>(() => {
+    if (!needAll) return NO_HIDDEN;
+    const all = [...(hits ?? []), ...searchWithFixes(getAllIndex(), dq).hits];
+    // 지역 묶음·구 칩으로 직접 좁힌 것은 '필터 때문에 안 보이는 대회'가 아니다 → 고른 지역 안의 대회만 센다
+    const inPick = (r: Race) => (!regionSet || regionSet.has(r)) && (!guNow || inGu(r, sidoHit!.sido!, guNow));
+    // (그 지역 대회는 이름 일치 결과에 없어도 후보 — 목록의 기준과 같게)
+    return hiddenRaces(regionSet || guNow ? [...(regionSet ?? sidoHit!.races), ...all].filter(inPick) : all, shownSet, todayKey);
+  }, [needAll, getAllIndex, hits, dq, shownSet, todayKey, regionSet, guNow, sidoHit]);
+  // 0개일 때 '혹시 이 대회인가요?' 는 전체에서도 없을 때만 (필터 탓이면 위 안내가 대신한다)
   const suggestions = useMemo(
-    () => (shown === 0 && dq.trim() ? suggestRaces(searchIndex, dq, 3) : []),
-    [shown, dq, searchIndex],
+    () => (shown === 0 && dq.trim() && hidden.total === 0 ? suggestRaces(searchIndex, dq, 3) : []),
+    [shown, dq, searchIndex, hidden.total],
+  );
+  // 검색창 아래 칩 (검색어 있으면 관련 검색어, 비면 많이 찾는 검색어)
+  const popular = usePopularSearches();
+  useEffect(() => {
+    if (!popular.length || remote === 'loading') return;
+    const run = () => popularInfo(searchIndex, popular);
+    const id = typeof requestIdleCallback === 'function' ? requestIdleCallback(run) : setTimeout(run, 800);
+    return () => (typeof cancelIdleCallback === 'function' ? cancelIdleCallback(id as number) : clearTimeout(id as ReturnType<typeof setTimeout>));
+  }, [popular, searchIndex, remote]);
+  const chips = useMemo(
+    () => (remote === 'loading' ? [] : relatedChips({ q: dq, index: searchIndex, races: upcomingRaces, results: hits ? [...hits] : [], popular, lang })),
+    [remote, dq, searchIndex, upcomingRaces, hits, popular, lang],
   );
   const activeFilters =
     types.length + status.length + (majorOnly ? 1 : 0) + (maxFlight < 24 ? 1 : 0) + disciplines.length + dists.length + (dated ? 1 : 0);
 
-  const reset = () => {
-    setQ('');
+  // 검색어는 두고 필터만 풀기 (필터 때문에 안 보이는 대회 안내의 버튼)
+  const resetFilters = () => {
+    setRegionSel({ q: '', pick: null, gu: null });
     setScope('all');
     setRegions([]);
     setPlaces([]);
@@ -405,8 +462,15 @@ function Main() {
     setDists([]);
     setRange(NO_RANGE);
   };
+  const reset = () => {
+    setQ('');
+    resetFilters();
+  };
 
   const openRace = useCallback((r: Race) => setSelected(r), []);
+  const renderHiddenRow = (r: Race) => (
+    <RaceRow key={r.id} race={r} rating={ratingMap.get(r.id)} favorite={fav.has(r.id)} registered={reg.has(r.id)} onOpen={openRace} />
+  );
   // 내 정보 '저장한 대회' 에 넘기는 값 — 같은 fav·reg 상태를 써야 저장 해제가 목록·상세에도 바로 보인다 (lib/myRacesContext)
   const myRacesBridge = useMemo<MyRacesBridge>(
     () => ({
@@ -428,12 +492,13 @@ function Main() {
   const similarProps = { races: upcomingRaces, ratingMap, isFavorite: fav.has, isRegistered: reg.has, onOpenRace: openRace };
 
   // 검색어: 입력이 1.2초 멈추면 한 번 기록 (결과 0건이면 '찾는데 없는 대회'로 따로 센다)
-  const shownRef = useRef(0);
-  shownRef.current = shown;
+  // 결과 0개일 때 outside = 필터를 풀면 있는 대회 수 (0 이면 전체에서도 없음) → analytics 가 search_filtered_empty / search_empty 로 나눈다
+  const shownRef = useRef({ results: 0, outside: 0 });
+  shownRef.current = { results: shown, outside: emptyKind(shown, hidden.total) === 'filtered' ? hidden.total : 0 };
   useEffect(() => {
     const term = q.trim();
     if (term.length < 2) return;
-    const t = setTimeout(() => track('search', { search_term: term, results: shownRef.current }), 1200);
+    const t = setTimeout(() => track('search', { search_term: term, ...shownRef.current }), 1200);
     return () => clearTimeout(t);
   }, [q]);
 
@@ -466,7 +531,7 @@ function Main() {
 
   // 묶음(접수 중·곧 시작…)마다 처음 GROUP_PAGE 개만, '더 보기' 한 번에 GROUP_MORE 개씩 더.
   // 다시 접는 건 필터·정렬 값이 바뀔 때만 — groups 는 저장·접수 표시에도 다시 만들어져서 거기에 걸면 ☆ 하나에 접혀 버린다
-  const foldKey = JSON.stringify([dq.trim(), scope, regions, places, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, disciplines, dists, range.from, range.to]);
+  const foldKey = JSON.stringify([dq.trim(), scope, regions, places, types, status, majorOnly, maxFlight, sort, favOnly, regOnly, disciplines, dists, range.from, range.to, regionNow.pick, guNow]);
   const [unfold, setUnfold] = useState<{ key: string; n: Record<string, number> }>({ key: foldKey, n: {} });
   // 키가 바뀌는 순간 비운다 (렌더 중 갱신). 비교만 하면 검색어를 지워 원래 키로 돌아올 때 예전 펼침이 되살아난다
   if (unfold.key !== foldKey) setUnfold({ key: foldKey, n: {} });
@@ -598,7 +663,7 @@ function Main() {
       </a>
 
       <header className="sticky top-0 z-30 border-b border-line bg-bg">
-        {/* 휴대폰(767px 이하): 로고 · 러닝톡 · 메뉴 버튼, 나머지는 메뉴 안. 768px 부터 펼쳐 보인다 (MobileMenu 의 NAV_INLINE_MIN) */}
+        {/* 휴대폰(767px 이하): 로고 · 러닝톡 · 언어 · 메뉴 버튼, 나머지는 메뉴 안. 768px 부터 펼쳐 보인다 (MobileMenu 의 NAV_INLINE_MIN) */}
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
           {/* 자리가 모자라도 로고는 줄지 않게 (예전엔 관리자 화면에서 워드마크가 찌그러졌다) */}
           <a href={langPath('/', lang)} className="flex h-11 shrink-0 items-center">
@@ -612,8 +677,9 @@ function Main() {
                 e.preventDefault();
                 openTalk();
               }}
-              // 360px 미만(확대 표시한 휴대폰 320px 등)은 로고 옆에 자리가 없어 숨긴다 — 넘치면 메뉴 버튼이 화면 밖으로 밀린다. 메뉴 안에는 늘 있다
-              className="inline-flex h-11 items-center rounded-ctl px-2.5 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink max-[360px]:hidden md:h-9 md:px-3"
+              // 로고(190px)·언어·메뉴 버튼 옆에 자리가 모자란 폭에서는 숨긴다 — 넘치면 메뉴 버튼이 화면 밖으로 밀린다. 메뉴 안에는 늘 있다.
+              // 다 들어가는 폭: 한국어 '러닝톡' 403px, 영어 'Run Talk' 425px (재어 본 값 + 여유 5px)
+              className={`inline-flex h-11 items-center rounded-ctl px-2.5 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink ${lang === 'en' ? 'max-[430px]:hidden' : 'max-[408px]:hidden'} md:h-9 md:px-3`}
             >
               {COMMUNITY_NAV[lang]}
             </a>
@@ -631,17 +697,20 @@ function Main() {
                 {t('header.admin')}
               </button>
             )}
-            {/* 언어 전환: 글자는 두 언어 모두 'EN / 한', 지금 언어 쪽만 진하게 */}
+            {/* 언어 전환: 글자는 두 언어 모두 'EN / 한', 지금 언어 쪽만 진하게.
+                휴대폰에서도 메뉴를 열지 않고 상단바에 늘 보인다 (터치 높이 44px·좁은 좌우 여백). 768px 부터는 예전 모양 그대로.
+                360px 미만(확대 표시한 320px 등)은 'EN / 한' 이 다 안 들어가 바꿀 언어 쪽만 보인다 (aria-label 이 뜻을 알린다).
+                320px 미만(접는 휴대폰 바깥 화면 280px 등)은 그것도 안 들어가 숨긴다 — 넘치면 메뉴 버튼이 화면 밖으로 밀리고 가로 스크롤이 생긴다. 메뉴 안에는 늘 있다 */}
             <button
               onClick={switchLang}
               aria-label={t('lang.switch')}
               lang={nextLang}
-              className="hidden h-9 items-center rounded-ctl px-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink md:inline-flex"
+              className="inline-flex h-11 items-center rounded-ctl px-2 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:bg-sunken hover:text-ink max-[320px]:hidden md:h-9 md:px-3"
             >
               <span>
-                <span className={lang === 'en' ? 'text-ink' : undefined}>EN</span>
-                {' / '}
-                <span className={lang === 'ko' ? 'text-ink' : undefined}>한</span>
+                <span className={lang === 'en' ? 'text-ink max-[360px]:hidden' : undefined}>EN</span>
+                <span className="max-[360px]:hidden">{' / '}</span>
+                <span className={lang === 'ko' ? 'text-ink max-[360px]:hidden' : undefined}>한</span>
               </span>
             </button>
             <MyRacesProvider value={myRacesBridge}>
@@ -944,13 +1013,41 @@ function Main() {
         {/* 목록 */}
         {/* 휴대폰은 위에 붙는 것이 머리말(56px)뿐이라 그만큼만 띄운다 (sm 부터는 고정 도구 막대 높이까지) */}
         <section id="list" className="mx-auto max-w-6xl scroll-mt-14 pb-16 sm:scroll-mt-44 sm:px-6 lg:scroll-mt-32">
-          <ResultsAnnouncer query={dq.trim()} count={shown} suggestions={suggestions.length} loading={remote === 'loading'} />
+          <ResultsAnnouncer
+            query={dq.trim()}
+            count={shown}
+            suggestions={suggestions.length}
+            loading={remote === 'loading'}
+            hidden={hidden.upcoming.length}
+            fixed={outcome?.fixed?.query ?? null}
+          />
+          <RegionResults
+            hits={regionList}
+            pick={regionNow.pick}
+            onPick={(key) => setRegionSel({ q: dq.trim(), pick: key, gu: regionNow.gu })}
+            guChips={guChipList}
+            guPick={guNow}
+            onGuPick={(gu) => setRegionSel({ q: dq.trim(), pick: regionNow.pick, gu })}
+          />
+          <RelatedChips chips={chips} popular={!dq.trim()} onPick={setQ} />
+          {outcome?.fixed && remote !== 'loading' && (
+            <p className="px-4 pt-3 text-[15px] text-ink-2">
+              {t('search.fixedNotice', { q: outcome.fixed.query })}{' '}
+              <button type="button" onClick={() => setQ(outcome.fixed!.query)} className="-my-3 inline-flex min-h-11 items-center font-semibold whitespace-nowrap underline underline-offset-4 hover:text-ink">
+                {t('search.fixedUse', { q: outcome.fixed.query })}
+              </button>
+            </p>
+          )}
           {remote === 'loading' ? (
             <div className="space-y-px pt-8" aria-busy="true" aria-label={t('list.loading')}>
               {/* 실제 카드(104px 안팎)와 같은 높이 — 목록이 뜰 때 아래가 덜 움직인다 */}
               {Array.from({ length: 6 }, (_, i) => (
                 <div key={i} className="h-[104px] animate-pulse bg-surface" />
               ))}
+            </div>
+          ) : shown === 0 && dq.trim() && hidden.total > 0 ? (
+            <div id={RESULTS_EMPTY_ID} className="scroll-mt-14 sm:scroll-mt-44 lg:scroll-mt-32">
+              <SearchAssist variant="empty" query={dq.trim()} hidden={hidden} onClear={resetFilters} renderRow={renderHiddenRow} />
             </div>
           ) : shown === 0 ? (
             <div id={RESULTS_EMPTY_ID} className="scroll-mt-14 px-4 py-20 text-center sm:scroll-mt-44 lg:scroll-mt-32">
@@ -983,7 +1080,8 @@ function Main() {
               )}
             </div>
           ) : (
-            visible.map((g, i) => (
+            <>
+            {visible.map((g, i) => (
               <div key={g.key} className="pt-8">
                 <div className="flex items-baseline justify-between gap-3 px-4 pb-2">
                   <h2 className="flex items-baseline gap-2">
@@ -1015,7 +1113,10 @@ function Main() {
                   </div>
                 )}
               </div>
-            ))
+            ))}
+            {/* 결과가 몇 개 안 되면 필터 때문에 안 보이는 대회를 아래에 알린다 */}
+            {shown > 0 && hidden.total > 0 && <SearchAssist variant="few" query={dq.trim()} hidden={hidden} onClear={resetFilters} renderRow={renderHiddenRow} />}
+            </>
           )}
 
           {pastRaces.length > 0 && (

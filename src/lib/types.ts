@@ -18,6 +18,9 @@ export const DISCIPLINES = ['road', 'trail', 'event'] as const;
 export type Discipline = (typeof DISCIPLINES)[number];
 export const DISCIPLINE_LABEL: Record<Discipline, string> = { road: '로드', trail: '트레일', event: '러닝 이벤트' };
 
+/** 기념품 공식 안내 상태. listed = 공식 안내에 있음 · none = 공식 안내에 없음 · unknown = 아직 확인 안 함 */
+export type SouvenirStatus = 'listed' | 'none' | 'unknown';
+
 export interface Race {
   id: string;
   name_ko: string;
@@ -53,6 +56,14 @@ export interface Race {
   sold_out_on?: string | null;
   /** 주·도 (ISO 3166-2, 예 US-CA·JP-13). 일본·미국·호주·독일·프랑스·중국·영국·뉴질랜드만 채운다 */
   subregion?: string | null;
+  /** 기념품 공식 안내 상태. 없거나 'unknown' 이면 상세에 기념품 줄을 보이지 않는다 */
+  souvenir_status?: SouvenirStatus | null;
+  souvenir_ko?: string | null;
+  /** 비어 있으면 영어 화면은 souvenir_ko 를 쓴다 */
+  souvenir_en?: string | null;
+  /** 공식 출처 URL (상세에서 '공식 안내' 링크) */
+  souvenir_source?: string | null;
+  souvenir_checked?: string | null; // YYYY-MM-DD
 }
 
 export interface Agency {

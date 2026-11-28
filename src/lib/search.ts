@@ -1,6 +1,8 @@
 import type { Race } from './types';
-import { ALIASES, ONE_WAY, TAILS } from './aliases.ts';
+import { ALIASES, MAJOR_TERMS, ONE_WAY, REGION_TERMS, TAILS } from './aliases.ts';
+import { convertKeyboard } from './keyboard.ts';
 import { SUBREGION_NAME, subOf } from './subregions.ts';
+import { stripAdmin } from './regions.ts';
 import { cityName, countryName, subregionName } from '../i18n/names.ts';
 import type { Lang } from '../i18n/lang.ts';
 
@@ -49,8 +51,16 @@ export type SearchDoc = {
   exact: string;
   /** 오타 비교용: 이름·영문 이름·도시·나라·주/도 이름 각각 normalize+toJamo */
   fields: string[];
+  /** 기념품 글 (listed 대회만, normalize 해서 | 로 이음, 없으면 ''). 지명 검색어로는 찾지 않는다 — hit 참고 */
+  souvenir: string;
+  /** 지명 낱말: 도시·나라·주 이름(영어 화면은 영어 이름도)의 통째와 낱말 (전북·완주·일본, en 은 muscat·ha·long …). 기념품 글을 볼지 가릴 때 쓴다 */
+  places: string[];
   /** exact 의 자모 (쓰는 중인 끝 글자 비교용) */
   exactJamo: string;
+  /** 국내 대회의 시·도 약칭들 (city_ko 앞 토큰, '광주·전남' 은 둘). 해외는 빈 목록. 지역어(경상도 …) 비교용 */
+  regions: string[];
+  /** 해외 세계 6대 마라톤 (is_major 이고 국내가 아님) — '세계6대' 비교용 */
+  major: boolean;
 };
 
 const SEP = '|';
@@ -64,8 +74,15 @@ export function buildIndex(races: Race[], lang: Lang = 'ko'): SearchDoc[] {
       lang === 'en' ? [cityName(r, 'en'), countryName(r.country_code, r.country_ko, 'en'), sub ? subregionName(sub, 'en') : ''] : [];
     const main = [r.name_ko, r.name_en, r.city_ko, r.country_ko, subName, ...enNames].map((x) => normalize(x ?? '')).filter(Boolean);
     const notes = lang === 'en' ? [normalize(r.notes_ko ?? ''), normalize(r.notes_en ?? '')] : [normalize(r.notes_ko ?? '')];
+    // 기념품 글: 공식 안내에 있다고 확인된(listed) 대회만. 영어 화면은 영어 글도. exact 와 따로 둔다 (hit 의 지명 검사)
+    const souvenir =
+      r.souvenir_status === 'listed'
+        ? (lang === 'en' ? [r.souvenir_ko, r.souvenir_en] : [r.souvenir_ko]).map((x) => normalize(x ?? '')).filter(Boolean).join(SEP)
+        : '';
+    const places = [r.city_ko, r.country_ko, subName, ...enNames].flatMap((x) => [x ?? '', ...(x ?? '').split(/[\s·,]+/)]).map(normalize).filter(Boolean);
     const exact = [...main, ...notes, ...r.distances.map(normalize)].join(SEP);
-    return { race: r, exact, fields: main.map(toJamo), exactJamo: toJamo(exact) };
+    const regions = r.country_code === 'KR' ? (r.city_ko ?? '').trim().split(/\s+/)[0].split('·').filter(Boolean) : [];
+    return { race: r, exact, souvenir, places, fields: main.map(toJamo), exactJamo: toJamo(exact), regions, major: !!r.is_major && r.country_code !== 'KR' };
   });
 }
 
@@ -94,15 +111,47 @@ const maybeTyping = (term: string) => {
   return isJamo(last) || (c >= 0 && c < 11172 && c % 28 !== 0);
 };
 
-type Term = { plain: string[]; jamo: string[] };
+type Term = { plain: string[]; jamo: string[]; region: ReadonlySet<string> | null; major: boolean; place: boolean };
 
-/** 낱말 하나를 맞춰 볼 변형들: 원래·다른 표기, strip 이면 꼬리말 뗀 핵심·그 다른 표기 */
-function termOf(word: string, strip: boolean): Term {
-  const plain = aliasVariants(strip ? stripTail(word) : word);
-  return { plain, jamo: plain.filter(maybeTyping).map(toJamo) };
+/** 색인 대회들의 지명 낱말 (SearchDoc.places 를 모은 것) */
+const placeMemo = new WeakMap<SearchDoc[], Set<string>>();
+function placeWords(index: SearchDoc[]): Set<string> {
+  let s = placeMemo.get(index);
+  if (!s) {
+    s = new Set();
+    for (const d of index) for (const w of d.places) s.add(w);
+    placeMemo.set(index, s);
+  }
+  return s;
 }
 
-const hit = (d: SearchDoc, t: Term) => t.plain.some((v) => d.exact.includes(v)) || t.jamo.some((v) => d.exactJamo.includes(v));
+/** 낱말 하나를 맞춰 볼 변형들: 원래·다른 표기, strip 이면 꼬리말 뗀 핵심·그 다른 표기. 지역어·세계6대는 데이터의 시·도/is_major 로도 맞춘다 */
+function termOf(word: string, strip: boolean, places: Set<string>): Term {
+  const core = strip ? stripTail(word) : word;
+  const plain = aliasVariants(core);
+  // '연수구'·'경주시'·'Yeonsu-gu' 처럼 시·군·구 접미사를 붙여 친 말은 접미사를 뗀 지명으로도 본다 (지명 낱말일 때만 — 아무 말에서나 떼지 않게)
+  if (!places.has(core)) {
+    const bare = normalize(stripAdmin(core));
+    if (bare !== core && places.has(bare)) plain.push(bare);
+  }
+  // 지역어·세계6대는 꼬리말을 뗀 모양으로 본다 ('세계 6대 마라톤' 은 낱말이 여럿이라 꼬리말 떼기 단계가 없다)
+  const key = stripTail(core);
+  const region = Object.hasOwn(REGION_TERMS, key) ? new Set(REGION_TERMS[key]) : null;
+  const place = region !== null || plain.some((v) => places.has(v));
+  return { plain, jamo: plain.filter(maybeTyping).map(toJamo), region, major: MAJOR_TERMS.has(key), place };
+}
+
+/**
+ * typing 이 true 면 쓰는 중인 끝 글자(자모) 일치도 본다.
+ * 기념품 글은 지명이 아닌 검색어만 본다 — '완주'(전북 완주) 가 '완주 메달', '이천' 이 '이천쌀' 을 준 다른 지역 대회까지 내지 않게
+ * (영어 화면도: 'Muscat' 이 'Shine Muscat grapes', 'Ha Long' 이 'long-sleeve' 를 준 대회를 내지 않게)
+ */
+const hit = (d: SearchDoc, t: Term, typing: boolean) =>
+  t.plain.some((v) => d.exact.includes(v)) ||
+  (!t.place && d.souvenir !== '' && t.plain.some((v) => d.souvenir.includes(v))) ||
+  (typing && t.jamo.some((v) => d.exactJamo.includes(v))) ||
+  (t.region !== null && d.regions.some((x) => t.region!.has(x))) ||
+  (t.major && d.major);
 
 /** 자모 단위 근사 부분 일치 (Sellers): 검색어 p 와 가장 가까운 hay 의 부분 문자열까지의 편집 거리 */
 function approxDistance(p: string, hay: string, col: Int32Array): number {
@@ -149,22 +198,66 @@ const fuzzyKey = (q: string) => toJamo(stripTail(normalize(q)));
 /** 자모 길이에 따른 오타 허용 거리: 6개 미만은 오타 안 봄 · 12개 미만 1 · 그 이상 2 */
 const typoLimit = (n: number) => (n < 6 ? 0 : n < 12 ? 1 : 2);
 
-export function searchRaces(index: SearchDoc[], q: string): Set<Race> {
+/** 반복을 줄이고 남은 말이 검색어로 쓸 만한 길이인가: 한글 두 글자 이상, 또는 영문·숫자 3글자 이상 (낱자모는 세지 않는다) */
+const longEnough = (n: string) => (n.match(/[가-힣]/g) ?? []).length >= 2 || n.replace(/[ㄱ-ㅣ가-힣]/g, '').length >= 3;
+
+/**
+ * 반복 정리: 같은 글자 3번 이상 연속(서울울울 → 서울, ㅋㅋㅋㅋ → ㅋㅋ, 숫자 제외), 낱말 전체가 같은 덩어리의 반복(경주경주 → 경주),
+ * 같은 낱말 반복(서울 서울 → 서울). 바뀐 게 없으면 null.
+ * 줄이고 남은 말이 짧은 조각이면 그 낱말은 줄이지 않는다 — 조각은 아무 이름에나 부분 일치로 걸린다
+ * (하하하 → '하' 1527개, 1010 → '10' 1521개, nana → 'na' 395개, ㅇㅇㅇ → 'ㅇㅇ' 157개).
+ */
+function cleanQuery(q: string): string | null {
+  const seen = new Set<string>();
+  const words: string[] = [];
+  for (const raw of q.split(/\s+/)) {
+    let w = raw.replace(/([^\d\s])\1{2,}/gu, (_m, c: string) => (c >= '가' && c <= '힣' ? c : c + c));
+    const n = normalize(w);
+    for (let len = 2; len <= n.length / 2; len++)
+      if (n.length % len === 0 && n === n.slice(0, len).repeat(n.length / len)) {
+        w = n.slice(0, len);
+        break;
+      }
+    if (w !== raw && !longEnough(normalize(w))) w = raw;
+    const key = normalize(w);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    words.push(w);
+  }
+  const out = words.join(' ');
+  return normalize(out) === normalize(q) && out.split(' ').length === q.trim().split(/\s+/).length ? null : out;
+}
+
+/**
+ * 1단계(정확). 정확히 맞는 것이 있으면 그것만, 없을 때만 꼬리말을 떼고 다시 ('도쿄마라톤' 은 도쿄 마라톤만, '대구마라톤' 은 대구 대회들).
+ * 쓰는 중인 끝 글자(자모) 일치는 글자 그대로 맞는 대회가 하나도 없을 때만 더한다 ('하남' 이 '하나마키' 까지, '런' 이 '러닝' 까지 퍼지지 않게).
+ */
+function exactSearch(index: SearchDoc[], q: string): Set<Race> {
   const out = new Set<Race>();
-  const whole = normalize(q);
-  // 특수문자만 친 검색어 ('-' '(' …) 는 빈 검색어와 같다 — 전부
-  if (!whole) return new Set(index.map((d) => d.race));
   const words = q.split(/\s+/).map(normalize).filter(Boolean);
-  // 정확히 맞는 것이 있으면 그것만, 없을 때만 꼬리말을 떼고 다시 ('도쿄마라톤' 은 도쿄 마라톤만, '대구마라톤' 은 대구 대회들)
+  const whole = words.join('');
+  if (!whole) return out;
+  const places = placeWords(index);
   for (const strip of [false, true]) {
     // 붙여서 맞춰 보기 (꼬리말 떼기는 낱말 하나일 때만 — '울산 하프' 의 하프는 거리로 좁히는 말)
-    const one = !strip || words.length <= 1 ? termOf(whole, strip) : null;
+    const one = !strip || words.length <= 1 ? termOf(whole, strip, places) : null;
     // 빈칸으로 나뉜 검색어는 낱말마다 모두 맞으면 맞음
-    const each = words.length > 1 ? words.map((w) => termOf(w, strip)) : [];
-    for (const d of index) if ((one && hit(d, one)) || (each.length && each.every((t) => hit(d, t)))) out.add(d.race);
-    if (out.size) return out;
+    const each = words.length > 1 ? words.map((w) => termOf(w, strip, places)) : [];
+    for (const typing of [false, true]) {
+      for (const d of index) if ((one && hit(d, one, typing)) || (each.length && each.every((t) => hit(d, t, typing)))) out.add(d.race);
+      if (out.size) return out;
+    }
   }
+  return out;
+}
 
+/** 한글 두 글자 이하 (받침 두 개면 자모 6개라 오타 1개를 허용하게 되지만, 두 글자 지명은 한 자모 차이가 곧 다른 곳이다: 진천↔인천, 통영↔(마라)톤영(종)) */
+const shortHangul = (q: string) => /^[가-힣]{1,2}$/.test(stripTail(normalize(q)));
+
+/** 2단계(오타): 자모 단위 근사 부분 일치 */
+function typoSearch(index: SearchDoc[], q: string): Set<Race> {
+  const out = new Set<Race>();
+  if (shortHangul(q)) return out;
   const p = fuzzyKey(q);
   const limit = typoLimit(p.length);
   if (!limit) return out;
@@ -175,12 +268,83 @@ export function searchRaces(index: SearchDoc[], q: string): Set<Race> {
   return out;
 }
 
+type Staged = { hits: Set<Race>; stage: 'all' | 'exact' | 'typo' | 'none' };
+
+function stagedSearch(index: SearchDoc[], q: string): Staged {
+  // 특수문자만 친 검색어 ('-' '(' …) 는 빈 검색어와 같다 — 전부
+  if (!normalize(q)) return { hits: new Set(index.map((d) => d.race)), stage: 'all' };
+  let hits = exactSearch(index, q);
+  if (hits.size) return { hits, stage: 'exact' };
+  // 반복 글자·중복 낱말은 원래 말로 못 찾았을 때만 정리한다 (이름에 같은 글자가 거듭 들어간 대회가 있을 수 있다)
+  const cleaned = cleanQuery(q);
+  if (cleaned !== null) {
+    hits = exactSearch(index, cleaned);
+    if (hits.size) return { hits, stage: 'exact' };
+  }
+  hits = typoSearch(index, cleaned ?? q);
+  return { hits, stage: hits.size ? 'typo' : 'none' };
+}
+
+export function searchRaces(index: SearchDoc[], q: string): Set<Race> {
+  return stagedSearch(index, q).hits;
+}
+
+/** 한/영 자판 실수로 바꾼 검색어 */
+export type KeyboardFix = { query: string; kind: 'en2ko' | 'ko2en' };
+
+export type SearchOutcome = {
+  /** 화면에 쓸 결과 (원래 검색 또는 변환 검색의 것) */
+  hits: Set<Race>;
+  /** 변환 검색의 결과를 쓴 경우에만. 쓰지 않았으면 null */
+  fixed: KeyboardFix | null;
+};
+
+/** 자판 변환 후보 (두벌식, 최대 2개: 영→한·한→영). 변환할 게 없으면 [] */
+export function keyboardFixes(q: string): KeyboardFix[] {
+  return convertKeyboard(q);
+}
+
+const LONE_JAMO = /[ㄱ-ㅣ]/;
+/**
+ * 바꾼 말이 검색어로 쓸 만한가. 짧은 조각은 아무 이름에나 부분 일치로 걸린다 (ㅜㅜ → 'nn' 128개, qm → '브' 127개, hz → 'ㅗㅋ' 154개).
+ * 영→한: 친 영문이 3글자 이상이고 바뀐 한글이 온전한 글자만 (낱자모가 남으면 한글로 친 게 아니다).
+ * 한→영: 바뀐 영문이 4글자 이상, 또는 3글자이면서 친 말에 낱자모가 있을 때 (영문을 한글 자판으로 치면 거의 늘 낱자모가 생긴다 — ㅡㅠㅜ → mbn).
+ * 한 글자만 거듭 친 것(ㅠㅠㅠ → 'bbb', ㅋㅋㅋㅋ → 'zzzz')은 영문을 친 게 아니다.
+ */
+function usableFix(q: string, fix: KeyboardFix): boolean {
+  const to = normalize(fix.query);
+  if (fix.kind === 'en2ko') return normalize(q).length >= 3 && !LONE_JAMO.test(fix.query);
+  if (/^(.)\1*$/u.test(to)) return false;
+  return to.length >= 4 || (to.length === 3 && LONE_JAMO.test(q));
+}
+
+/**
+ * 원래 검색 + 자판 변환 검색. 변환 결과는 원래보다 나을 때만 쓴다:
+ * 원래 결과가 정확 단계로 나왔으면 변환 검색은 하지 않는다. 원래가 0개이거나 오타 단계 결과일 때,
+ * 변환 문자열이 정확 단계로 1개 이상 맞으면 그 결과를 쓴다 (오타 단계로만 맞는 변환은 인정하지 않는다 — 'newbq' 같은 말이 엉뚱한 대회에 걸리지 않게).
+ * 대문자는 쌍자음으로 바꾸지만(R → ㄲ), 휴대폰의 첫 글자 자동 대문자나 Caps Lock 으로 생긴 대문자일 수 있다
+ * (Rhvm → '꼬프' 0개) — 친 그대로 못 찾으면 소문자로 바꾼 것도 본다.
+ */
+export function searchWithFixes(index: SearchDoc[], q: string): SearchOutcome {
+  const base = stagedSearch(index, q);
+  if (base.stage === 'exact' || base.stage === 'all') return { hits: base.hits, fixed: null };
+  const fixes = keyboardFixes(q);
+  const lower = q.toLowerCase();
+  if (lower !== q) for (const f of keyboardFixes(lower)) if (f.kind === 'en2ko' && !fixes.some((x) => x.query === f.query)) fixes.push(f);
+  for (const fix of fixes) {
+    if (!usableFix(q, fix)) continue;
+    const hits = exactSearch(index, fix.query);
+    if (hits.size) return { hits, fixed: fix };
+  }
+  return { hits: base.hits, fixed: null };
+}
+
 /**
  * 결과 0개일 때 '혹시 이 대회인가요?': 오타 거리가 자모 길이의 1/4 이하인 것 중 가까운 순 n개 (동점은 대회일 빠른 순).
  * 1/3 이면 'qwerty' 같은 아무 영문 6글자도 영문 이름 어딘가에 거리 2 로 걸린다.
  */
 export function suggestRaces(index: SearchDoc[], q: string, n = 3): Race[] {
-  const p = fuzzyKey(q);
+  const p = fuzzyKey(cleanQuery(q) ?? q);
   const limit = Math.floor(p.length / 4);
   if (!limit) return [];
   const dist = distances(index, p);

@@ -41,3 +41,43 @@ try {
 } catch (e) {
   console.log('snapshot: 실패해서 기존 파일 유지 -', e.message);
 }
+
+/**
+ * 인기 검색어: DB RPC popular_searches(최근 60일) → 개인정보·욕설·URL·숫자만 거르고, 현재 데이터(다가오는 대회)로
+ * 결과가 1개 이상인 것만 남겨 public/popular-searches.json 에 쓴다. 대회 받기가 성공했든 실패했든 돈다
+ * (그때 디스크에 있는 data.json 으로 색인). 어디서 실패해도 빈 목록으로 쓰고 빌드는 계속한다 (종료 코드 0).
+ */
+const popularPath = new URL('../public/popular-searches.json', import.meta.url);
+const writePopular = (terms, source) => {
+  const file = { generated_at: new Date().toISOString(), days: 60, source, terms };
+  writeFileSync(popularPath, JSON.stringify(file));
+  return file;
+};
+try {
+  const r = await fetch(`${url}/rest/v1/rpc/popular_searches`, {
+    method: 'POST',
+    headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_days: 60, p_limit: 300 }),
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!r.ok) throw new Error(`popular_searches ${r.status}`);
+  const rows = await r.json();
+  if (!Array.isArray(rows)) throw new Error('popular_searches 응답 형식이 배열이 아님');
+  const { readFileSync } = await import('node:fs');
+  const { splitData } = await import('./data-split.mjs');
+  const { buildIndex, searchRaces } = await import('../src/lib/search.ts');
+  const { filterPopular } = await import('./popular-lib.mjs');
+  const data = splitData(JSON.parse(readFileSync(new URL('../public/data.json', import.meta.url), 'utf8'))).list;
+  const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); // 앱과 같은 '오늘' (한국 날짜)
+  const index = buildIndex(data.races.filter((x) => x.race_date >= today));
+  const terms = filterPopular(rows, (t) => searchRaces(index, t).size > 0);
+  const file = writePopular(terms, 'rpc');
+  console.log(`snapshot: 인기 검색어 ${rows.length}개 중 ${file.terms.length}개 남김`);
+} catch (e) {
+  try {
+    writePopular([], 'empty');
+  } catch {
+    /* 쓰기도 실패하면 기존 파일 유지 */
+  }
+  console.log('snapshot: 인기 검색어 못 받아 빈 목록으로 씀 -', e.message);
+}

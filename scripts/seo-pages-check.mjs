@@ -18,6 +18,7 @@ import {
   INFO_PATHS, MIN_MONTH_REGION, countries, monthRegionPages, months as allMonths, provinceOf,
 } from './seo-lib.mjs';
 import { isEntryConfirmed } from '../src/lib/util.ts';
+import { guChips } from '../src/lib/regions.ts';
 
 const DIST = new URL('../dist/', import.meta.url);
 const fails = [];
@@ -272,6 +273,24 @@ const krEn = read('/en/kr/') ?? '';
 for (const p of regionPages) {
   if (!krHtml.includes(`href="${p.path}"`)) fail(`/kr/: ${p.path} 링크 없음`);
   if (!krEn.includes(`href="${enPath(p.path)}"`)) fail(`/en/kr/: ${enPath(p.path)} 링크 없음`);
+}
+
+// 7-1. 시·도 페이지의 시·군·구 칩: 칩 수 합 ≤ 시·도 대회 수, 많은 순, 링크 검색어가 그 시·도로 시작, 한·영 칩 개수·수 같음
+for (const p of regionPages) {
+  // 한 대회가 '안동·예천' 처럼 구 둘에 들면 두 칩에 다 센다 → 합 대신 칩마다 검사
+  // 구가 없는(city_ko 가 시·도 하나뿐인) 대회는 어느 칩에도 안 든다 ('시·도 전체'에만)
+  for (const r of p.races.filter((x) => !/\s/.test(x.city_ko.trim()) && x.city_ko.trim() !== '서귀포'))
+    if (guChips([r], p.name, 'ko').length) fail(`${p.path}: 시·도만 있는 대회(${r.city_ko})가 구 칩에 들어감`);
+  if (p.gus.some((g) => g.count > p.races.length)) fail(`${p.path}: 구 칩 수가 시·도 대회 수(${p.races.length})보다 큼`);
+  if (p.gus.some((g, i) => i && g.count > p.gus[i - 1].count)) fail(`${p.path}: 구 칩이 많은 순이 아님`);
+  if (p.gusEn.length !== p.gus.length || p.gusEn.some((g) => p.gus.find((k) => k.gu === g.gu)?.count !== g.count)) fail(`${p.path}: 한·영 구 칩이 다름`);
+  for (const [path, en] of [[p.path, false], [enPath(p.path), true]]) {
+    const h = read(path) ?? '';
+    const links = [...h.matchAll(/href="(\/(?:en\/)?\?q=[^"]+)"/g)].map((m) => decodeURIComponent(m[1].replace(/&amp;/g, '&').split('?q=')[1]));
+    if (links.length !== p.gus.length) fail(`${path}: 구 칩 링크 ${links.length}개 ≠ ${p.gus.length}개`);
+    if (links.some((q) => !q.startsWith(`${p.name} `))) fail(`${path}: 구 칩 검색어가 '${p.name} ' 로 시작하지 않음`);
+    if (en && /href="\/\?q=/.test(h)) fail(`${path}: 영어 페이지 구 칩이 한국어 화면(/?q=)으로 감`);
+  }
 }
 
 // 8. 시·도 id = src/lib/places.ts
